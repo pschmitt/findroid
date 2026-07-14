@@ -108,7 +108,7 @@ private fun DownloadsScreenLayout(
                 actions = {
                     IconButton(onClick = onAutoDownloadRulesClick) {
                         Icon(
-                            painter = painterResource(CoreR.drawable.ic_settings),
+                            painter = painterResource(CoreR.drawable.ic_refresh_cw),
                             contentDescription = stringResource(CoreR.string.auto_download_rules),
                         )
                     }
