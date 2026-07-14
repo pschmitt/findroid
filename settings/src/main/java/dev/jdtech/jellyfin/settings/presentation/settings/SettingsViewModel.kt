@@ -676,6 +676,16 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                         appPreferences.autoDeleteWatchedHours,
                                                     suffixRes = R.string.hours_suffix,
                                                 ),
+                                                PreferenceIntInput(
+                                                    nameStringResource =
+                                                        R.string.auto_download_check_interval,
+                                                    descriptionStringRes =
+                                                        R.string.auto_download_check_interval_summary,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences.autoDownloadCheckIntervalMinutes,
+                                                    suffixRes = R.string.minutes_suffix,
+                                                ),
                                                 PreferenceCategory(
                                                     nameStringResource =
                                                         R.string.auto_download_rules,

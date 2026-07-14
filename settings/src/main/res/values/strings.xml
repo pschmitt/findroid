@@ -79,9 +79,12 @@
     <string name="ms">ms</string>
     <string name="seconds">s</string>
     <string name="hours_suffix">h</string>
+    <string name="minutes_suffix">min</string>
     <string name="auto_delete_watched">Automatically delete watched episodes</string>
     <string name="auto_delete_watched_summary">Deletes downloaded episodes once they have been watched for longer than the configured duration.</string>
     <string name="auto_delete_watched_hours">Delete watched episodes after</string>
+    <string name="auto_download_check_interval">Check interval</string>
+    <string name="auto_download_check_interval_summary">How often to check for new episodes to auto-download and watched episodes to clean up. Between 15 and 1440 minutes.</string>
     <string name="app_language">App language</string>
     <string name="subtitles">Subtitles</string>
     <string name="subtitles_summary">Customize subtitles appearance</string>

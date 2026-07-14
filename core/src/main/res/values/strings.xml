@@ -147,8 +147,8 @@
     <string name="download_scope_title">Download</string>
     <string name="download_scope_episode">This episode</string>
     <string name="download_scope_season">This season</string>
-    <string name="download_scope_latest_season">Latest season</string>
     <string name="download_scope_show">Entire show</string>
+    <string name="download_scope_future_seasons">Future seasons</string>
     <string name="download_scope_only_unwatched">Only unwatched episodes</string>
     <string name="download_scope_also_new">Automatically download new episodes</string>
     <string name="download">Download</string>

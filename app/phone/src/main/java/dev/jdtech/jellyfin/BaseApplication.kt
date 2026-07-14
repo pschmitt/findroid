@@ -115,19 +115,25 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
             )
     }
 
+    private fun checkIntervalMinutes(): Long =
+        appPreferences
+            .getValue(appPreferences.autoDownloadCheckIntervalMinutes)
+            .coerceIn(15, 24 * 60)
+            .toLong()
+
     private fun scheduleAutoDownload(workManager: WorkManager) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val periodicRequest =
-            PeriodicWorkRequestBuilder<AutoDownloadWorker>(6, TimeUnit.HOURS)
+            PeriodicWorkRequestBuilder<AutoDownloadWorker>(checkIntervalMinutes(), TimeUnit.MINUTES)
                 .setConstraints(constraints)
                 .build()
 
         workManager.enqueueUniquePeriodicWork(
             uniqueWorkName = "autoDownloadRules",
-            existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.KEEP,
+            existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.UPDATE,
             request = periodicRequest,
         )
 
@@ -147,13 +153,16 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
         val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
         val periodicRequest =
-            PeriodicWorkRequestBuilder<AutoDeleteWatchedWorker>(6, TimeUnit.HOURS)
+            PeriodicWorkRequestBuilder<AutoDeleteWatchedWorker>(
+                    checkIntervalMinutes(),
+                    TimeUnit.MINUTES,
+                )
                 .setConstraints(constraints)
                 .build()
 
         workManager.enqueueUniquePeriodicWork(
             uniqueWorkName = "autoDeleteWatched",
-            existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.KEEP,
+            existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.UPDATE,
             request = periodicRequest,
         )
     }

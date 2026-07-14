@@ -91,8 +91,9 @@ constructor(
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
             val userId = repository.getUserId()
 
+            val entireShowScope = selection.entireShow || selection.futureSeasonsOnly
             val scopeSeasonIds: List<UUID?> =
-                if (selection.entireShow) listOf(null) else selection.seasonIds.toList()
+                if (entireShowScope) listOf(null) else selection.seasonIds.toList()
             for (targetSeasonId in scopeSeasonIds) {
                 val transientRule =
                     AutoDownloadRuleDto(
@@ -102,6 +103,7 @@ constructor(
                         seasonId = targetSeasonId,
                         enabled = true,
                         createdAt = System.currentTimeMillis(),
+                        onlyNewEpisodes = selection.futureSeasonsOnly,
                     )
                 evaluator.evaluate(transientRule, database, repository, downloader, onlyUnwatched)
             }
@@ -111,9 +113,9 @@ constructor(
                     serverId = serverId,
                     userId = userId,
                     seriesId = seriesId,
-                    entireShow = selection.entireShow,
+                    entireShow = entireShowScope,
                     seasonIds = selection.seasonIds,
-                    onlyNewEpisodes = false,
+                    onlyNewEpisodes = selection.futureSeasonsOnly,
                     onlyUnwatched = onlyUnwatched,
                 )
             }

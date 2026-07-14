@@ -53,6 +53,7 @@ fun DownloadScopeDialog(
 ) {
     var thisEpisodeOnly by remember { mutableStateOf(showEpisodeOption) }
     var entireShow by remember { mutableStateOf(false) }
+    var futureSeasonsOnly by remember { mutableStateOf(false) }
     var selectedSeasonIds by remember {
         mutableStateOf(defaultSeasonId?.let { setOf(it) } ?: emptySet())
     }
@@ -60,7 +61,7 @@ fun DownloadScopeDialog(
     var onlyUnwatched by remember { mutableStateOf(false) }
 
     val bulkModeSelected = !thisEpisodeOnly && (entireShow || selectedSeasonIds.isNotEmpty())
-    val canConfirm = thisEpisodeOnly || bulkModeSelected
+    val canConfirm = thisEpisodeOnly || bulkModeSelected || futureSeasonsOnly
 
     AlertDialog(
         title = { Text(text = stringResource(CoreR.string.download_scope_title)) },
@@ -74,6 +75,7 @@ fun DownloadScopeDialog(
                         onToggle = {
                             thisEpisodeOnly = true
                             entireShow = false
+                            futureSeasonsOnly = false
                             selectedSeasonIds = emptySet()
                         },
                     )
@@ -85,6 +87,18 @@ fun DownloadScopeDialog(
                     onToggle = {
                         thisEpisodeOnly = false
                         entireShow = true
+                        futureSeasonsOnly = false
+                        selectedSeasonIds = emptySet()
+                    },
+                )
+                ToggleOptionRow(
+                    checked = futureSeasonsOnly,
+                    label = stringResource(CoreR.string.download_scope_future_seasons),
+                    icon = CoreR.drawable.ic_sparkles,
+                    onToggle = {
+                        thisEpisodeOnly = false
+                        entireShow = false
+                        futureSeasonsOnly = true
                         selectedSeasonIds = emptySet()
                     },
                 )
@@ -95,13 +109,18 @@ fun DownloadScopeDialog(
                 } else {
                     seasons.forEach { season ->
                         ToggleOptionRow(
-                            checked = !thisEpisodeOnly && !entireShow && season.id in selectedSeasonIds,
+                            checked =
+                                !thisEpisodeOnly &&
+                                    !entireShow &&
+                                    !futureSeasonsOnly &&
+                                    season.id in selectedSeasonIds,
                             label =
                                 stringResource(CoreR.string.auto_download_rule_season, season.indexNumber),
                             icon = CoreR.drawable.ic_library,
                             onToggle = { checked ->
                                 thisEpisodeOnly = false
                                 entireShow = false
+                                futureSeasonsOnly = false
                                 selectedSeasonIds =
                                     if (checked) selectedSeasonIds + season.id
                                     else selectedSeasonIds - season.id
@@ -110,7 +129,7 @@ fun DownloadScopeDialog(
                     }
                 }
                 HorizontalDivider()
-                if (bulkModeSelected) {
+                if (bulkModeSelected || futureSeasonsOnly) {
                     ToggleOptionRow(
                         checked = onlyUnwatched,
                         label = stringResource(CoreR.string.download_scope_only_unwatched),
@@ -118,10 +137,10 @@ fun DownloadScopeDialog(
                         onToggle = { onlyUnwatched = it },
                     )
                     ToggleOptionRow(
-                        checked = alsoFollowNew,
+                        checked = alsoFollowNew || futureSeasonsOnly,
                         label = stringResource(CoreR.string.download_scope_also_new),
                         icon = CoreR.drawable.ic_refresh_cw,
-                        onToggle = { alsoFollowNew = it },
+                        onToggle = { if (!futureSeasonsOnly) alsoFollowNew = it },
                     )
                 }
             }
@@ -136,8 +155,9 @@ fun DownloadScopeDialog(
                             thisEpisodeOnly = thisEpisodeOnly,
                             entireShow = entireShow,
                             seasonIds = selectedSeasonIds,
+                            futureSeasonsOnly = futureSeasonsOnly,
                         ),
-                        alsoFollowNew,
+                        alsoFollowNew || futureSeasonsOnly,
                         onlyUnwatched,
                     )
                 },
