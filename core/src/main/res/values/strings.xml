@@ -129,4 +129,12 @@
     <string name="downloading_item">Downloading %1$s</string>
     <string name="download_complete_item">Download complete: %1$s</string>
     <string name="download_failed_item">Failed to download %1$s</string>
+    <string name="download_scope_title">Download</string>
+    <string name="download_scope_episode">This episode</string>
+    <string name="download_scope_season">This season</string>
+    <string name="download_scope_show">Entire show</string>
+    <string name="download_scope_also_new">Also get new episodes automatically</string>
+    <string name="download">Download</string>
+    <string name="clear_season_downloads">Delete season downloads</string>
+    <string name="clear_season_downloads_message">This will delete every downloaded episode of this season on this device.</string>
 </resources>

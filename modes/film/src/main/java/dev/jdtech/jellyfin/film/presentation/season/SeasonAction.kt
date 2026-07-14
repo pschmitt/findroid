@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.film.presentation.season
 
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
 import dev.jdtech.jellyfin.models.FindroidItem
 import java.util.UUID
 
@@ -14,7 +15,10 @@ sealed interface SeasonAction {
 
     data object UnmarkAsFavorite : SeasonAction
 
-    data object ToggleAutoDownload : SeasonAction
+    data class DownloadWithScope(val scope: DownloadScope, val alsoFollowNew: Boolean) :
+        SeasonAction
+
+    data class DeleteSeasonDownloads(val alsoRemoveRules: Boolean) : SeasonAction
 
     data object OnBackClick : SeasonAction
 

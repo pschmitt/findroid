@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.film.presentation.episode
 
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
 import java.util.UUID
 
 sealed interface EpisodeAction {
@@ -12,6 +13,9 @@ sealed interface EpisodeAction {
     data object MarkAsFavorite : EpisodeAction
 
     data object UnmarkAsFavorite : EpisodeAction
+
+    data class DownloadWithScope(val scope: DownloadScope, val alsoFollowNew: Boolean) :
+        EpisodeAction
 
     data object OnBackClick : EpisodeAction
 

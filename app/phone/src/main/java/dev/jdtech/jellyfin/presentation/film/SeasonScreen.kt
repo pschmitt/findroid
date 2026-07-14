@@ -21,12 +21,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -43,11 +45,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummySeason
 import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.season.SeasonViewModel
 import dev.jdtech.jellyfin.models.FindroidItem
+import dev.jdtech.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.jdtech.jellyfin.presentation.film.components.Direction
 import dev.jdtech.jellyfin.presentation.film.components.EpisodeCard
 import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
@@ -99,6 +104,7 @@ fun SeasonScreen(
 private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> Unit) {
     val androidContext = LocalContext.current
     val safePadding = rememberSafePadding()
+    var clearSeasonDownloadsDialogOpen by remember { mutableStateOf(false) }
 
     val paddingStart = safePadding.start + MaterialTheme.spacings.default
     val paddingEnd = safePadding.end + MaterialTheme.spacings.default
@@ -174,40 +180,30 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                         modifier =
                             Modifier.padding(start = paddingStart, end = paddingEnd).fillMaxWidth(),
                         canPlay = state.episodes.isNotEmpty(),
-                        trailingContent = {
-                            FilledTonalIconButton(
-                                onClick = {
-                                    onAction(SeasonAction.ToggleAutoDownload)
-                                    val toastContext = androidContext
-                                    Toast.makeText(
-                                            toastContext,
-                                            if (state.autoDownloadEnabled) {
-                                                CoreR.string.auto_download_disabled_toast
-                                            } else {
-                                                CoreR.string.auto_download_enabled_toast
-                                            },
-                                            Toast.LENGTH_SHORT,
-                                        )
-                                        .show()
-                                }
-                            ) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_download),
-                                    contentDescription =
-                                        stringResource(
-                                            if (state.autoDownloadEnabled) {
-                                                CoreR.string.auto_download_disable
-                                            } else {
-                                                CoreR.string.auto_download_enable
-                                            }
-                                        ),
-                                    tint =
-                                        if (state.autoDownloadEnabled) {
-                                            Color("#F2C94C".toColorInt())
-                                        } else {
-                                            LocalContentColor.current
-                                        },
+                        downloaderState = DownloaderState(),
+                        downloadScopes = listOf(DownloadScope.SEASON, DownloadScope.SHOW),
+                        downloadIconTint =
+                            if (state.autoDownloadEnabled) Color("#F2C94C".toColorInt()) else null,
+                        onBulkDownload = { scope, alsoFollowNew ->
+                            onAction(SeasonAction.DownloadWithScope(scope, alsoFollowNew))
+                            Toast.makeText(
+                                    androidContext,
+                                    CoreR.string.auto_download_enabled_toast,
+                                    Toast.LENGTH_SHORT,
                                 )
+                                .show()
+                        },
+                        trailingContent = {
+                            if (state.hasDownloads || state.autoDownloadEnabled) {
+                                FilledTonalIconButton(
+                                    onClick = { clearSeasonDownloadsDialogOpen = true }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_trash),
+                                        contentDescription =
+                                            stringResource(CoreR.string.clear_season_downloads),
+                                    )
+                                }
                             }
                         },
                     )
@@ -243,6 +239,18 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                 }
             }
         }
+    }
+
+    if (clearSeasonDownloadsDialogOpen) {
+        ClearDownloadsDialog(
+            title = stringResource(CoreR.string.clear_season_downloads),
+            message = stringResource(CoreR.string.clear_season_downloads_message),
+            onConfirm = { alsoRemoveRules ->
+                onAction(SeasonAction.DeleteSeasonDownloads(alsoRemoveRules))
+                clearSeasonDownloadsDialogOpen = false
+            },
+            onDismiss = { clearSeasonDownloadsDialogOpen = false },
+        )
     }
 }
 

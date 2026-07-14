@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
+import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItemPerson
 import dev.jdtech.jellyfin.models.FindroidShow
@@ -77,17 +78,24 @@ constructor(
         return autoDownloadRuleRepository.isShowRuleEnabled(serverId, userId, showId)
     }
 
-    private fun toggleAutoDownload() {
+    private fun downloadWithScope(alsoFollowNew: Boolean) {
         viewModelScope.launch {
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
             val userId = repository.getUserId()
-            val enabled = !_state.value.autoDownloadEnabled
-            val rule =
-                autoDownloadRuleRepository.setShowRuleEnabled(serverId, userId, showId, enabled)
-            _state.emit(_state.value.copy(autoDownloadEnabled = enabled))
-            if (enabled) {
-                evaluator.evaluate(rule, database, repository, downloader)
+            val transientRule =
+                AutoDownloadRuleDto(
+                    serverId = serverId,
+                    userId = userId,
+                    seriesId = showId,
+                    seasonId = null,
+                    enabled = true,
+                    createdAt = System.currentTimeMillis(),
+                )
+            evaluator.evaluate(transientRule, database, repository, downloader)
+            if (alsoFollowNew) {
+                autoDownloadRuleRepository.setShowRuleEnabled(serverId, userId, showId, true)
             }
+            loadShow(showId)
         }
     }
 
@@ -166,7 +174,7 @@ constructor(
                     loadShow(showId)
                 }
             }
-            is ShowAction.ToggleAutoDownload -> toggleAutoDownload()
+            is ShowAction.DownloadWithScope -> downloadWithScope(action.alsoFollowNew)
             is ShowAction.DeleteShowDownloads -> deleteShowDownloads(action.alsoRemoveRules)
             else -> Unit
         }

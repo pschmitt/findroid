@@ -113,6 +113,19 @@ class AutoDownloadRuleRepositoryImpl(private val database: ServerDatabaseDao) :
             database.deleteAutoDownloadRulesForShow(serverId, userId, seriesId)
         }
 
+    override suspend fun deleteSeasonRule(
+        serverId: String,
+        userId: UUID,
+        seriesId: UUID,
+        seasonId: UUID,
+    ) =
+        withContext(Dispatchers.IO) {
+            database.getSeasonAutoDownloadRule(serverId, userId, seriesId, seasonId)?.let { rule ->
+                database.deleteAutoDownloadRule(rule.id)
+            }
+            Unit
+        }
+
     override suspend fun deleteAllRules(serverId: String, userId: UUID) =
         withContext(Dispatchers.IO) { database.deleteAllAutoDownloadRules(serverId, userId) }
 }

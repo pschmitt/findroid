@@ -3,17 +3,24 @@ package dev.jdtech.jellyfin.film.presentation.season
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
+import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
+import dev.jdtech.jellyfin.models.FindroidSourceType
+import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.AutoDownloadRuleEvaluator
 import dev.jdtech.jellyfin.utils.Downloader
+import dev.jdtech.jellyfin.utils.clearDownloads
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.model.api.ItemFields
 
 @HiltViewModel
@@ -47,11 +54,13 @@ constructor(
                         fields = listOf(ItemFields.OVERVIEW),
                     )
                 val autoDownloadEnabled = isAutoDownloadEnabled(season.seriesId, seasonId)
+                val hasDownloads = hasDownloads(seasonId)
                 _state.emit(
                     _state.value.copy(
                         season = season,
                         episodes = episodes,
                         autoDownloadEnabled = autoDownloadEnabled,
+                        hasDownloads = hasDownloads,
                     )
                 )
             } catch (e: Exception) {
@@ -66,24 +75,65 @@ constructor(
         return autoDownloadRuleRepository.isSeasonRuleEnabled(serverId, userId, seriesId, seasonId)
     }
 
-    private fun toggleAutoDownload() {
+    private fun downloadWithScope(scope: DownloadScope, alsoFollowNew: Boolean) {
         val seriesId = seriesId ?: return
         viewModelScope.launch {
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
             val userId = repository.getUserId()
-            val enabled = !_state.value.autoDownloadEnabled
-            val rule =
-                autoDownloadRuleRepository.setSeasonRuleEnabled(
-                    serverId,
-                    userId,
-                    seriesId,
-                    seasonId,
-                    enabled,
+            val ruleSeasonId = if (scope == DownloadScope.SEASON) seasonId else null
+            val transientRule =
+                AutoDownloadRuleDto(
+                    serverId = serverId,
+                    userId = userId,
+                    seriesId = seriesId,
+                    seasonId = ruleSeasonId,
+                    enabled = true,
+                    createdAt = System.currentTimeMillis(),
                 )
-            _state.emit(_state.value.copy(autoDownloadEnabled = enabled))
-            if (enabled) {
-                evaluator.evaluate(rule, database, repository, downloader)
+            evaluator.evaluate(transientRule, database, repository, downloader)
+            if (alsoFollowNew) {
+                if (scope == DownloadScope.SEASON) {
+                    autoDownloadRuleRepository.setSeasonRuleEnabled(
+                        serverId,
+                        userId,
+                        seriesId,
+                        seasonId,
+                        true,
+                    )
+                } else {
+                    autoDownloadRuleRepository.setShowRuleEnabled(serverId, userId, seriesId, true)
+                }
             }
+            loadSeason(seasonId)
+        }
+    }
+
+    private suspend fun hasDownloads(seasonId: UUID): Boolean =
+        withContext(Dispatchers.IO) {
+            database.getEpisodesBySeasonId(seasonId).any { episode ->
+                database.getSources(episode.id).any { it.type == FindroidSourceType.LOCAL }
+            }
+        }
+
+    private fun deleteSeasonDownloads(alsoRemoveRules: Boolean) {
+        val seriesId = seriesId ?: return
+        viewModelScope.launch {
+            val userId = repository.getUserId()
+            val episodes =
+                withContext(Dispatchers.IO) {
+                    database.getEpisodesBySeasonId(seasonId).map {
+                        it.toFindroidEpisode(database, userId)
+                    }
+                }
+            clearDownloads(episodes, database, downloader)
+
+            if (alsoRemoveRules) {
+                appPreferences.getValue(appPreferences.currentServer)?.let { serverId ->
+                    autoDownloadRuleRepository.deleteSeasonRule(serverId, userId, seriesId, seasonId)
+                }
+            }
+
+            loadSeason(seasonId)
         }
     }
 
@@ -113,7 +163,9 @@ constructor(
                     loadSeason(seasonId)
                 }
             }
-            is SeasonAction.ToggleAutoDownload -> toggleAutoDownload()
+            is SeasonAction.DownloadWithScope ->
+                downloadWithScope(action.scope, action.alsoFollowNew)
+            is SeasonAction.DeleteSeasonDownloads -> deleteSeasonDownloads(action.alsoRemoveRules)
             else -> Unit
         }
     }

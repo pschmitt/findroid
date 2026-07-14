@@ -22,7 +22,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +46,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyShow
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
@@ -217,42 +218,21 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         onDownloadDeleteClick = {},
                         modifier = Modifier.fillMaxWidth(),
                         canPlay = state.seasons.isNotEmpty(),
-                        trailingContent = {
-                            FilledTonalIconButton(
-                                onClick = {
-                                    onAction(ShowAction.ToggleAutoDownload)
-                                    val toastContext = androidContext
-                                    Toast.makeText(
-                                            toastContext,
-                                            if (state.autoDownloadEnabled) {
-                                                CoreR.string.auto_download_disabled_toast
-                                            } else {
-                                                CoreR.string.auto_download_enabled_toast
-                                            },
-                                            Toast.LENGTH_SHORT,
-                                        )
-                                        .show()
-                                }
-                            ) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_download),
-                                    contentDescription =
-                                        stringResource(
-                                            if (state.autoDownloadEnabled) {
-                                                CoreR.string.auto_download_disable
-                                            } else {
-                                                CoreR.string.auto_download_enable
-                                            }
-                                        ),
-                                    tint =
-                                        if (state.autoDownloadEnabled) {
-                                            Color("#F2C94C".toColorInt())
-                                        } else {
-                                            LocalContentColor.current
-                                        },
+                        downloaderState = DownloaderState(),
+                        downloadScopes = listOf(DownloadScope.SHOW),
+                        downloadIconTint =
+                            if (state.autoDownloadEnabled) Color("#F2C94C".toColorInt()) else null,
+                        onBulkDownload = { scope, alsoFollowNew ->
+                            onAction(ShowAction.DownloadWithScope(scope, alsoFollowNew))
+                            Toast.makeText(
+                                    androidContext,
+                                    CoreR.string.auto_download_enabled_toast,
+                                    Toast.LENGTH_SHORT,
                                 )
-                            }
-                            if (state.hasDownloads) {
+                                .show()
+                        },
+                        trailingContent = {
+                            if (state.hasDownloads || state.autoDownloadEnabled) {
                                 FilledTonalIconButton(
                                     onClick = { clearShowDownloadsDialogOpen = true }
                                 ) {

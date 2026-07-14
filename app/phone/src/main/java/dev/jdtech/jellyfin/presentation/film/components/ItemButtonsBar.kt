@@ -31,10 +31,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
+import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -54,6 +56,9 @@ fun ItemButtonsBar(
     downloaderState: DownloaderState? = null,
     canPlay: Boolean = true,
     downloadLocationPreference: String = "ask",
+    downloadScopes: List<DownloadScope> = emptyList(),
+    onBulkDownload: (scope: DownloadScope, alsoFollowNew: Boolean) -> Unit = { _, _ -> },
+    downloadIconTint: Color? = null,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -73,9 +78,39 @@ fun ItemButtonsBar(
     var storageSelectionDialogOpen by remember { mutableStateOf(false) }
     var cancelDownloadDialogOpen by remember { mutableStateOf(false) }
     var deleteDownloadDialogOpen by remember { mutableStateOf(false) }
+    var downloadScopeDialogOpen by remember { mutableStateOf(false) }
 
     var selectedStorageIndex by remember { mutableIntStateOf(0) }
     var storageLocations = remember { context.getExternalFilesDirs(null) }
+
+    val startDownload: () -> Unit = {
+        storageLocations = context.getExternalFilesDirs(null)
+        val preferredIndex =
+            when (downloadLocationPreference) {
+                "internal" ->
+                    storageLocations.indexOfFirst {
+                        it != null && !Environment.isExternalStorageRemovable(it)
+                    }
+                "external" ->
+                    storageLocations.indexOfFirst {
+                        it != null && Environment.isExternalStorageRemovable(it)
+                    }
+                else -> -1
+            }
+        when {
+            preferredIndex >= 0 -> {
+                selectedStorageIndex = preferredIndex
+                onDownloadClick(selectedStorageIndex)
+            }
+            storageLocations.size > 1 -> {
+                storageSelectionDialogOpen = true
+            }
+            else -> {
+                selectedStorageIndex = 0
+                onDownloadClick(selectedStorageIndex)
+            }
+        }
+    }
 
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         Column(
@@ -165,40 +200,20 @@ fun ItemButtonsBar(
                                 contentDescription = null,
                             )
                         }
-                    } else if (item.canDownload) {
+                    } else if (item.canDownload || item is FindroidShow || item is FindroidSeason) {
                         FilledTonalIconButton(
                             onClick = {
-                                storageLocations = context.getExternalFilesDirs(null)
-                                val preferredIndex =
-                                    when (downloadLocationPreference) {
-                                        "internal" ->
-                                            storageLocations.indexOfFirst {
-                                                it != null && !Environment.isExternalStorageRemovable(it)
-                                            }
-                                        "external" ->
-                                            storageLocations.indexOfFirst {
-                                                it != null && Environment.isExternalStorageRemovable(it)
-                                            }
-                                        else -> -1
-                                    }
-                                when {
-                                    preferredIndex >= 0 -> {
-                                        selectedStorageIndex = preferredIndex
-                                        onDownloadClick(selectedStorageIndex)
-                                    }
-                                    storageLocations.size > 1 -> {
-                                        storageSelectionDialogOpen = true
-                                    }
-                                    else -> {
-                                        selectedStorageIndex = 0
-                                        onDownloadClick(selectedStorageIndex)
-                                    }
+                                if (downloadScopes.isNotEmpty()) {
+                                    downloadScopeDialogOpen = true
+                                } else {
+                                    startDownload()
                                 }
                             }
                         ) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_download),
                                 contentDescription = null,
+                                tint = downloadIconTint ?: LocalContentColor.current,
                             )
                         }
                     }
@@ -256,6 +271,20 @@ fun ItemButtonsBar(
                     deleteDownloadDialogOpen = false
                 },
                 onDismiss = { deleteDownloadDialogOpen = false },
+            )
+        }
+        if (downloadScopeDialogOpen) {
+            DownloadScopeDialog(
+                scopes = downloadScopes,
+                onConfirm = { scope, alsoFollowNew ->
+                    downloadScopeDialogOpen = false
+                    if (scope == DownloadScope.EPISODE) {
+                        startDownload()
+                    } else {
+                        onBulkDownload(scope, alsoFollowNew)
+                    }
+                },
+                onDismiss = { downloadScopeDialogOpen = false },
             )
         }
     }

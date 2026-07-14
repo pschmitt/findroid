@@ -40,5 +40,7 @@ interface AutoDownloadRuleRepository {
 
     suspend fun deleteRulesForShow(serverId: String, userId: UUID, seriesId: UUID)
 
+    suspend fun deleteSeasonRule(serverId: String, userId: UUID, seriesId: UUID, seasonId: UUID)
+
     suspend fun deleteAllRules(serverId: String, userId: UUID)
 }

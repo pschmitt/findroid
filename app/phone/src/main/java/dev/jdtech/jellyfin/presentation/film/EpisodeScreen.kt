@@ -38,6 +38,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderAction
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderEvent
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
@@ -251,6 +252,11 @@ private fun EpisodeScreenLayout(
                             onDownloaderAction(DownloaderAction.DeleteDownload(episode))
                         },
                         modifier = Modifier.fillMaxWidth(),
+                        downloadScopes =
+                            listOf(DownloadScope.EPISODE, DownloadScope.SEASON, DownloadScope.SHOW),
+                        onBulkDownload = { scope, alsoFollowNew ->
+                            onAction(EpisodeAction.DownloadWithScope(scope, alsoFollowNew))
+                        },
                     )
                     Spacer(Modifier.height(MaterialTheme.spacings.small))
                     if (state.displayExtraInfo && state.videoMetadata != null) {
