@@ -1,12 +1,19 @@
 package dev.jdtech.jellyfin.film.presentation.autodownload
 
+import java.util.UUID
+
 sealed interface AutoDownloadRulesAction {
-    data class ToggleRule(val id: Long, val enabled: Boolean) : AutoDownloadRulesAction
+    data class ToggleShowRule(val seriesId: UUID, val enabled: Boolean) : AutoDownloadRulesAction
 
-    data class ToggleRuleOnlyNewEpisodes(val id: Long, val onlyNewEpisodes: Boolean) :
-        AutoDownloadRulesAction
+    data class UpdateShowRule(
+        val seriesId: UUID,
+        val entireShow: Boolean,
+        val seasonIds: Set<UUID>,
+        val onlyNewEpisodes: Boolean,
+        val onlyUnwatched: Boolean,
+    ) : AutoDownloadRulesAction
 
-    data class DeleteRule(val id: Long, val alsoDeleteDownloads: Boolean) :
+    data class DeleteShowRule(val seriesId: UUID, val alsoDeleteDownloads: Boolean) :
         AutoDownloadRulesAction
 
     data object OnBackClick : AutoDownloadRulesAction

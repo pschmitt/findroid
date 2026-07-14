@@ -105,6 +105,57 @@ class AutoDownloadRuleRepositoryImpl(private val database: ServerDatabaseDao) :
             database.setAutoDownloadRuleOnlyNewEpisodes(id, onlyNewEpisodes)
         }
 
+    override suspend fun setRuleOnlyUnwatched(id: Long, onlyUnwatched: Boolean) =
+        withContext(Dispatchers.IO) {
+            database.setAutoDownloadRuleOnlyUnwatched(id, onlyUnwatched)
+        }
+
+    override suspend fun reconcileRules(
+        serverId: String,
+        userId: UUID,
+        seriesId: UUID,
+        entireShow: Boolean,
+        seasonIds: Set<UUID>,
+        onlyNewEpisodes: Boolean,
+        onlyUnwatched: Boolean,
+    ): List<AutoDownloadRuleDto> =
+        withContext(Dispatchers.IO) {
+            if (entireShow) {
+                val existing = database.getShowAutoDownloadRule(serverId, userId, seriesId)
+                val rule =
+                    upsertRule(existing, serverId, userId, seriesId, seasonId = null, enabled = true)
+                database.deleteSeasonAutoDownloadRulesForShow(serverId, userId, seriesId)
+                database.setAutoDownloadRuleOnlyNewEpisodes(rule.id, onlyNewEpisodes)
+                database.setAutoDownloadRuleOnlyUnwatched(rule.id, onlyUnwatched)
+                listOf(
+                    rule.copy(onlyNewEpisodes = onlyNewEpisodes, onlyUnwatched = onlyUnwatched)
+                )
+            } else {
+                // A stale show-level rule is superseded the moment specific seasons are chosen.
+                database.getShowAutoDownloadRule(serverId, userId, seriesId)?.let {
+                    database.deleteAutoDownloadRule(it.id)
+                }
+                if (seasonIds.isEmpty()) {
+                    database.deleteAutoDownloadRulesForShow(serverId, userId, seriesId)
+                    return@withContext emptyList()
+                }
+                database.deleteAutoDownloadRulesForShowExceptSeasons(
+                    serverId,
+                    userId,
+                    seriesId,
+                    seasonIds.toList(),
+                )
+                seasonIds.map { seasonId ->
+                    val existing =
+                        database.getSeasonAutoDownloadRule(serverId, userId, seriesId, seasonId)
+                    val rule = upsertRule(existing, serverId, userId, seriesId, seasonId, enabled = true)
+                    database.setAutoDownloadRuleOnlyNewEpisodes(rule.id, onlyNewEpisodes)
+                    database.setAutoDownloadRuleOnlyUnwatched(rule.id, onlyUnwatched)
+                    rule.copy(onlyNewEpisodes = onlyNewEpisodes, onlyUnwatched = onlyUnwatched)
+                }
+            }
+        }
+
     override suspend fun deleteRule(id: Long) =
         withContext(Dispatchers.IO) { database.deleteAutoDownloadRule(id) }
 

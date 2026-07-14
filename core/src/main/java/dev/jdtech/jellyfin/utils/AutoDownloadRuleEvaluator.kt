@@ -48,7 +48,7 @@ class AutoDownloadRuleEvaluator {
                     // finishes), so its mere presence covers downloaded/queued/running alike.
                     if (database.getSources(episode.id).isNotEmpty()) continue
 
-                    if (onlyUnwatched && episode.played) continue
+                    if ((onlyUnwatched || rule.onlyUnwatched) && episode.played) continue
 
                     // In onlyNewEpisodes mode, never backfill the existing catalog - only queue
                     // episodes that premiered after the rule was created. An unknown premiere

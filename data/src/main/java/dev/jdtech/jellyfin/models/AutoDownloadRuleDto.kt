@@ -44,4 +44,6 @@ data class AutoDownloadRuleDto(
     // false (default) = backfill all currently-missing episodes immediately, then follow new
     // ones. true = never backfill; only queue episodes whose premiere date is after createdAt.
     @ColumnInfo(defaultValue = "0") val onlyNewEpisodes: Boolean = false,
+    // When true, evaluation skips episodes that are already marked played.
+    @ColumnInfo(defaultValue = "0") val onlyUnwatched: Boolean = false,
 )

@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,7 +32,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import dev.jdtech.jellyfin.core.R as CoreR
-import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
@@ -41,6 +42,7 @@ import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import java.util.UUID
 
 @Composable
 fun ItemButtonsBar(
@@ -56,9 +58,12 @@ fun ItemButtonsBar(
     downloaderState: DownloaderState? = null,
     canPlay: Boolean = true,
     downloadLocationPreference: String = "ask",
-    downloadScopes: List<DownloadScope> = emptyList(),
+    enableDownloadDialog: Boolean = false,
+    showEpisodeDownloadOption: Boolean = false,
+    defaultSeasonId: UUID? = null,
+    getSeasons: (suspend () -> List<FindroidSeason>)? = null,
     onBulkDownload:
-        (scope: DownloadScope, alsoFollowNew: Boolean, onlyUnwatched: Boolean) -> Unit =
+        (selection: DownloadSelection, alsoFollowNew: Boolean, onlyUnwatched: Boolean) -> Unit =
         { _, _, _ ->
         },
     downloadIconTint: Color? = null,
@@ -206,7 +211,7 @@ fun ItemButtonsBar(
                     } else if (item.canDownload || item is FindroidShow || item is FindroidSeason) {
                         FilledTonalIconButton(
                             onClick = {
-                                if (downloadScopes.isNotEmpty()) {
+                                if (enableDownloadDialog) {
                                     downloadScopeDialogOpen = true
                                 } else {
                                     startDownload()
@@ -277,14 +282,18 @@ fun ItemButtonsBar(
             )
         }
         if (downloadScopeDialogOpen) {
+            var seasons by remember { mutableStateOf<List<FindroidSeason>?>(null) }
+            LaunchedEffect(Unit) { seasons = getSeasons?.invoke() ?: emptyList() }
             DownloadScopeDialog(
-                scopes = downloadScopes,
-                onConfirm = { scope, alsoFollowNew, onlyUnwatched ->
+                seasons = seasons,
+                showEpisodeOption = showEpisodeDownloadOption,
+                defaultSeasonId = defaultSeasonId,
+                onConfirm = { selection, alsoFollowNew, onlyUnwatched ->
                     downloadScopeDialogOpen = false
-                    if (scope == DownloadScope.EPISODE) {
+                    if (selection.thisEpisodeOnly) {
                         startDownload()
                     } else {
-                        onBulkDownload(scope, alsoFollowNew, onlyUnwatched)
+                        onBulkDownload(selection, alsoFollowNew, onlyUnwatched)
                     }
                 },
                 onDismiss = { downloadScopeDialogOpen = false },

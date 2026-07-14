@@ -45,7 +45,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
-import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
+import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummySeason
 import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
@@ -81,6 +81,7 @@ fun SeasonScreen(
 
     SeasonScreenLayout(
         state = state,
+        getSeasons = viewModel::getSeasons,
         onAction = { action ->
             when (action) {
                 is SeasonAction.Play -> {
@@ -101,7 +102,11 @@ fun SeasonScreen(
 }
 
 @Composable
-private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> Unit) {
+private fun SeasonScreenLayout(
+    state: SeasonState,
+    onAction: (SeasonAction) -> Unit,
+    getSeasons: suspend () -> List<FindroidSeason> = { emptyList() },
+) {
     val androidContext = LocalContext.current
     val safePadding = rememberSafePadding()
     var clearSeasonDownloadsDialogOpen by remember { mutableStateOf(false) }
@@ -181,12 +186,18 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                             Modifier.padding(start = paddingStart, end = paddingEnd).fillMaxWidth(),
                         canPlay = state.episodes.isNotEmpty(),
                         downloaderState = DownloaderState(),
-                        downloadScopes = listOf(DownloadScope.SEASON, DownloadScope.SHOW),
+                        enableDownloadDialog = true,
+                        getSeasons = getSeasons,
+                        defaultSeasonId = season.id,
                         downloadIconTint =
                             if (state.autoDownloadEnabled) Color("#F2C94C".toColorInt()) else null,
-                        onBulkDownload = { scope, alsoFollowNew, onlyUnwatched ->
+                        onBulkDownload = { selection, alsoFollowNew, onlyUnwatched ->
                             onAction(
-                                SeasonAction.DownloadWithScope(scope, alsoFollowNew, onlyUnwatched)
+                                SeasonAction.DownloadWithScope(
+                                    selection,
+                                    alsoFollowNew,
+                                    onlyUnwatched,
+                                )
                             )
                             Toast.makeText(
                                     androidContext,

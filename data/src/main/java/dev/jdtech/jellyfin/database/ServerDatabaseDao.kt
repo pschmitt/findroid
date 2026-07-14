@@ -295,6 +295,9 @@ interface ServerDatabaseDao {
     @Query("UPDATE autoDownloadRules SET onlyNewEpisodes = :onlyNewEpisodes WHERE id = :id")
     fun setAutoDownloadRuleOnlyNewEpisodes(id: Long, onlyNewEpisodes: Boolean)
 
+    @Query("UPDATE autoDownloadRules SET onlyUnwatched = :onlyUnwatched WHERE id = :id")
+    fun setAutoDownloadRuleOnlyUnwatched(id: Long, onlyUnwatched: Boolean)
+
     @Query("DELETE FROM autoDownloadRules WHERE id = :id") fun deleteAutoDownloadRule(id: Long)
 
     @Query(
@@ -309,4 +312,14 @@ interface ServerDatabaseDao {
 
     @Query("DELETE FROM autoDownloadRules WHERE serverId = :serverId AND userId = :userId")
     fun deleteAllAutoDownloadRules(serverId: String, userId: UUID)
+
+    @Query(
+        "DELETE FROM autoDownloadRules WHERE serverId = :serverId AND userId = :userId AND seriesId = :seriesId AND (seasonId IS NULL OR seasonId NOT IN (:keepSeasonIds))"
+    )
+    fun deleteAutoDownloadRulesForShowExceptSeasons(
+        serverId: String,
+        userId: UUID,
+        seriesId: UUID,
+        keepSeasonIds: List<UUID>,
+    )
 }

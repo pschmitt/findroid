@@ -46,7 +46,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
-import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyShow
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
@@ -219,12 +218,13 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         canPlay = state.seasons.isNotEmpty(),
                         downloaderState = DownloaderState(),
-                        downloadScopes = listOf(DownloadScope.SHOW, DownloadScope.LATEST_SEASON),
+                        enableDownloadDialog = true,
+                        getSeasons = { state.seasons },
                         downloadIconTint =
                             if (state.autoDownloadEnabled) Color("#F2C94C".toColorInt()) else null,
-                        onBulkDownload = { scope, alsoFollowNew, onlyUnwatched ->
+                        onBulkDownload = { selection, alsoFollowNew, onlyUnwatched ->
                             onAction(
-                                ShowAction.DownloadWithScope(scope, alsoFollowNew, onlyUnwatched)
+                                ShowAction.DownloadWithScope(selection, alsoFollowNew, onlyUnwatched)
                             )
                             Toast.makeText(
                                     androidContext,

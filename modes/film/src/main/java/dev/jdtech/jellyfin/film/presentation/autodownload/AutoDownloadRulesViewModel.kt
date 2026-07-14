@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
+import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
@@ -13,6 +14,7 @@ import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.Downloader
 import dev.jdtech.jellyfin.utils.clearDownloads
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +36,8 @@ constructor(
     private val _state = MutableStateFlow(AutoDownloadRulesState())
     val state = _state.asStateFlow()
 
+    suspend fun getSeasons(seriesId: UUID): List<FindroidSeason> = repository.getSeasons(seriesId)
+
     fun loadRules() {
         viewModelScope.launch {
             _state.emit(_state.value.copy(isLoading = true, error = null))
@@ -47,65 +51,122 @@ constructor(
                 val userId = repository.getUserId()
                 val rules = ruleRepository.getRules(serverId, userId)
                 val uiModels =
-                    rules.mapNotNull { rule ->
-                        try {
-                            toUiModel(rule)
-                        } catch (e: Exception) {
-                            Timber.e(e, "Failed to resolve auto-download rule ${rule.id}")
-                            null
+                    rules
+                        .groupBy { it.seriesId }
+                        .mapNotNull { (seriesId, rulesForShow) ->
+                            try {
+                                toUiModel(seriesId, rulesForShow)
+                            } catch (e: Exception) {
+                                Timber.e(e, "Failed to resolve auto-download rules for $seriesId")
+                                null
+                            }
                         }
-                    }
-                _state.emit(_state.value.copy(isLoading = false, rules = uiModels))
+                _state.emit(_state.value.copy(isLoading = false, shows = uiModels))
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(isLoading = false, error = e))
             }
         }
     }
 
-    private suspend fun toUiModel(rule: AutoDownloadRuleDto): AutoDownloadRuleUiModel {
-        val show = repository.getShow(rule.seriesId)
-        val seasonLabel =
-            rule.seasonId?.let { seasonId ->
-                val season = repository.getSeason(seasonId)
-                UiText.StringResource(CoreR.string.auto_download_rule_season, season.indexNumber)
+    private suspend fun toUiModel(
+        seriesId: UUID,
+        rules: List<AutoDownloadRuleDto>,
+    ): AutoDownloadShowRuleUiModel {
+        val show = repository.getShow(seriesId)
+        // A show-level rule always wins as the representative rule; otherwise fall back to
+        // whichever season rule happens to be first (there should normally be only one).
+        val primary = rules.find { it.seasonId == null } ?: rules.first()
+        val entireShow = primary.seasonId == null
+        val seasonIds = rules.mapNotNull { it.seasonId }.toSet()
+        val scopeLabel =
+            when {
+                entireShow -> UiText.StringResource(CoreR.string.auto_download_rule_show)
+                seasonIds.size > 1 ->
+                    UiText.StringResource(
+                        CoreR.string.auto_download_rule_multiple_seasons,
+                        seasonIds.size,
+                    )
+                else -> {
+                    val season = repository.getSeason(seasonIds.first())
+                    UiText.StringResource(CoreR.string.auto_download_rule_season, season.indexNumber)
+                }
             }
-        return AutoDownloadRuleUiModel(rule = rule, showName = show.name, seasonLabel = seasonLabel)
+        return AutoDownloadShowRuleUiModel(
+            seriesId = seriesId,
+            ruleIds = rules.map { it.id },
+            showName = show.name,
+            enabled = primary.enabled,
+            entireShow = entireShow,
+            seasonIds = seasonIds,
+            scopeLabel = scopeLabel,
+            onlyNewEpisodes = primary.onlyNewEpisodes,
+            onlyUnwatched = primary.onlyUnwatched,
+        )
+    }
+
+    private fun toggleShowRule(seriesId: UUID, enabled: Boolean) {
+        val ruleIds = _state.value.shows.find { it.seriesId == seriesId }?.ruleIds ?: return
+        viewModelScope.launch {
+            ruleIds.forEach { ruleRepository.setRuleEnabled(it, enabled) }
+            loadRules()
+        }
+    }
+
+    private fun updateShowRule(
+        seriesId: UUID,
+        entireShow: Boolean,
+        seasonIds: Set<UUID>,
+        onlyNewEpisodes: Boolean,
+        onlyUnwatched: Boolean,
+    ) {
+        viewModelScope.launch {
+            val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
+            val userId = repository.getUserId()
+            ruleRepository.reconcileRules(
+                serverId = serverId,
+                userId = userId,
+                seriesId = seriesId,
+                entireShow = entireShow,
+                seasonIds = seasonIds,
+                onlyNewEpisodes = onlyNewEpisodes,
+                onlyUnwatched = onlyUnwatched,
+            )
+            loadRules()
+        }
+    }
+
+    private fun deleteShowRule(seriesId: UUID, alsoDeleteDownloads: Boolean) {
+        val show = _state.value.shows.find { it.seriesId == seriesId } ?: return
+        viewModelScope.launch {
+            if (alsoDeleteDownloads) {
+                val userId = repository.getUserId()
+                val episodes =
+                    withContext(Dispatchers.IO) {
+                        database.getEpisodesByShowId(seriesId).map {
+                            it.toFindroidEpisode(database, userId)
+                        }
+                    }
+                clearDownloads(episodes, database, downloader)
+            }
+            show.ruleIds.forEach { ruleRepository.deleteRule(it) }
+            loadRules()
+        }
     }
 
     fun onAction(action: AutoDownloadRulesAction) {
         when (action) {
-            is AutoDownloadRulesAction.ToggleRule -> {
-                viewModelScope.launch {
-                    ruleRepository.setRuleEnabled(action.id, action.enabled)
-                    loadRules()
-                }
-            }
-            is AutoDownloadRulesAction.ToggleRuleOnlyNewEpisodes -> {
-                viewModelScope.launch {
-                    ruleRepository.setRuleOnlyNewEpisodes(action.id, action.onlyNewEpisodes)
-                    loadRules()
-                }
-            }
-            is AutoDownloadRulesAction.DeleteRule -> {
-                viewModelScope.launch {
-                    if (action.alsoDeleteDownloads) {
-                        val rule = _state.value.rules.find { it.rule.id == action.id }?.rule
-                        if (rule != null) {
-                            val userId = repository.getUserId()
-                            val episodes =
-                                withContext(Dispatchers.IO) {
-                                    val episodeDtos =
-                                        rule.seasonId?.let { database.getEpisodesBySeasonId(it) }
-                                            ?: database.getEpisodesByShowId(rule.seriesId)
-                                    episodeDtos.map { it.toFindroidEpisode(database, userId) }
-                                }
-                            clearDownloads(episodes, database, downloader)
-                        }
-                    }
-                    ruleRepository.deleteRule(action.id)
-                    loadRules()
-                }
-            }
+            is AutoDownloadRulesAction.ToggleShowRule ->
+                toggleShowRule(action.seriesId, action.enabled)
+            is AutoDownloadRulesAction.UpdateShowRule ->
+                updateShowRule(
+                    action.seriesId,
+                    action.entireShow,
+                    action.seasonIds,
+                    action.onlyNewEpisodes,
+                    action.onlyUnwatched,
+                )
+            is AutoDownloadRulesAction.DeleteShowRule ->
+                deleteShowRule(action.seriesId, action.alsoDeleteDownloads)
             is AutoDownloadRulesAction.OnBackClick -> Unit
         }
     }

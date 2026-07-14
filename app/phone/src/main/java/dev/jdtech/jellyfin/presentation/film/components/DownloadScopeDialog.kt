@@ -2,19 +2,21 @@ package dev.jdtech.jellyfin.presentation.film.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,101 +26,121 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import dev.jdtech.jellyfin.core.R as CoreR
-import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
+import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import java.util.UUID
 
-private fun DownloadScope.labelRes(): Int =
-    when (this) {
-        DownloadScope.EPISODE -> CoreR.string.download_scope_episode
-        DownloadScope.SEASON -> CoreR.string.download_scope_season
-        DownloadScope.LATEST_SEASON -> CoreR.string.download_scope_latest_season
-        DownloadScope.SHOW -> CoreR.string.download_scope_show
-    }
-
+/**
+ * Lets the user pick what to download: for an episode, either just that episode or a bulk
+ * selection of seasons/whole show; for a season or show screen, only the bulk selection. Checking
+ * "Entire show" or "This episode" clears the other choices since they're mutually exclusive with
+ * picking individual seasons. [seasons] is null while still loading.
+ */
 @Composable
 fun DownloadScopeDialog(
-    scopes: List<DownloadScope>,
-    onConfirm: (scope: DownloadScope, alsoFollowNew: Boolean, onlyUnwatched: Boolean) -> Unit,
+    seasons: List<FindroidSeason>?,
+    showEpisodeOption: Boolean,
+    defaultSeasonId: UUID? = null,
+    onConfirm: (selection: DownloadSelection, alsoFollowNew: Boolean, onlyUnwatched: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var selectedScope by remember { mutableStateOf(scopes.first()) }
+    var thisEpisodeOnly by remember { mutableStateOf(showEpisodeOption) }
+    var entireShow by remember { mutableStateOf(false) }
+    var selectedSeasonIds by remember {
+        mutableStateOf(defaultSeasonId?.let { setOf(it) } ?: emptySet())
+    }
     var alsoFollowNew by remember { mutableStateOf(false) }
     var onlyUnwatched by remember { mutableStateOf(false) }
+
+    val bulkModeSelected = !thisEpisodeOnly && (entireShow || selectedSeasonIds.isNotEmpty())
+    val canConfirm = thisEpisodeOnly || bulkModeSelected
 
     AlertDialog(
         title = { Text(text = stringResource(CoreR.string.download_scope_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
-                Column(modifier = Modifier.selectableGroup()) {
-                    scopes.forEach { scope ->
-                        Row(
-                            modifier =
-                                Modifier.fillMaxWidth()
-                                    .clickable { selectedScope = scope }
-                                    .padding(vertical = MaterialTheme.spacings.small),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = selectedScope == scope,
-                                onClick = { selectedScope = scope },
-                            )
-                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                            Text(
-                                text = stringResource(scope.labelRes()),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
+                if (showEpisodeOption) {
+                    ToggleOptionRow(
+                        checked = thisEpisodeOnly,
+                        label = stringResource(CoreR.string.download_scope_episode),
+                        icon = CoreR.drawable.ic_play,
+                        onToggle = {
+                            thisEpisodeOnly = true
+                            entireShow = false
+                            selectedSeasonIds = emptySet()
+                        },
+                    )
+                }
+                ToggleOptionRow(
+                    checked = entireShow,
+                    label = stringResource(CoreR.string.download_scope_show),
+                    icon = CoreR.drawable.ic_tv,
+                    onToggle = {
+                        thisEpisodeOnly = false
+                        entireShow = true
+                        selectedSeasonIds = emptySet()
+                    },
+                )
+                if (seasons == null) {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    seasons.forEach { season ->
+                        ToggleOptionRow(
+                            checked = !thisEpisodeOnly && !entireShow && season.id in selectedSeasonIds,
+                            label =
+                                stringResource(CoreR.string.auto_download_rule_season, season.indexNumber),
+                            icon = CoreR.drawable.ic_library,
+                            onToggle = { checked ->
+                                thisEpisodeOnly = false
+                                entireShow = false
+                                selectedSeasonIds =
+                                    if (checked) selectedSeasonIds + season.id
+                                    else selectedSeasonIds - season.id
+                            },
+                        )
                     }
                 }
                 HorizontalDivider()
-                Column {
-                    if (selectedScope != DownloadScope.EPISODE) {
-                        Row(
-                            modifier =
-                                Modifier.fillMaxWidth()
-                                    .clickable { onlyUnwatched = !onlyUnwatched }
-                                    .padding(vertical = MaterialTheme.spacings.small),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = onlyUnwatched,
-                                onCheckedChange = { onlyUnwatched = it },
-                            )
-                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                            Text(
-                                text = stringResource(CoreR.string.download_scope_only_unwatched),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
-                    }
-                    Row(
-                        modifier =
-                            Modifier.fillMaxWidth()
-                                .clickable { alsoFollowNew = !alsoFollowNew }
-                                .padding(vertical = MaterialTheme.spacings.small),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(
-                            checked = alsoFollowNew,
-                            onCheckedChange = { alsoFollowNew = it },
-                        )
-                        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                        Text(
-                            text = stringResource(CoreR.string.download_scope_also_new),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
+                if (bulkModeSelected) {
+                    ToggleOptionRow(
+                        checked = onlyUnwatched,
+                        label = stringResource(CoreR.string.download_scope_only_unwatched),
+                        icon = CoreR.drawable.ic_eye_off,
+                        onToggle = { onlyUnwatched = it },
+                    )
+                    ToggleOptionRow(
+                        checked = alsoFollowNew,
+                        label = stringResource(CoreR.string.download_scope_also_new),
+                        icon = CoreR.drawable.ic_refresh_cw,
+                        onToggle = { alsoFollowNew = it },
+                    )
                 }
             }
         },
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(selectedScope, alsoFollowNew, onlyUnwatched) }
+                enabled = canConfirm,
+                onClick = {
+                    onConfirm(
+                        DownloadSelection(
+                            thisEpisodeOnly = thisEpisodeOnly,
+                            entireShow = entireShow,
+                            seasonIds = selectedSeasonIds,
+                        ),
+                        alsoFollowNew,
+                        onlyUnwatched,
+                    )
+                },
             ) {
                 Text(text = stringResource(CoreR.string.download))
             }
@@ -130,11 +152,41 @@ fun DownloadScopeDialog(
 }
 
 @Composable
+internal fun ToggleOptionRow(
+    checked: Boolean,
+    label: String,
+    onToggle: (Boolean) -> Unit,
+    icon: Int? = null,
+) {
+    Row(
+        modifier =
+            Modifier.fillMaxWidth()
+                .clickable { onToggle(!checked) }
+                .padding(vertical = MaterialTheme.spacings.small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onToggle)
+        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+        if (icon != null) {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = null,
+                tint = LocalContentColor.current,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+        }
+        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
 @Preview
 private fun DownloadScopeDialogPreview() {
     FindroidTheme {
         DownloadScopeDialog(
-            scopes = listOf(DownloadScope.EPISODE, DownloadScope.SEASON, DownloadScope.SHOW),
+            seasons = emptyList(),
+            showEpisodeOption = true,
             onConfirm = { _, _, _ -> },
             onDismiss = {},
         )

@@ -39,7 +39,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
-import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderAction
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderEvent
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
@@ -49,6 +48,7 @@ import dev.jdtech.jellyfin.core.presentation.dummy.dummyVideoMetadata
 import dev.jdtech.jellyfin.film.presentation.episode.EpisodeAction
 import dev.jdtech.jellyfin.film.presentation.episode.EpisodeState
 import dev.jdtech.jellyfin.film.presentation.episode.EpisodeViewModel
+import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.presentation.film.components.ActorsRow
 import dev.jdtech.jellyfin.presentation.film.components.ExtraInfoText
 import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
@@ -106,6 +106,7 @@ fun EpisodeScreen(
         state = state,
         downloaderState = downloaderState,
         downloadLocationPreference = downloaderViewModel.downloadLocationPreference,
+        getSeasons = viewModel::getSeasons,
         onAction = { action ->
             when (action) {
                 is EpisodeAction.Play -> {
@@ -132,6 +133,7 @@ private fun EpisodeScreenLayout(
     state: EpisodeState,
     downloaderState: DownloaderState,
     downloadLocationPreference: String = "ask",
+    getSeasons: suspend () -> List<FindroidSeason> = { emptyList() },
     onAction: (EpisodeAction) -> Unit,
     onDownloaderAction: (DownloaderAction) -> Unit,
 ) {
@@ -260,11 +262,16 @@ private fun EpisodeScreenLayout(
                                 .show()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        downloadScopes =
-                            listOf(DownloadScope.EPISODE, DownloadScope.SEASON, DownloadScope.SHOW),
-                        onBulkDownload = { scope, alsoFollowNew, onlyUnwatched ->
+                        enableDownloadDialog = true,
+                        showEpisodeDownloadOption = true,
+                        getSeasons = getSeasons,
+                        onBulkDownload = { selection, alsoFollowNew, onlyUnwatched ->
                             onAction(
-                                EpisodeAction.DownloadWithScope(scope, alsoFollowNew, onlyUnwatched)
+                                EpisodeAction.DownloadWithScope(
+                                    selection,
+                                    alsoFollowNew,
+                                    onlyUnwatched,
+                                )
                             )
                         },
                     )

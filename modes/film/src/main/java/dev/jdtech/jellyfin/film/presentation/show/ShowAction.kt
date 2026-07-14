@@ -1,6 +1,6 @@
 package dev.jdtech.jellyfin.film.presentation.show
 
-import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.models.FindroidItem
 import java.util.UUID
 
@@ -18,7 +18,7 @@ sealed interface ShowAction {
     data object UnmarkAsFavorite : ShowAction
 
     data class DownloadWithScope(
-        val scope: DownloadScope,
+        val selection: DownloadSelection,
         val alsoFollowNew: Boolean,
         val onlyUnwatched: Boolean,
     ) : ShowAction

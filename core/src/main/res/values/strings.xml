@@ -4,6 +4,7 @@
     <string name="jellyfin_banner">Jellyfin banner</string>
     <string name="remove">Remove</string>
     <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
     <string name="discard">Discard</string>
     <string name="title_home">Home</string>
     <string name="title_media">My media</string>
@@ -129,6 +130,9 @@
     <string name="downloads_deleted_toast">Downloads deleted</string>
     <string name="download_queued_toast">Download queued</string>
     <string name="auto_download_rule_season">Season %1$d</string>
+    <string name="auto_download_rule_multiple_seasons">%1$d seasons</string>
+    <string name="edit_auto_download_rule">Edit auto-download rule</string>
+    <string name="edit_rule_scope_entire_show">Entire show</string>
     <string name="auto_download_only_new_episodes">Only new episodes (no backfill)</string>
     <string name="clear_all_downloads">Clear all downloads</string>
     <string name="clear_all_downloads_message">This will delete every downloaded movie and episode on this device.</string>

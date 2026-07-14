@@ -36,6 +36,25 @@ interface AutoDownloadRuleRepository {
 
     suspend fun setRuleOnlyNewEpisodes(id: Long, onlyNewEpisodes: Boolean)
 
+    suspend fun setRuleOnlyUnwatched(id: Long, onlyUnwatched: Boolean)
+
+    /**
+     * Replaces every existing rule for [seriesId] with exactly the rules implied by
+     * [entireShow]/[seasonIds]: a single show-level rule if [entireShow], otherwise one
+     * season-level rule per id in [seasonIds] (any other existing rule for the show, including a
+     * stale show-level one, is dropped). [onlyNewEpisodes]/[onlyUnwatched] are applied to every
+     * resulting rule.
+     */
+    suspend fun reconcileRules(
+        serverId: String,
+        userId: UUID,
+        seriesId: UUID,
+        entireShow: Boolean,
+        seasonIds: Set<UUID>,
+        onlyNewEpisodes: Boolean,
+        onlyUnwatched: Boolean,
+    ): List<AutoDownloadRuleDto>
+
     suspend fun deleteRule(id: Long)
 
     suspend fun deleteRulesForShow(serverId: String, userId: UUID, seriesId: UUID)

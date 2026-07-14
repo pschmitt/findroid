@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.film
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -23,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -38,17 +42,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.film.presentation.autodownload.AutoDownloadRulesAction
 import dev.jdtech.jellyfin.film.presentation.autodownload.AutoDownloadRulesState
 import dev.jdtech.jellyfin.film.presentation.autodownload.AutoDownloadRulesViewModel
-import dev.jdtech.jellyfin.film.presentation.autodownload.AutoDownloadRuleUiModel
-import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
+import dev.jdtech.jellyfin.film.presentation.autodownload.AutoDownloadShowRuleUiModel
+import dev.jdtech.jellyfin.models.FindroidSeason
+import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.presentation.film.components.ClearDownloadsDialog
+import dev.jdtech.jellyfin.presentation.film.components.ToggleOptionRow
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
+import dev.jdtech.jellyfin.presentation.theme.spacings
 import java.util.UUID
 
 @Composable
@@ -64,6 +70,7 @@ fun AutoDownloadRulesScreen(
     AutoDownloadRulesScreenLayout(
         state = state,
         onNavigateToDownloadSettings = navigateToDownloadSettings,
+        getSeasons = viewModel::getSeasons,
         onAction = { action ->
             when (action) {
                 is AutoDownloadRulesAction.OnBackClick -> navigateBack()
@@ -80,6 +87,7 @@ private fun AutoDownloadRulesScreenLayout(
     state: AutoDownloadRulesState,
     onAction: (AutoDownloadRulesAction) -> Unit,
     onNavigateToDownloadSettings: () -> Unit = {},
+    getSeasons: suspend (UUID) -> List<FindroidSeason> = { emptyList() },
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -111,7 +119,7 @@ private fun AutoDownloadRulesScreenLayout(
         contentWindowInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout),
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            if (state.rules.isEmpty() && !state.isLoading) {
+            if (state.shows.isEmpty() && !state.isLoading) {
                 Text(
                     text = stringResource(CoreR.string.no_auto_download_rules),
                     modifier = Modifier.align(Alignment.Center),
@@ -119,8 +127,8 @@ private fun AutoDownloadRulesScreenLayout(
                 )
             }
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                items(items = state.rules, key = { it.rule.id }) { rule ->
-                    AutoDownloadRuleRow(rule = rule, onAction = onAction)
+                items(items = state.shows, key = { it.seriesId }) { show ->
+                    AutoDownloadShowRuleRow(show = show, onAction = onAction, getSeasons = getSeasons)
                 }
             }
         }
@@ -128,29 +136,31 @@ private fun AutoDownloadRulesScreenLayout(
 }
 
 @Composable
-private fun AutoDownloadRuleRow(
-    rule: AutoDownloadRuleUiModel,
+private fun AutoDownloadShowRuleRow(
+    show: AutoDownloadShowRuleUiModel,
     onAction: (AutoDownloadRulesAction) -> Unit,
+    getSeasons: suspend (UUID) -> List<FindroidSeason>,
 ) {
     val context = LocalContext.current
     var deleteDialogOpen by remember { mutableStateOf(false) }
+    var editDialogOpen by remember { mutableStateOf(false) }
 
     Column {
         ListItem(
-            headlineContent = { Text(text = rule.showName) },
-            supportingContent = {
-                Text(
-                    text =
-                        rule.seasonLabel?.asString()
-                            ?: stringResource(CoreR.string.auto_download_rule_show)
-                )
+            modifier = Modifier.clickable { editDialogOpen = true },
+            leadingContent = {
+                Icon(painter = painterResource(CoreR.drawable.ic_tv), contentDescription = null)
             },
+            headlineContent = { Text(text = show.showName) },
+            supportingContent = { Text(text = show.scopeLabel.asString()) },
             trailingContent = {
                 Row {
                     Switch(
-                        checked = rule.rule.enabled,
+                        checked = show.enabled,
                         onCheckedChange = { enabled ->
-                            onAction(AutoDownloadRulesAction.ToggleRule(rule.rule.id, enabled))
+                            onAction(
+                                AutoDownloadRulesAction.ToggleShowRule(show.seriesId, enabled)
+                            )
                             Toast.makeText(
                                     context,
                                     if (enabled) {
@@ -172,28 +182,27 @@ private fun AutoDownloadRuleRow(
                 }
             },
         )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = stringResource(CoreR.string.auto_download_only_new_episodes),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Switch(
-                checked = rule.rule.onlyNewEpisodes,
-                onCheckedChange = { onlyNewEpisodes ->
-                    onAction(
-                        AutoDownloadRulesAction.ToggleRuleOnlyNewEpisodes(
-                            rule.rule.id,
-                            onlyNewEpisodes,
-                        )
-                    )
-                },
-            )
-        }
         HorizontalDivider()
+    }
+
+    if (editDialogOpen) {
+        EditRuleDialog(
+            show = show,
+            getSeasons = getSeasons,
+            onConfirm = { entireShow, seasonIds, onlyNewEpisodes, onlyUnwatched ->
+                onAction(
+                    AutoDownloadRulesAction.UpdateShowRule(
+                        show.seriesId,
+                        entireShow,
+                        seasonIds,
+                        onlyNewEpisodes,
+                        onlyUnwatched,
+                    )
+                )
+                editDialogOpen = false
+            },
+            onDismiss = { editDialogOpen = false },
+        )
     }
 
     if (deleteDialogOpen) {
@@ -204,7 +213,9 @@ private fun AutoDownloadRuleRow(
             checkboxSummary = stringResource(CoreR.string.also_delete_downloaded_episodes_summary),
             checkboxDefault = false,
             onConfirm = { alsoDeleteDownloads ->
-                onAction(AutoDownloadRulesAction.DeleteRule(rule.rule.id, alsoDeleteDownloads))
+                onAction(
+                    AutoDownloadRulesAction.DeleteShowRule(show.seriesId, alsoDeleteDownloads)
+                )
                 Toast.makeText(
                         context,
                         CoreR.string.auto_download_rule_deleted_toast,
@@ -218,6 +229,93 @@ private fun AutoDownloadRuleRow(
     }
 }
 
+@Composable
+private fun EditRuleDialog(
+    show: AutoDownloadShowRuleUiModel,
+    getSeasons: suspend (UUID) -> List<FindroidSeason>,
+    onConfirm:
+        (entireShow: Boolean, seasonIds: Set<UUID>, onlyNewEpisodes: Boolean, onlyUnwatched: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var seasons by remember { mutableStateOf<List<FindroidSeason>?>(null) }
+    var entireShow by remember { mutableStateOf(show.entireShow) }
+    var selectedSeasonIds by remember { mutableStateOf(show.seasonIds) }
+    var onlyNewEpisodes by remember { mutableStateOf(show.onlyNewEpisodes) }
+    var onlyUnwatched by remember { mutableStateOf(show.onlyUnwatched) }
+
+    LaunchedEffect(show.seriesId) { seasons = getSeasons(show.seriesId) }
+
+    val canConfirm = entireShow || selectedSeasonIds.isNotEmpty()
+
+    AlertDialog(
+        title = { Text(text = stringResource(CoreR.string.edit_auto_download_rule)) },
+        text = {
+            val currentSeasons = seasons
+            if (currentSeasons == null) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.medium),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
+                    ToggleOptionRow(
+                        checked = entireShow,
+                        label = stringResource(CoreR.string.edit_rule_scope_entire_show),
+                        icon = CoreR.drawable.ic_tv,
+                        onToggle = {
+                            entireShow = it
+                            if (it) selectedSeasonIds = emptySet()
+                        },
+                    )
+                    currentSeasons.forEach { season ->
+                        ToggleOptionRow(
+                            checked = !entireShow && season.id in selectedSeasonIds,
+                            label =
+                                stringResource(CoreR.string.auto_download_rule_season, season.indexNumber),
+                            icon = CoreR.drawable.ic_library,
+                            onToggle = { checked ->
+                                entireShow = false
+                                selectedSeasonIds =
+                                    if (checked) selectedSeasonIds + season.id
+                                    else selectedSeasonIds - season.id
+                            },
+                        )
+                    }
+                    HorizontalDivider()
+                    ToggleOptionRow(
+                        checked = onlyUnwatched,
+                        label = stringResource(CoreR.string.download_scope_only_unwatched),
+                        icon = CoreR.drawable.ic_eye_off,
+                        onToggle = { onlyUnwatched = it },
+                    )
+                    ToggleOptionRow(
+                        checked = onlyNewEpisodes,
+                        label = stringResource(CoreR.string.auto_download_only_new_episodes),
+                        icon = CoreR.drawable.ic_sparkles,
+                        onToggle = { onlyNewEpisodes = it },
+                    )
+                }
+            }
+        },
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                enabled = seasons != null && canConfirm,
+                onClick = {
+                    onConfirm(entireShow, selectedSeasonIds, onlyNewEpisodes, onlyUnwatched)
+                },
+            ) {
+                Text(text = stringResource(CoreR.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
+        },
+    )
+}
+
 @PreviewScreenSizes
 @Composable
 private fun AutoDownloadRulesScreenLayoutPreview() {
@@ -225,21 +323,18 @@ private fun AutoDownloadRulesScreenLayoutPreview() {
         AutoDownloadRulesScreenLayout(
             state =
                 AutoDownloadRulesState(
-                    rules =
+                    shows =
                         listOf(
-                            AutoDownloadRuleUiModel(
-                                rule =
-                                    AutoDownloadRuleDto(
-                                        id = 1,
-                                        serverId = "server",
-                                        userId = UUID.randomUUID(),
-                                        seriesId = UUID.randomUUID(),
-                                        seasonId = null,
-                                        enabled = true,
-                                        createdAt = 0L,
-                                    ),
+                            AutoDownloadShowRuleUiModel(
+                                seriesId = UUID.randomUUID(),
+                                ruleIds = listOf(1L),
                                 showName = "Example Show",
-                                seasonLabel = null,
+                                enabled = true,
+                                entireShow = true,
+                                seasonIds = emptySet(),
+                                scopeLabel = UiText.StringResource(CoreR.string.auto_download_rule_show),
+                                onlyNewEpisodes = false,
+                                onlyUnwatched = false,
                             )
                         )
                 ),

@@ -3,9 +3,10 @@ package dev.jdtech.jellyfin.film.presentation.season
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
+import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
@@ -75,8 +76,13 @@ constructor(
         return autoDownloadRuleRepository.isSeasonRuleEnabled(serverId, userId, seriesId, seasonId)
     }
 
+    suspend fun getSeasons(): List<FindroidSeason> {
+        val seriesId = seriesId ?: return emptyList()
+        return repository.getSeasons(seriesId)
+    }
+
     private fun downloadWithScope(
-        scope: DownloadScope,
+        selection: DownloadSelection,
         alsoFollowNew: Boolean,
         onlyUnwatched: Boolean,
     ) {
@@ -84,29 +90,32 @@ constructor(
         viewModelScope.launch {
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
             val userId = repository.getUserId()
-            val ruleSeasonId = if (scope == DownloadScope.SEASON) seasonId else null
-            val transientRule =
-                AutoDownloadRuleDto(
+
+            val scopeSeasonIds: List<UUID?> =
+                if (selection.entireShow) listOf(null) else selection.seasonIds.toList()
+            for (targetSeasonId in scopeSeasonIds) {
+                val transientRule =
+                    AutoDownloadRuleDto(
+                        serverId = serverId,
+                        userId = userId,
+                        seriesId = seriesId,
+                        seasonId = targetSeasonId,
+                        enabled = true,
+                        createdAt = System.currentTimeMillis(),
+                    )
+                evaluator.evaluate(transientRule, database, repository, downloader, onlyUnwatched)
+            }
+
+            if (alsoFollowNew) {
+                autoDownloadRuleRepository.reconcileRules(
                     serverId = serverId,
                     userId = userId,
                     seriesId = seriesId,
-                    seasonId = ruleSeasonId,
-                    enabled = true,
-                    createdAt = System.currentTimeMillis(),
+                    entireShow = selection.entireShow,
+                    seasonIds = selection.seasonIds,
+                    onlyNewEpisodes = false,
+                    onlyUnwatched = onlyUnwatched,
                 )
-            evaluator.evaluate(transientRule, database, repository, downloader, onlyUnwatched)
-            if (alsoFollowNew) {
-                if (scope == DownloadScope.SEASON) {
-                    autoDownloadRuleRepository.setSeasonRuleEnabled(
-                        serverId,
-                        userId,
-                        seriesId,
-                        seasonId,
-                        true,
-                    )
-                } else {
-                    autoDownloadRuleRepository.setShowRuleEnabled(serverId, userId, seriesId, true)
-                }
             }
             loadSeason(seasonId)
         }
@@ -168,7 +177,7 @@ constructor(
                 }
             }
             is SeasonAction.DownloadWithScope ->
-                downloadWithScope(action.scope, action.alsoFollowNew, action.onlyUnwatched)
+                downloadWithScope(action.selection, action.alsoFollowNew, action.onlyUnwatched)
             is SeasonAction.DeleteSeasonDownloads -> deleteSeasonDownloads(action.alsoRemoveRules)
             else -> Unit
         }
