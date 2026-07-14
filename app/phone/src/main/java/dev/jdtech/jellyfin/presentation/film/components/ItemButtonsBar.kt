@@ -57,7 +57,10 @@ fun ItemButtonsBar(
     canPlay: Boolean = true,
     downloadLocationPreference: String = "ask",
     downloadScopes: List<DownloadScope> = emptyList(),
-    onBulkDownload: (scope: DownloadScope, alsoFollowNew: Boolean) -> Unit = { _, _ -> },
+    onBulkDownload:
+        (scope: DownloadScope, alsoFollowNew: Boolean, onlyUnwatched: Boolean) -> Unit =
+        { _, _, _ ->
+        },
     downloadIconTint: Color? = null,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
@@ -276,12 +279,12 @@ fun ItemButtonsBar(
         if (downloadScopeDialogOpen) {
             DownloadScopeDialog(
                 scopes = downloadScopes,
-                onConfirm = { scope, alsoFollowNew ->
+                onConfirm = { scope, alsoFollowNew, onlyUnwatched ->
                     downloadScopeDialogOpen = false
                     if (scope == DownloadScope.EPISODE) {
                         startDownload()
                     } else {
-                        onBulkDownload(scope, alsoFollowNew)
+                        onBulkDownload(scope, alsoFollowNew, onlyUnwatched)
                     }
                 },
                 onDismiss = { downloadScopeDialogOpen = false },

@@ -6,7 +6,8 @@ sealed interface AutoDownloadRulesAction {
     data class ToggleRuleOnlyNewEpisodes(val id: Long, val onlyNewEpisodes: Boolean) :
         AutoDownloadRulesAction
 
-    data class DeleteRule(val id: Long) : AutoDownloadRulesAction
+    data class DeleteRule(val id: Long, val alsoDeleteDownloads: Boolean) :
+        AutoDownloadRulesAction
 
     data object OnBackClick : AutoDownloadRulesAction
 }

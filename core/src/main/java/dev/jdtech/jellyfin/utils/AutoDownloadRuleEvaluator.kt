@@ -18,6 +18,7 @@ class AutoDownloadRuleEvaluator {
         database: ServerDatabaseDao,
         repository: JellyfinRepository,
         downloader: Downloader,
+        onlyUnwatched: Boolean = false,
     ) {
         if (!rule.enabled) return
 
@@ -46,6 +47,8 @@ class AutoDownloadRuleEvaluator {
                     // A sources row already exists the moment a download is enqueued (before it
                     // finishes), so its mere presence covers downloaded/queued/running alike.
                     if (database.getSources(episode.id).isNotEmpty()) continue
+
+                    if (onlyUnwatched && episode.played) continue
 
                     // In onlyNewEpisodes mode, never backfill the existing catalog - only queue
                     // episodes that premiered after the rule was created. An unknown premiere

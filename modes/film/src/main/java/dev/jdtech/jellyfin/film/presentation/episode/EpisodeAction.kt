@@ -14,8 +14,11 @@ sealed interface EpisodeAction {
 
     data object UnmarkAsFavorite : EpisodeAction
 
-    data class DownloadWithScope(val scope: DownloadScope, val alsoFollowNew: Boolean) :
-        EpisodeAction
+    data class DownloadWithScope(
+        val scope: DownloadScope,
+        val alsoFollowNew: Boolean,
+        val onlyUnwatched: Boolean,
+    ) : EpisodeAction
 
     data object OnBackClick : EpisodeAction
 

@@ -75,7 +75,11 @@ constructor(
         return autoDownloadRuleRepository.isSeasonRuleEnabled(serverId, userId, seriesId, seasonId)
     }
 
-    private fun downloadWithScope(scope: DownloadScope, alsoFollowNew: Boolean) {
+    private fun downloadWithScope(
+        scope: DownloadScope,
+        alsoFollowNew: Boolean,
+        onlyUnwatched: Boolean,
+    ) {
         val seriesId = seriesId ?: return
         viewModelScope.launch {
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
@@ -90,7 +94,7 @@ constructor(
                     enabled = true,
                     createdAt = System.currentTimeMillis(),
                 )
-            evaluator.evaluate(transientRule, database, repository, downloader)
+            evaluator.evaluate(transientRule, database, repository, downloader, onlyUnwatched)
             if (alsoFollowNew) {
                 if (scope == DownloadScope.SEASON) {
                     autoDownloadRuleRepository.setSeasonRuleEnabled(
@@ -164,7 +168,7 @@ constructor(
                 }
             }
             is SeasonAction.DownloadWithScope ->
-                downloadWithScope(action.scope, action.alsoFollowNew)
+                downloadWithScope(action.scope, action.alsoFollowNew, action.onlyUnwatched)
             is SeasonAction.DeleteSeasonDownloads -> deleteSeasonDownloads(action.alsoRemoveRules)
             else -> Unit
         }

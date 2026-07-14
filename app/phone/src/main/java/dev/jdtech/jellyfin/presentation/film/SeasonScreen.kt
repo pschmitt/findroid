@@ -184,11 +184,17 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                         downloadScopes = listOf(DownloadScope.SEASON, DownloadScope.SHOW),
                         downloadIconTint =
                             if (state.autoDownloadEnabled) Color("#F2C94C".toColorInt()) else null,
-                        onBulkDownload = { scope, alsoFollowNew ->
-                            onAction(SeasonAction.DownloadWithScope(scope, alsoFollowNew))
+                        onBulkDownload = { scope, alsoFollowNew, onlyUnwatched ->
+                            onAction(
+                                SeasonAction.DownloadWithScope(scope, alsoFollowNew, onlyUnwatched)
+                            )
                             Toast.makeText(
                                     androidContext,
-                                    CoreR.string.auto_download_enabled_toast,
+                                    if (alsoFollowNew) {
+                                        CoreR.string.auto_download_enabled_toast
+                                    } else {
+                                        CoreR.string.download_queued_toast
+                                    },
                                     Toast.LENGTH_SHORT,
                                 )
                                 .show()
@@ -247,6 +253,12 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
             message = stringResource(CoreR.string.clear_season_downloads_message),
             onConfirm = { alsoRemoveRules ->
                 onAction(SeasonAction.DeleteSeasonDownloads(alsoRemoveRules))
+                Toast.makeText(
+                        androidContext,
+                        CoreR.string.downloads_deleted_toast,
+                        Toast.LENGTH_SHORT,
+                    )
+                    .show()
                 clearSeasonDownloadsDialogOpen = false
             },
             onDismiss = { clearSeasonDownloadsDialogOpen = false },

@@ -27,10 +27,13 @@ import dev.jdtech.jellyfin.presentation.theme.spacings
 fun ClearDownloadsDialog(
     title: String,
     message: String,
-    onConfirm: (alsoRemoveRules: Boolean) -> Unit,
+    onConfirm: (checkboxChecked: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    checkboxLabel: String = stringResource(CoreR.string.also_remove_auto_download_rules),
+    checkboxSummary: String = stringResource(CoreR.string.also_remove_auto_download_rules_summary),
+    checkboxDefault: Boolean = true,
 ) {
-    var alsoRemoveRules by remember { mutableStateOf(true) }
+    var checkboxChecked by remember { mutableStateOf(checkboxDefault) }
 
     AlertDialog(
         title = { Text(text = title) },
@@ -39,26 +42,23 @@ fun ClearDownloadsDialog(
                 Text(text = message)
                 Spacer(modifier = Modifier.height(MaterialTheme.spacings.medium))
                 Row(
-                    modifier = Modifier.clickable { alsoRemoveRules = !alsoRemoveRules },
+                    modifier = Modifier.clickable { checkboxChecked = !checkboxChecked },
                 ) {
-                    Checkbox(checked = alsoRemoveRules, onCheckedChange = { alsoRemoveRules = it })
+                    Checkbox(
+                        checked = checkboxChecked,
+                        onCheckedChange = { checkboxChecked = it },
+                    )
                     Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                     Column {
-                        Text(text = stringResource(CoreR.string.also_remove_auto_download_rules))
-                        Text(
-                            text =
-                                stringResource(
-                                    CoreR.string.also_remove_auto_download_rules_summary
-                                ),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        Text(text = checkboxLabel)
+                        Text(text = checkboxSummary, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
         },
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onConfirm(alsoRemoveRules) }) {
+            TextButton(onClick = { onConfirm(checkboxChecked) }) {
                 Text(text = stringResource(CoreR.string.delete_download))
             }
         },

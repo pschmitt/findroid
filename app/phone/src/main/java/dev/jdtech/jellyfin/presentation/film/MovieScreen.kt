@@ -135,6 +135,7 @@ private fun MovieScreenLayout(
     onAction: (MovieAction) -> Unit,
     onDownloaderAction: (DownloaderAction) -> Unit,
 ) {
+    val androidContext = LocalContext.current
     val safePadding = rememberSafePadding()
 
     val paddingStart = safePadding.start + MaterialTheme.spacings.default
@@ -246,6 +247,12 @@ private fun MovieScreenLayout(
                         },
                         onDownloadDeleteClick = {
                             onDownloaderAction(DownloaderAction.DeleteDownload(movie))
+                            Toast.makeText(
+                                    androidContext,
+                                    CoreR.string.download_deleted_toast,
+                                    Toast.LENGTH_SHORT,
+                                )
+                                .show()
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )

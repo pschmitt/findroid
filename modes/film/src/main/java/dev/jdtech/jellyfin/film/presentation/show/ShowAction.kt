@@ -17,7 +17,11 @@ sealed interface ShowAction {
 
     data object UnmarkAsFavorite : ShowAction
 
-    data class DownloadWithScope(val scope: DownloadScope, val alsoFollowNew: Boolean) : ShowAction
+    data class DownloadWithScope(
+        val scope: DownloadScope,
+        val alsoFollowNew: Boolean,
+        val onlyUnwatched: Boolean,
+    ) : ShowAction
 
     data class DeleteShowDownloads(val alsoRemoveRules: Boolean) : ShowAction
 

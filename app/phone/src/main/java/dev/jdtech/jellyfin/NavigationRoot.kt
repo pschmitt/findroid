@@ -344,7 +344,20 @@ fun NavigationRoot(
                 )
             }
             composable<AutoDownloadRulesRoute> {
-                AutoDownloadRulesScreen(navigateBack = { navController.safePopBackStack() })
+                AutoDownloadRulesScreen(
+                    navigateBack = { navController.safePopBackStack() },
+                    navigateToDownloadSettings = {
+                        navController.safeNavigate(
+                            SettingsRoute(
+                                indexes =
+                                    intArrayOf(
+                                        CoreR.string.title_settings,
+                                        CoreR.string.title_download,
+                                    )
+                            )
+                        )
+                    },
+                )
             }
             composable<LibraryRoute> { backStackEntry ->
                 val route: LibraryRoute = backStackEntry.toRoute()
@@ -460,6 +473,9 @@ fun NavigationRoot(
                     navigateToServers = { navController.safeNavigate(ServersRoute) },
                     navigateToUsers = { navController.safeNavigate(UsersRoute) },
                     navigateToAbout = { navController.safeNavigate(AboutRoute) },
+                    navigateToAutoDownloadRules = {
+                        navController.safeNavigate(AutoDownloadRulesRoute)
+                    },
                     navigateBack = { navController.safePopBackStack() },
                 )
             }

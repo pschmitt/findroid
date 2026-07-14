@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.film
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,6 +135,7 @@ private fun EpisodeScreenLayout(
     onAction: (EpisodeAction) -> Unit,
     onDownloaderAction: (DownloaderAction) -> Unit,
 ) {
+    val androidContext = LocalContext.current
     val safePadding = rememberSafePadding()
 
     val paddingStart = safePadding.start + MaterialTheme.spacings.default
@@ -250,12 +252,20 @@ private fun EpisodeScreenLayout(
                         },
                         onDownloadDeleteClick = {
                             onDownloaderAction(DownloaderAction.DeleteDownload(episode))
+                            Toast.makeText(
+                                    androidContext,
+                                    CoreR.string.download_deleted_toast,
+                                    Toast.LENGTH_SHORT,
+                                )
+                                .show()
                         },
                         modifier = Modifier.fillMaxWidth(),
                         downloadScopes =
                             listOf(DownloadScope.EPISODE, DownloadScope.SEASON, DownloadScope.SHOW),
-                        onBulkDownload = { scope, alsoFollowNew ->
-                            onAction(EpisodeAction.DownloadWithScope(scope, alsoFollowNew))
+                        onBulkDownload = { scope, alsoFollowNew, onlyUnwatched ->
+                            onAction(
+                                EpisodeAction.DownloadWithScope(scope, alsoFollowNew, onlyUnwatched)
+                            )
                         },
                     )
                     Spacer(Modifier.height(MaterialTheme.spacings.small))

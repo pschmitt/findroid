@@ -54,6 +54,7 @@
     <string name="trickplay">Trickplay</string>
     <string name="users">Users</string>
     <string name="title_download">Downloads</string>
+    <string name="auto_download_rules">Auto-download rules</string>
     <string name="about">About</string>
     <string name="home">Home</string>
     <string name="home_suggestions">Display suggestions</string>
@@ -77,6 +78,10 @@
     <string name="mb">MB</string>
     <string name="ms">ms</string>
     <string name="seconds">s</string>
+    <string name="hours_suffix">h</string>
+    <string name="auto_delete_watched">Automatically delete watched episodes</string>
+    <string name="auto_delete_watched_summary">Deletes downloaded episodes once they have been watched for longer than the configured duration.</string>
+    <string name="auto_delete_watched_hours">Delete watched episodes after</string>
     <string name="app_language">App language</string>
     <string name="subtitles">Subtitles</string>
     <string name="subtitles_summary">Customize subtitles appearance</string>

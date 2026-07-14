@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
@@ -24,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
@@ -47,6 +49,7 @@ fun DownloadsScreen(
     onAutoDownloadRulesClick: () -> Unit,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
+    val androidContext = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(true) { viewModel.loadItems() }
@@ -71,6 +74,12 @@ fun DownloadsScreen(
             message = stringResource(CoreR.string.clear_all_downloads_message),
             onConfirm = { alsoRemoveRules ->
                 viewModel.clearAllDownloads(alsoRemoveRules)
+                Toast.makeText(
+                        androidContext,
+                        CoreR.string.downloads_deleted_toast,
+                        Toast.LENGTH_SHORT,
+                    )
+                    .show()
                 clearAllDialogOpen = false
             },
             onDismiss = { clearAllDialogOpen = false },

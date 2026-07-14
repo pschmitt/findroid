@@ -657,6 +657,39 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                     options = R.array.download_locations,
                                                     optionValues = R.array.download_locations_values,
                                                 ),
+                                                PreferenceSwitch(
+                                                    nameStringResource =
+                                                        R.string.auto_delete_watched,
+                                                    descriptionStringRes =
+                                                        R.string.auto_delete_watched_summary,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences.autoDeleteWatched,
+                                                ),
+                                                PreferenceIntInput(
+                                                    nameStringResource =
+                                                        R.string.auto_delete_watched_hours,
+                                                    dependencies =
+                                                        listOf(appPreferences.autoDeleteWatched),
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences.autoDeleteWatchedHours,
+                                                    suffixRes = R.string.hours_suffix,
+                                                ),
+                                                PreferenceCategory(
+                                                    nameStringResource =
+                                                        R.string.auto_download_rules,
+                                                    iconDrawableId = R.drawable.ic_download,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    onClick = {
+                                                        viewModelScope.launch {
+                                                            eventsChannel.send(
+                                                                SettingsEvent
+                                                                    .NavigateToAutoDownloadRules
+                                                            )
+                                                        }
+                                                    },
+                                                ),
                                             )
                                     )
                                 ),

@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.film.presentation.show
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadScope
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.FindroidEpisode
@@ -78,22 +79,38 @@ constructor(
         return autoDownloadRuleRepository.isShowRuleEnabled(serverId, userId, showId)
     }
 
-    private fun downloadWithScope(alsoFollowNew: Boolean) {
+    private fun downloadWithScope(scope: DownloadScope, alsoFollowNew: Boolean, onlyUnwatched: Boolean) {
         viewModelScope.launch {
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
             val userId = repository.getUserId()
+            val latestSeasonId =
+                if (scope == DownloadScope.LATEST_SEASON) {
+                    repository.getSeasons(showId).maxByOrNull { it.indexNumber }?.id
+                } else {
+                    null
+                }
             val transientRule =
                 AutoDownloadRuleDto(
                     serverId = serverId,
                     userId = userId,
                     seriesId = showId,
-                    seasonId = null,
+                    seasonId = latestSeasonId,
                     enabled = true,
                     createdAt = System.currentTimeMillis(),
                 )
-            evaluator.evaluate(transientRule, database, repository, downloader)
+            evaluator.evaluate(transientRule, database, repository, downloader, onlyUnwatched)
             if (alsoFollowNew) {
-                autoDownloadRuleRepository.setShowRuleEnabled(serverId, userId, showId, true)
+                if (latestSeasonId != null) {
+                    autoDownloadRuleRepository.setSeasonRuleEnabled(
+                        serverId,
+                        userId,
+                        showId,
+                        latestSeasonId,
+                        true,
+                    )
+                } else {
+                    autoDownloadRuleRepository.setShowRuleEnabled(serverId, userId, showId, true)
+                }
             }
             loadShow(showId)
         }
@@ -174,7 +191,8 @@ constructor(
                     loadShow(showId)
                 }
             }
-            is ShowAction.DownloadWithScope -> downloadWithScope(action.alsoFollowNew)
+            is ShowAction.DownloadWithScope ->
+                downloadWithScope(action.scope, action.alsoFollowNew, action.onlyUnwatched)
             is ShowAction.DeleteShowDownloads -> deleteShowDownloads(action.alsoRemoveRules)
             else -> Unit
         }

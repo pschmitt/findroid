@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,9 +28,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
@@ -42,12 +47,14 @@ import dev.jdtech.jellyfin.film.presentation.autodownload.AutoDownloadRulesState
 import dev.jdtech.jellyfin.film.presentation.autodownload.AutoDownloadRulesViewModel
 import dev.jdtech.jellyfin.film.presentation.autodownload.AutoDownloadRuleUiModel
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
+import dev.jdtech.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import java.util.UUID
 
 @Composable
 fun AutoDownloadRulesScreen(
     navigateBack: () -> Unit,
+    navigateToDownloadSettings: () -> Unit,
     viewModel: AutoDownloadRulesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -56,6 +63,7 @@ fun AutoDownloadRulesScreen(
 
     AutoDownloadRulesScreenLayout(
         state = state,
+        onNavigateToDownloadSettings = navigateToDownloadSettings,
         onAction = { action ->
             when (action) {
                 is AutoDownloadRulesAction.OnBackClick -> navigateBack()
@@ -71,6 +79,7 @@ fun AutoDownloadRulesScreen(
 private fun AutoDownloadRulesScreenLayout(
     state: AutoDownloadRulesState,
     onAction: (AutoDownloadRulesAction) -> Unit,
+    onNavigateToDownloadSettings: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -84,6 +93,14 @@ private fun AutoDownloadRulesScreenLayout(
                         Icon(
                             painter = painterResource(CoreR.drawable.ic_arrow_left),
                             contentDescription = null,
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToDownloadSettings) {
+                        Icon(
+                            painter = painterResource(CoreR.drawable.ic_settings),
+                            contentDescription = stringResource(CoreR.string.download_settings),
                         )
                     }
                 },
@@ -115,6 +132,9 @@ private fun AutoDownloadRuleRow(
     rule: AutoDownloadRuleUiModel,
     onAction: (AutoDownloadRulesAction) -> Unit,
 ) {
+    val context = LocalContext.current
+    var deleteDialogOpen by remember { mutableStateOf(false) }
+
     Column {
         ListItem(
             headlineContent = { Text(text = rule.showName) },
@@ -131,11 +151,19 @@ private fun AutoDownloadRuleRow(
                         checked = rule.rule.enabled,
                         onCheckedChange = { enabled ->
                             onAction(AutoDownloadRulesAction.ToggleRule(rule.rule.id, enabled))
+                            Toast.makeText(
+                                    context,
+                                    if (enabled) {
+                                        CoreR.string.auto_download_rule_enabled_toast
+                                    } else {
+                                        CoreR.string.auto_download_rule_disabled_toast
+                                    },
+                                    Toast.LENGTH_SHORT,
+                                )
+                                .show()
                         },
                     )
-                    IconButton(
-                        onClick = { onAction(AutoDownloadRulesAction.DeleteRule(rule.rule.id)) }
-                    ) {
+                    IconButton(onClick = { deleteDialogOpen = true }) {
                         Icon(
                             painter = painterResource(CoreR.drawable.ic_trash),
                             contentDescription = null,
@@ -166,6 +194,27 @@ private fun AutoDownloadRuleRow(
             )
         }
         HorizontalDivider()
+    }
+
+    if (deleteDialogOpen) {
+        ClearDownloadsDialog(
+            title = stringResource(CoreR.string.delete_auto_download_rule),
+            message = stringResource(CoreR.string.delete_auto_download_rule_message),
+            checkboxLabel = stringResource(CoreR.string.also_delete_downloaded_episodes),
+            checkboxSummary = stringResource(CoreR.string.also_delete_downloaded_episodes_summary),
+            checkboxDefault = false,
+            onConfirm = { alsoDeleteDownloads ->
+                onAction(AutoDownloadRulesAction.DeleteRule(rule.rule.id, alsoDeleteDownloads))
+                Toast.makeText(
+                        context,
+                        CoreR.string.auto_download_rule_deleted_toast,
+                        Toast.LENGTH_SHORT,
+                    )
+                    .show()
+                deleteDialogOpen = false
+            },
+            onDismiss = { deleteDialogOpen = false },
+        )
     }
 }
 

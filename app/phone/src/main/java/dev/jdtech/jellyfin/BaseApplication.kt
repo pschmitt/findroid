@@ -25,6 +25,7 @@ import coil3.svg.SvgDecoder
 import com.google.android.material.color.DynamicColors
 import dagger.hilt.android.HiltAndroidApp
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
+import dev.jdtech.jellyfin.work.AutoDeleteWatchedWorker
 import dev.jdtech.jellyfin.work.AutoDownloadWorker
 import dev.jdtech.jellyfin.work.MpvCleanupWorker
 import dev.jdtech.jellyfin.work.SyncWorker
@@ -70,6 +71,7 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
         scheduleUserDataSync(workManager)
         scheduleMpvCleanup(workManager)
         scheduleAutoDownload(workManager)
+        scheduleAutoDeleteWatched(workManager)
     }
 
     @OptIn(ExperimentalCoilApi::class, ExperimentalTime::class)
@@ -138,6 +140,21 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
             uniqueWorkName = "autoDownloadRulesStartup",
             existingWorkPolicy = ExistingWorkPolicy.REPLACE,
             request = startupRequest,
+        )
+    }
+
+    private fun scheduleAutoDeleteWatched(workManager: WorkManager) {
+        val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+        val periodicRequest =
+            PeriodicWorkRequestBuilder<AutoDeleteWatchedWorker>(6, TimeUnit.HOURS)
+                .setConstraints(constraints)
+                .build()
+
+        workManager.enqueueUniquePeriodicWork(
+            uniqueWorkName = "autoDeleteWatched",
+            existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.KEEP,
+            request = periodicRequest,
         )
     }
 

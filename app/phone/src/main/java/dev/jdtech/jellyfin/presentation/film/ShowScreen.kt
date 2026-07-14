@@ -219,14 +219,20 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         canPlay = state.seasons.isNotEmpty(),
                         downloaderState = DownloaderState(),
-                        downloadScopes = listOf(DownloadScope.SHOW),
+                        downloadScopes = listOf(DownloadScope.SHOW, DownloadScope.LATEST_SEASON),
                         downloadIconTint =
                             if (state.autoDownloadEnabled) Color("#F2C94C".toColorInt()) else null,
-                        onBulkDownload = { scope, alsoFollowNew ->
-                            onAction(ShowAction.DownloadWithScope(scope, alsoFollowNew))
+                        onBulkDownload = { scope, alsoFollowNew, onlyUnwatched ->
+                            onAction(
+                                ShowAction.DownloadWithScope(scope, alsoFollowNew, onlyUnwatched)
+                            )
                             Toast.makeText(
                                     androidContext,
-                                    CoreR.string.auto_download_enabled_toast,
+                                    if (alsoFollowNew) {
+                                        CoreR.string.auto_download_enabled_toast
+                                    } else {
+                                        CoreR.string.download_queued_toast
+                                    },
                                     Toast.LENGTH_SHORT,
                                 )
                                 .show()
@@ -337,6 +343,12 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
             message = stringResource(CoreR.string.clear_show_downloads_message),
             onConfirm = { alsoRemoveRules ->
                 onAction(ShowAction.DeleteShowDownloads(alsoRemoveRules))
+                Toast.makeText(
+                        androidContext,
+                        CoreR.string.downloads_deleted_toast,
+                        Toast.LENGTH_SHORT,
+                    )
+                    .show()
                 clearShowDownloadsDialogOpen = false
             },
             onDismiss = { clearShowDownloadsDialogOpen = false },

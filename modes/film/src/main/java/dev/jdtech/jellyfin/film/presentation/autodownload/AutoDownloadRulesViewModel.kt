@@ -4,15 +4,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.UiText
+import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
+import dev.jdtech.jellyfin.utils.Downloader
+import dev.jdtech.jellyfin.utils.clearDownloads
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 @HiltViewModel
@@ -22,6 +28,8 @@ constructor(
     private val repository: JellyfinRepository,
     private val ruleRepository: AutoDownloadRuleRepository,
     private val appPreferences: AppPreferences,
+    private val database: ServerDatabaseDao,
+    private val downloader: Downloader,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AutoDownloadRulesState())
     val state = _state.asStateFlow()
@@ -80,6 +88,20 @@ constructor(
             }
             is AutoDownloadRulesAction.DeleteRule -> {
                 viewModelScope.launch {
+                    if (action.alsoDeleteDownloads) {
+                        val rule = _state.value.rules.find { it.rule.id == action.id }?.rule
+                        if (rule != null) {
+                            val userId = repository.getUserId()
+                            val episodes =
+                                withContext(Dispatchers.IO) {
+                                    val episodeDtos =
+                                        rule.seasonId?.let { database.getEpisodesBySeasonId(it) }
+                                            ?: database.getEpisodesByShowId(rule.seriesId)
+                                    episodeDtos.map { it.toFindroidEpisode(database, userId) }
+                                }
+                            clearDownloads(episodes, database, downloader)
+                        }
+                    }
                     ruleRepository.deleteRule(action.id)
                     loadRules()
                 }
