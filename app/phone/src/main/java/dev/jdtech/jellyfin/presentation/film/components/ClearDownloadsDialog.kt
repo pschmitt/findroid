@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film.components
 
+import android.text.format.Formatter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import dev.jdtech.jellyfin.core.R as CoreR
@@ -29,17 +31,26 @@ fun ClearDownloadsDialog(
     message: String,
     onConfirm: (checkboxChecked: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    sizeBytes: Long? = null,
     checkboxLabel: String = stringResource(CoreR.string.also_remove_auto_download_rules),
     checkboxSummary: String = stringResource(CoreR.string.also_remove_auto_download_rules_summary),
     checkboxDefault: Boolean = true,
 ) {
     var checkboxChecked by remember { mutableStateOf(checkboxDefault) }
+    val context = LocalContext.current
 
     AlertDialog(
         title = { Text(text = title) },
         text = {
             Column {
                 Text(text = message)
+                if (sizeBytes != null) {
+                    Text(
+                        text = Formatter.formatFileSize(context, sizeBytes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(modifier = Modifier.height(MaterialTheme.spacings.medium))
                 Row(
                     modifier = Modifier.clickable { checkboxChecked = !checkboxChecked },

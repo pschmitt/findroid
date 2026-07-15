@@ -18,6 +18,7 @@ import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidSource
+import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.FindroidSources
 import dev.jdtech.jellyfin.models.FindroidTrickplayInfo
 import dev.jdtech.jellyfin.models.UiText
@@ -35,11 +36,13 @@ import dev.jdtech.jellyfin.models.toFindroidTrickplayInfoDto
 import dev.jdtech.jellyfin.models.toFindroidUserDataDto
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
+import dev.jdtech.jellyfin.work.DeleteDownloadsWorker
 import dev.jdtech.jellyfin.work.DownloadNotificationCoordinator
 import dev.jdtech.jellyfin.work.DownloadSlotLimiter
 import dev.jdtech.jellyfin.work.ImagesDownloaderWorker
 import dev.jdtech.jellyfin.work.VideoDownloadWorker
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 import kotlin.Exception
 import kotlin.math.ceil
@@ -338,6 +341,124 @@ class DownloaderImpl(
         File(context.filesDir, "images/${item.id}").deleteRecursively()
     }
 
+    override suspend fun moveDownloads(
+        fromStorageIndex: Int,
+        toStorageIndex: Int,
+        onProgress: suspend (done: Int, total: Int) -> Unit,
+    ) {
+        val storageLocations = context.getExternalFilesDirs(null)
+        val fromDir = storageLocations.getOrNull(fromStorageIndex) ?: return
+        val toDir = storageLocations.getOrNull(toStorageIndex) ?: return
+        if (fromDir.path == toDir.path) return
+
+        val sources =
+            database.getAllSources().filter {
+                it.type == FindroidSourceType.LOCAL && it.path.startsWith(fromDir.path)
+            }
+
+        sources.forEachIndexed { index, sourceDto ->
+            try {
+                moveFile(File(sourceDto.path), fromDir, toDir)?.let { newPath ->
+                    database.setSourcePath(sourceDto.id, newPath)
+                }
+                for (mediaStream in database.getMediaStreamsBySourceId(sourceDto.id)) {
+                    moveFile(File(mediaStream.path), fromDir, toDir)?.let { newPath ->
+                        database.setMediaStreamPath(mediaStream.id, newPath)
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to move download ${sourceDto.id} to new storage location")
+            }
+            onProgress(index + 1, sources.size)
+        }
+    }
+
+    override suspend fun clearDownloads(
+        fromStorageIndex: Int,
+        onProgress: suspend (done: Int, total: Int) -> Unit,
+    ) {
+        val fromDir = context.getExternalFilesDirs(null).getOrNull(fromStorageIndex) ?: return
+
+        val sources =
+            database.getAllSources().filter {
+                it.type == FindroidSourceType.LOCAL && it.path.startsWith(fromDir.path)
+            }
+
+        sources.forEachIndexed { index, sourceDto ->
+            try {
+                val item = findFindroidItem(sourceDto.itemId)
+                if (item != null) {
+                    deleteItem(item, sourceDto.toFindroidSource(database))
+                } else {
+                    // No FindroidItem left for this source (e.g. orphaned row) - deleteItem()
+                    // needs the item's type to cascade into season/show cleanup, so fall back to
+                    // just cleaning up the source row and its files directly, same as the
+                    // equivalent fallback in cancelDownload().
+                    Timber.e(
+                        "clearDownloads: no FindroidItem found for source ${sourceDto.id}, cleaning up source only"
+                    )
+                    database.deleteSource(sourceDto.id)
+                    File(sourceDto.path).delete()
+                    val mediaStreams = database.getMediaStreamsBySourceId(sourceDto.id)
+                    for (mediaStream in mediaStreams) {
+                        File(mediaStream.path).delete()
+                    }
+                    database.deleteMediaStreamsBySourceId(sourceDto.id)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to clear download ${sourceDto.id}")
+            }
+            onProgress(index + 1, sources.size)
+        }
+    }
+
+    /**
+     * Copies [oldFile] (which must live under [fromDir]) to the equivalent relative path under
+     * [toDir], verifies the copy by size, deletes the original, and returns the new path. Uses
+     * copy+delete rather than [File.renameTo] since the two storage volumes here are typically
+     * different filesystems, and renameTo silently fails (returns false) across filesystems on
+     * some platforms rather than falling back to a copy.
+     */
+    private fun moveFile(oldFile: File, fromDir: File, toDir: File): String? {
+        if (!oldFile.exists()) return null
+        val relativePath = oldFile.path.removePrefix(fromDir.path).trimStart(File.separatorChar)
+        val newFile = File(toDir, relativePath)
+        newFile.parentFile?.mkdirs()
+        oldFile.copyTo(newFile, overwrite = true)
+        if (newFile.length() != oldFile.length()) {
+            newFile.delete()
+            throw IOException("Copied file size mismatch for ${oldFile.path}")
+        }
+        oldFile.delete()
+        return newFile.path
+    }
+
+    override suspend fun deleteItems(itemIds: List<UUID>) {
+        if (itemIds.isEmpty()) return
+        val request =
+            OneTimeWorkRequestBuilder<DeleteDownloadsWorker>()
+                .setInputData(
+                    workDataOf(
+                        DeleteDownloadsWorker.KEY_ITEM_IDS to
+                            itemIds.map { it.toString() }.toTypedArray()
+                    )
+                )
+                .build()
+        // APPEND (not KEEP/REPLACE) so a delete triggered while an earlier batch is still running
+        // queues after it instead of being dropped or clobbering the in-flight one.
+        workManager.enqueueUniqueWork(DELETE_DOWNLOADS_WORK_NAME, ExistingWorkPolicy.APPEND, request)
+    }
+
+    override fun getDeleteProgressFlow(): Flow<DeleteProgress?> {
+        return workManager.getWorkInfosForUniqueWorkFlow(DELETE_DOWNLOADS_WORK_NAME).map { infos ->
+            val active = infos.firstOrNull { !it.state.isFinished } ?: return@map null
+            DeleteProgress(
+                done = active.progress.getInt(DeleteDownloadsWorker.KEY_DONE, 0),
+                total = active.progress.getInt(DeleteDownloadsWorker.KEY_TOTAL, 0),
+            )
+        }
+    }
+
     override fun getProgressFlow(downloadId: Long): Flow<DownloadProgress> {
         val sourceId =
             database.getSourceByDownloadId(downloadId)?.id
@@ -481,5 +602,9 @@ class DownloaderImpl(
                 .build()
 
         workManager.enqueue(downloadImagesRequest)
+    }
+
+    companion object {
+        private const val DELETE_DOWNLOADS_WORK_NAME = "deleteDownloads"
     }
 }

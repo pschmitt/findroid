@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.utils
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidSource
 import dev.jdtech.jellyfin.models.UiText
+import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 
 interface Downloader {
@@ -36,4 +37,33 @@ interface Downloader {
     suspend fun deleteItem(item: FindroidItem, source: FindroidSource)
 
     fun getProgressFlow(downloadId: Long): Flow<DownloadProgress>
+
+    // Copies every downloaded (LOCAL) source and its external media streams currently under
+    // fromStorageIndex's volume over to toStorageIndex's volume, repointing the DB rows at the
+    // new path once each file is verified copied. Used when the user switches the download
+    // location preference between internal/external storage and chooses to relocate existing
+    // downloads rather than leave them behind or delete them.
+    suspend fun moveDownloads(
+        fromStorageIndex: Int,
+        toStorageIndex: Int,
+        onProgress: suspend (done: Int, total: Int) -> Unit = { _, _ -> },
+    )
+
+    // Deletes every downloaded (LOCAL) source currently under fromStorageIndex's volume via the
+    // same cascade as deleteItem(), so those items simply fall back to streaming.
+    suspend fun clearDownloads(
+        fromStorageIndex: Int,
+        onProgress: suspend (done: Int, total: Int) -> Unit = { _, _ -> },
+    )
+
+    // Enqueues a background deletion of every item in itemIds (movies and/or episodes), via the
+    // same deleteItem() cascade, so the Downloads page's single/bulk/clear-all delete actions
+    // survive the app being backgrounded and show progress instead of blocking silently. Multiple
+    // calls are processed sequentially (one batch after another), not concurrently.
+    suspend fun deleteItems(itemIds: List<UUID>)
+
+    // Emits the progress of the currently running (or most recently finished) deleteItems() batch,
+    // or null if none has run yet / the last one fully drained. Backed by WorkManager's unique
+    // work info for the shared "deleteDownloads" work chain.
+    fun getDeleteProgressFlow(): Flow<DeleteProgress?>
 }

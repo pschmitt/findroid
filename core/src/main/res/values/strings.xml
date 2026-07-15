@@ -57,6 +57,7 @@
     <string name="sort_by">Sort by</string>
     <string name="sort_order">Sort order</string>
     <string name="close">Close</string>
+    <string name="info">Info</string>
     <string name="share">Share</string>
     <string name="image_description_poster">%1$s poster</string>
     <string name="image_description_backdrop">%1$s backdrop</string>
@@ -71,6 +72,7 @@
     <string name="descending">Descending</string>
     <string name="runtime_minutes">%1$d mins</string>
     <string name="runtime_minutes_left">%1$d mins left</string>
+    <string name="restart_from_beginning">Restart</string>
     <string name="select_video_version_title">Select version</string>
     <string name="track_selection">[%1$s] %2$s (%3$s)</string>
     <string name="add">Add</string>
@@ -78,6 +80,7 @@
     <string name="video">Video</string>
     <string name="audio">Audio</string>
     <string name="subtitle">Subtitles</string>
+    <string name="download_file_path">Download location</string>
     <string name="subtitle_chip_text">CC</string>
     <string name="temp">temp</string>
     <string name="offline_mode">Offline Mode</string>
@@ -91,10 +94,19 @@
     <string name="internal">Internal</string>
     <string name="external">External</string>
     <string name="storage_name">%1$s (%2$d MB free)</string>
+    <string name="relocate_downloads_notification_moving">Moving downloads…</string>
+    <string name="relocate_downloads_notification_clearing">Clearing old downloads…</string>
+    <string name="relocate_downloads_notification_done">Downloads relocated</string>
+    <string name="relocate_downloads_progress_moving">Moving downloads: %1$d of %2$d</string>
+    <string name="relocate_downloads_progress_clearing">Clearing old downloads: %1$d of %2$d</string>
+    <string name="delete_downloads_notification_deleting">Deleting downloads…</string>
+    <string name="delete_downloads_notification_done">Downloads deleted</string>
+    <string name="delete_downloads_progress">Deleting %1$d of %2$d</string>
     <string name="preparing_download">Preparing download</string>
     <string name="cancel_download">Cancel download</string>
     <string name="cancel_download_message">Are you sure you want to cancel the download?</string>
     <string name="delete_download">Delete download</string>
+    <string name="delete_download_with_size">Delete download (%1$s)</string>
     <string name="delete_download_message">Are you sure you want to delete this download from you device?</string>
     <string name="stop_download">Stop download</string>
     <string name="privacy_policy_notice">By using Findroid you agree with the <a href='https://raw.githubusercontent.com/jarnedemeulemeester/findroid/main/PRIVACY'>Privacy Policy</a> which states that we do not collect any data</string>
@@ -173,6 +185,7 @@
     <string name="auto_download_only_new_episodes">Only new episodes (no backfill)</string>
     <string name="clear_all_downloads">Clear all downloads</string>
     <string name="clear_all_downloads_message">This will delete every downloaded movie and episode on this device.</string>
+    <string name="downloads_disk_usage">%1$s downloaded</string>
     <string name="clear_show_downloads">Delete show downloads</string>
     <string name="clear_show_downloads_message">This will delete every downloaded episode of this show on this device.</string>
     <string name="also_remove_auto_download_rules">Also remove auto-download rules</string>

@@ -6,16 +6,22 @@ import android.os.Build
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.recalculateWindowInsets
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,6 +30,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -35,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.presentation.settings.components.DownloadLocationChangeDialog
 import dev.jdtech.jellyfin.presentation.settings.components.SettingsGroupCard
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
@@ -43,12 +53,14 @@ import dev.jdtech.jellyfin.settings.R as SettingsR
 import dev.jdtech.jellyfin.settings.presentation.enums.DeviceType
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceCategory
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceGroup
+import dev.jdtech.jellyfin.settings.presentation.settings.RelocateDownloadsMode
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsAction
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsEvent
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsState
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsViewModel
 import dev.jdtech.jellyfin.utils.ObserveAsEvents
 import dev.jdtech.jellyfin.utils.restart
+import dev.jdtech.jellyfin.work.RelocateDownloadsWorker
 import timber.log.Timber
 
 @Composable
@@ -67,6 +79,8 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    var pendingLocationChange by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     LaunchedEffect(true) { viewModel.loadPreferences(indexes, DeviceType.PHONE) }
 
@@ -119,22 +133,48 @@ fun SettingsScreen(
                     (context as Activity).restart()
                 } catch (_: Exception) {}
             }
+            is SettingsEvent.DownloadLocationChanged -> {
+                pendingLocationChange = event.from to event.to
+            }
         }
     }
 
+    val onAction: (SettingsAction) -> Unit = { action ->
+        when (action) {
+            is SettingsAction.OnBackClick -> navigateBack()
+            is SettingsAction.OnUpdate -> {
+                viewModel.onAction(action)
+                viewModel.loadPreferences(indexes, DeviceType.PHONE)
+            }
+            is SettingsAction.OnRelocateDownloads -> {
+                enqueueRelocateDownloadsWork(context, action.mode, action.from, action.to)
+            }
+        }
+    }
+
+    val relocateProgress = rememberRelocateDownloadsProgress()
     SettingsScreenLayout(
         title = indexes.last(),
         state = state,
-        onAction = { action ->
-            when (action) {
-                is SettingsAction.OnBackClick -> navigateBack()
-                is SettingsAction.OnUpdate -> {
-                    viewModel.onAction(action)
-                    viewModel.loadPreferences(indexes, DeviceType.PHONE)
-                }
-            }
-        },
+        onAction = onAction,
+        relocateProgress = relocateProgress,
     )
+
+    pendingLocationChange?.let { (from, to) ->
+        DownloadLocationChangeDialog(
+            from = from,
+            to = to,
+            onMove = {
+                onAction(SettingsAction.OnRelocateDownloads(RelocateDownloadsMode.MOVE, from, to))
+                pendingLocationChange = null
+            },
+            onClear = {
+                onAction(SettingsAction.OnRelocateDownloads(RelocateDownloadsMode.CLEAR, from, to))
+                pendingLocationChange = null
+            },
+            onDismissRequest = { pendingLocationChange = null },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -143,6 +183,7 @@ private fun SettingsScreenLayout(
     @StringRes title: Int,
     state: SettingsState,
     onAction: (SettingsAction) -> Unit,
+    relocateProgress: RelocateDownloadsProgress? = null,
 ) {
     val contentPadding = PaddingValues(all = MaterialTheme.spacings.default)
 
@@ -153,6 +194,7 @@ private fun SettingsScreenLayout(
             Modifier.fillMaxSize()
                 .recalculateWindowInsets()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
+        bottomBar = { relocateProgress?.let { RelocateProgressCard(it) } },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(title)) },
@@ -181,6 +223,34 @@ private fun SettingsScreenLayout(
                     modifier = Modifier.widthIn(max = 640.dp),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun RelocateProgressCard(progress: RelocateDownloadsProgress) {
+    Card(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.default)) {
+        Column(modifier = Modifier.padding(MaterialTheme.spacings.default)) {
+            Text(
+                text =
+                    stringResource(
+                        if (progress.mode == RelocateDownloadsWorker.MODE_CLEAR) {
+                            CoreR.string.relocate_downloads_progress_clearing
+                        } else {
+                            CoreR.string.relocate_downloads_progress_moving
+                        },
+                        progress.done,
+                        progress.total,
+                    ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
+            LinearProgressIndicator(
+                progress = {
+                    if (progress.total > 0) progress.done / progress.total.toFloat() else 0f
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

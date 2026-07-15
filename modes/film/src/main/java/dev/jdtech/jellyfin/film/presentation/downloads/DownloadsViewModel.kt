@@ -15,7 +15,6 @@ import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.Downloader
-import dev.jdtech.jellyfin.utils.clearDownloads
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +55,11 @@ constructor(
                     delay(REFRESH_INTERVAL_MS)
                 }
             }
+        viewModelScope.launch {
+            downloader.getDeleteProgressFlow().collect { progress ->
+                _state.value = _state.value.copy(deleteProgress = progress)
+            }
+        }
     }
 
     private suspend fun refresh() {
@@ -160,22 +164,14 @@ constructor(
 
     fun deleteSelected() {
         viewModelScope.launch {
-            val selectedIds = _state.value.selectedIds
-            val items: List<FindroidItem> =
-                _state.value.movies.filter { it.id in selectedIds } +
-                    _state.value.showGroups.flatMap { it.episodes }.filter { it.id in selectedIds }
-            clearDownloads(items, database, downloader)
+            downloader.deleteItems(_state.value.selectedIds.toList())
             refresh()
         }
     }
 
     fun deleteItem(id: UUID) {
         viewModelScope.launch {
-            val item: FindroidItem =
-                _state.value.movies.find { it.id == id }
-                    ?: _state.value.showGroups.flatMap { it.episodes }.find { it.id == id }
-                    ?: return@launch
-            clearDownloads(listOf(item), database, downloader)
+            downloader.deleteItems(listOf(id))
             _state.value = _state.value.copy(selectedIds = _state.value.selectedIds - id)
             refresh()
         }
@@ -220,14 +216,12 @@ constructor(
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
             val userId = repository.getUserId()
 
-            val items: List<FindroidItem> =
+            val itemIds =
                 withContext(Dispatchers.Default) {
-                    database.getMoviesByServerId(serverId).map { it.toFindroidMovie(database, userId) } +
-                        database.getEpisodesByServerId(serverId).map {
-                            it.toFindroidEpisode(database, userId)
-                        }
+                    database.getMoviesByServerId(serverId).map { it.id } +
+                        database.getEpisodesByServerId(serverId).map { it.id }
                 }
-            clearDownloads(items, database, downloader)
+            downloader.deleteItems(itemIds)
 
             if (alsoRemoveRules) {
                 autoDownloadRuleRepository.deleteAllRules(serverId, userId)
