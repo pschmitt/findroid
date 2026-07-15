@@ -215,7 +215,7 @@
     <string name="download_scope_also_new">Automatically download new episodes</string>
     <string name="download_scope_remove">Remove</string>
     <string name="download">Download</string>
-    <string name="clear_season_downloads">Delete season downloads</string>
+    <string name="clear_season_downloads">Delete downloads</string>
     <string name="clear_season_downloads_message">This will delete every downloaded episode of this season on this device.</string>
     <string name="manage_downloads_select_all">Select all</string>
     <string name="delete_selected_downloads">Delete selected downloads</string>

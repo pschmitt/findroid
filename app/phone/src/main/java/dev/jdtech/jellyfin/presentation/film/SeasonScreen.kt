@@ -60,6 +60,7 @@ import dev.jdtech.jellyfin.presentation.film.components.EpisodeCard
 import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
 import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemPoster
+import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
@@ -132,6 +133,14 @@ private fun SeasonScreenLayout(
                         item = season,
                         lazyListState = lazyListState,
                         content = {
+                            PlayOverlayButton(
+                                item = season,
+                                onClick = {
+                                    onAction(SeasonAction.Play(startFromBeginning = false))
+                                },
+                                enabled = season.canPlay && state.episodes.isNotEmpty(),
+                                modifier = Modifier.align(Alignment.Center),
+                            )
                             Row(
                                 modifier =
                                     Modifier.align(Alignment.BottomStart)
@@ -186,7 +195,6 @@ private fun SeasonScreenLayout(
                         onDownloadDeleteClick = {},
                         modifier =
                             Modifier.padding(start = paddingStart, end = paddingEnd).fillMaxWidth(),
-                        canPlay = state.episodes.isNotEmpty(),
                         downloaderState = DownloaderState(),
                         enableDownloadDialog = true,
                         getSeasons = getSeasons,

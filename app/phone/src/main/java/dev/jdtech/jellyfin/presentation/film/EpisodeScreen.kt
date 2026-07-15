@@ -62,6 +62,7 @@ import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
 import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
+import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.LocalOfflineMode
@@ -161,6 +162,12 @@ private fun EpisodeScreenLayout(
                     item = episode,
                     scrollState = scrollState,
                     content = {
+                        PlayOverlayButton(
+                            item = episode,
+                            onClick = { onAction(EpisodeAction.Play(startFromBeginning = false)) },
+                            enabled = episode.canPlay,
+                            modifier = Modifier.align(Alignment.Center),
+                        )
                         Column(
                             modifier =
                                 Modifier.align(Alignment.BottomStart)

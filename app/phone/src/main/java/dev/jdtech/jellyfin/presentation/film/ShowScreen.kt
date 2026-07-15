@@ -64,6 +64,7 @@ import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemPoster
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
+import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
@@ -134,6 +135,12 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                     item = show,
                     scrollState = scrollState,
                     content = {
+                        PlayOverlayButton(
+                            item = show,
+                            onClick = { onAction(ShowAction.Play(startFromBeginning = false)) },
+                            enabled = show.canPlay && state.seasons.isNotEmpty(),
+                            modifier = Modifier.align(Alignment.Center),
+                        )
                         Column(
                             modifier =
                                 Modifier.align(Alignment.BottomStart)
@@ -218,7 +225,6 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         onDownloadCancelClick = {},
                         onDownloadDeleteClick = {},
                         modifier = Modifier.fillMaxWidth(),
-                        canPlay = state.seasons.isNotEmpty(),
                         downloaderState = DownloaderState(),
                         enableDownloadDialog = true,
                         initialSelection =

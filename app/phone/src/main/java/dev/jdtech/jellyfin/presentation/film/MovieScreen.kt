@@ -57,6 +57,7 @@ import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
 import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
+import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.LocalOfflineMode
@@ -156,6 +157,12 @@ private fun MovieScreenLayout(
                     item = movie,
                     scrollState = scrollState,
                     content = {
+                        PlayOverlayButton(
+                            item = movie,
+                            onClick = { onAction(MovieAction.Play(startFromBeginning = false)) },
+                            enabled = movie.canPlay,
+                            modifier = Modifier.align(Alignment.Center),
+                        )
                         Column(
                             modifier =
                                 Modifier.align(Alignment.BottomStart)

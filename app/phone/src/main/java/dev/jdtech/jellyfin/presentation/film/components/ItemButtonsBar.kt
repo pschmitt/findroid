@@ -24,7 +24,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +39,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.window.core.layout.WindowSizeClass
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
@@ -76,7 +74,6 @@ fun ItemButtonsBar(
     onTrailerClick: (uri: String) -> Unit,
     modifier: Modifier = Modifier,
     downloaderState: DownloaderState? = null,
-    canPlay: Boolean = true,
     downloadLocationPreference: String = "ask",
     enableDownloadDialog: Boolean = false,
     showEpisodeDownloadOption: Boolean = false,
@@ -95,7 +92,6 @@ fun ItemButtonsBar(
     trailingContent: @Composable FlowRowScope.() -> Unit = {},
 ) {
     val context = LocalContext.current
-    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
     val trailerUri =
         when (item) {
@@ -146,35 +142,10 @@ fun ItemButtonsBar(
             modifier = modifier,
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
         ) {
-            if (
-                !windowSizeClass.isWidthAtLeastBreakpoint(
-                    WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND
-                )
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
-                    PlayButton(
-                        item = item,
-                        onClick = { onPlayClick(false) },
-                        modifier = Modifier.weight(weight = 1f, fill = true),
-                        enabled = item.canPlay && canPlay,
-                    )
-                }
-            }
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
             ) {
-                if (
-                    windowSizeClass.isWidthAtLeastBreakpoint(
-                        WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND
-                    )
-                ) {
-                    PlayButton(
-                        item = item,
-                        onClick = { onPlayClick(false) },
-                        enabled = item.canPlay && canPlay,
-                    )
-                }
                 FilledTonalButton(onClick = onMarkAsPlayedClick) {
                     Icon(
                         painter = painterResource(CoreR.drawable.ic_check),
