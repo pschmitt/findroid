@@ -425,15 +425,6 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                         appPreferences.playerSeekForwardInc,
                                                     suffixRes = R.string.ms,
                                                 ),
-                                                PreferenceSwitch(
-                                                    nameStringResource =
-                                                        R.string.pref_player_chapter_markers,
-                                                    descriptionStringRes =
-                                                        R.string
-                                                            .pref_player_chapter_markers_summary,
-                                                    backendPreference =
-                                                        appPreferences.playerChapterMarkers,
-                                                ),
                                             ),
                                     ),
                                     PreferenceGroup(
