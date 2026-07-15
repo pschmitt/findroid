@@ -11,6 +11,8 @@ import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -31,6 +33,8 @@ constructor(
 
     lateinit var sortBy: SortBy
     lateinit var sortOrder: SortOrder
+
+    private var searchJob: Job? = null
 
     fun setup(parentId: UUID, libraryType: CollectionType) {
         this.parentId = parentId
@@ -72,6 +76,7 @@ constructor(
                                 else sortBy, // Jellyfin uses a different enum for sorting series by
                             // data played
                             sortOrder = sortOrder,
+                            searchTerm = _state.value.searchQuery.trim().ifBlank { null },
                         )
                         .cachedIn(viewModelScope)
                 _state.emit(_state.value.copy(items = items))
@@ -107,7 +112,20 @@ constructor(
                     loadItems()
                 }
             }
+            is LibraryAction.OnSearchQueryChange -> {
+                _state.value = _state.value.copy(searchQuery = action.query)
+                searchJob?.cancel()
+                searchJob =
+                    viewModelScope.launch {
+                        delay(SEARCH_DEBOUNCE_MS)
+                        loadItems()
+                    }
+            }
             else -> Unit
         }
+    }
+
+    companion object {
+        private const val SEARCH_DEBOUNCE_MS = 300L
     }
 }

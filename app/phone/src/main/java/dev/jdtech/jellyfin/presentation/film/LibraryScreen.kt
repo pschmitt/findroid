@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.recalculateWindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -28,8 +32,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -108,6 +117,15 @@ private fun LibraryScreenLayout(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showSortByDialog by remember { mutableStateOf(false) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    val searchFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(searchExpanded) {
+        if (searchExpanded) {
+            searchFocusRequester.requestFocus()
+        }
+    }
 
     Scaffold(
         modifier =
@@ -116,9 +134,42 @@ private fun LibraryScreenLayout(
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(libraryName) },
+                title = {
+                    if (searchExpanded) {
+                        TextField(
+                            value = state.searchQuery,
+                            onValueChange = {
+                                onAction(LibraryAction.OnSearchQueryChange(it))
+                            },
+                            modifier =
+                                Modifier.fillMaxWidth().focusRequester(searchFocusRequester),
+                            placeholder = { Text(libraryName) },
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                            ),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions =
+                                KeyboardActions(onSearch = { keyboardController?.hide() }),
+                        )
+                    } else {
+                        Text(libraryName)
+                    }
+                },
                 navigationIcon = {
-                    IconButton(onClick = { onAction(LibraryAction.OnBackClick) }) {
+                    IconButton(
+                        onClick = {
+                            if (searchExpanded) {
+                                searchExpanded = false
+                                onAction(LibraryAction.OnSearchQueryChange(""))
+                            } else {
+                                onAction(LibraryAction.OnBackClick)
+                            }
+                        }
+                    ) {
                         Icon(
                             painter = painterResource(CoreR.drawable.ic_arrow_left),
                             contentDescription = null,
@@ -126,11 +177,30 @@ private fun LibraryScreenLayout(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showSortByDialog = true }) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_arrow_down_up),
-                            contentDescription = null,
-                        )
+                    if (searchExpanded) {
+                        if (state.searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { onAction(LibraryAction.OnSearchQueryChange("")) }
+                            ) {
+                                Icon(
+                                    painter = painterResource(CoreR.drawable.ic_x),
+                                    contentDescription = null,
+                                )
+                            }
+                        }
+                    } else {
+                        IconButton(onClick = { searchExpanded = true }) {
+                            Icon(
+                                painter = painterResource(CoreR.drawable.ic_search),
+                                contentDescription = null,
+                            )
+                        }
+                        IconButton(onClick = { showSortByDialog = true }) {
+                            Icon(
+                                painter = painterResource(CoreR.drawable.ic_arrow_down_up),
+                                contentDescription = null,
+                            )
+                        }
                     }
                 },
                 windowInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout),

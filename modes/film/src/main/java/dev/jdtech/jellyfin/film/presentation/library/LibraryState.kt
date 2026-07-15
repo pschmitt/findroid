@@ -13,4 +13,5 @@ data class LibraryState(
     val sortOrder: SortOrder = SortOrder.ASCENDING,
     val isLoading: Boolean = false,
     val error: Exception? = null,
+    val searchQuery: String = "",
 )

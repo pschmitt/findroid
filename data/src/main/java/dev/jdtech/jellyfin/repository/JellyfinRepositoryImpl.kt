@@ -124,6 +124,7 @@ class JellyfinRepositoryImpl(
         sortOrder: SortOrder,
         startIndex: Int?,
         limit: Int?,
+        searchTerm: String?,
     ): List<FindroidItem> =
         withContext(Dispatchers.IO) {
             jellyfinApi.itemsApi
@@ -136,6 +137,7 @@ class JellyfinRepositoryImpl(
                     sortOrder = listOf(ItemSortOrder.fromName(sortOrder.sortString)),
                     startIndex = startIndex,
                     limit = limit,
+                    searchTerm = searchTerm,
                 )
                 .content
                 .items
@@ -148,11 +150,20 @@ class JellyfinRepositoryImpl(
         recursive: Boolean,
         sortBy: SortBy,
         sortOrder: SortOrder,
+        searchTerm: String?,
     ): Flow<PagingData<FindroidItem>> {
         return Pager(
                 config = PagingConfig(pageSize = 10, enablePlaceholders = false),
                 pagingSourceFactory = {
-                    ItemsPagingSource(this, parentId, includeTypes, recursive, sortBy, sortOrder)
+                    ItemsPagingSource(
+                        this,
+                        parentId,
+                        includeTypes,
+                        recursive,
+                        sortBy,
+                        sortOrder,
+                        searchTerm,
+                    )
                 },
             )
             .flow
