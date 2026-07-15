@@ -3,12 +3,15 @@ package dev.jdtech.jellyfin.presentation.film.components
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -61,6 +64,12 @@ fun DeleteDownloadDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDelete) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_trash),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                 Text(
                     text = stringResource(CoreR.string.delete_download),
                     color = MaterialTheme.colorScheme.error,
@@ -68,7 +77,11 @@ fun DeleteDownloadDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
+            TextButton(onClick = onDismiss) {
+                Icon(painter = painterResource(CoreR.drawable.ic_x), contentDescription = null)
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.cancel))
+            }
         },
     )
 }

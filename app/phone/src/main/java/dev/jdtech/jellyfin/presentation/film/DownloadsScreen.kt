@@ -812,6 +812,12 @@ private fun DeleteSelectedDownloadsDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onConfirm) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_trash),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                 Text(
                     text = stringResource(CoreR.string.delete_download),
                     color = MaterialTheme.colorScheme.error,
@@ -819,7 +825,11 @@ private fun DeleteSelectedDownloadsDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
+            TextButton(onClick = onDismiss) {
+                Icon(painter = painterResource(CoreR.drawable.ic_x), contentDescription = null)
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.cancel))
+            }
         },
     )
 }
@@ -864,6 +874,12 @@ private fun DeleteSingleDownloadDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onConfirm) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_trash),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                 Text(
                     text = stringResource(CoreR.string.delete_download),
                     color = MaterialTheme.colorScheme.error,
@@ -871,7 +887,11 @@ private fun DeleteSingleDownloadDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
+            TextButton(onClick = onDismiss) {
+                Icon(painter = painterResource(CoreR.drawable.ic_x), contentDescription = null)
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.cancel))
+            }
         },
     )
 }
