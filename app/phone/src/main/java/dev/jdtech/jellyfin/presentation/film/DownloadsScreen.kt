@@ -789,6 +789,13 @@ private fun DeleteSelectedDownloadsDialog(
 ) {
     val context = LocalContext.current
     AlertDialog(
+        icon = {
+            Icon(
+                painter = painterResource(CoreR.drawable.ic_trash),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+            )
+        },
         title = { Text(text = stringResource(CoreR.string.delete_selected_downloads)) },
         text = {
             Column {
@@ -804,7 +811,12 @@ private fun DeleteSelectedDownloadsDialog(
         },
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text(text = stringResource(CoreR.string.delete_download)) }
+            TextButton(onClick = onConfirm) {
+                Text(
+                    text = stringResource(CoreR.string.delete_download),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
@@ -822,6 +834,13 @@ private fun DeleteSingleDownloadDialog(
 ) {
     val context = LocalContext.current
     AlertDialog(
+        icon = {
+            Icon(
+                painter = painterResource(CoreR.drawable.ic_trash),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+            )
+        },
         title = { Text(text = stringResource(CoreR.string.delete_download)) },
         text = {
             Column {
@@ -844,7 +863,12 @@ private fun DeleteSingleDownloadDialog(
         },
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text(text = stringResource(CoreR.string.delete_download)) }
+            TextButton(onClick = onConfirm) {
+                Text(
+                    text = stringResource(CoreR.string.delete_download),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }

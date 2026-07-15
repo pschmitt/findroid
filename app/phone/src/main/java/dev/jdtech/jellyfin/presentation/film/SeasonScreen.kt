@@ -64,6 +64,7 @@ import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.displayNameWithContext
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
 import java.util.UUID
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -293,6 +294,7 @@ private fun SeasonScreenLayout(
         ClearDownloadsDialog(
             title = stringResource(CoreR.string.clear_season_downloads),
             message = stringResource(CoreR.string.clear_season_downloads_message),
+            name = state.season?.displayNameWithContext(),
             sizeBytes = state.downloadsSizeBytes,
             onConfirm = { alsoRemoveRules ->
                 onAction(SeasonAction.DeleteSeasonDownloads(alsoRemoveRules))

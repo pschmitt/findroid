@@ -51,6 +51,7 @@ import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.displayNameWithContext
 import dev.jdtech.jellyfin.utils.resolveDownloadStorageIndex
 
 private data class OverflowAction(
@@ -348,6 +349,7 @@ fun ItemButtonsBar(
                     deleteDownloadDialogOpen = false
                 },
                 onDismiss = { deleteDownloadDialogOpen = false },
+                name = item.displayNameWithContext(),
                 path = downloadedSource?.path,
                 sizeBytes = downloadedSource?.size,
             )

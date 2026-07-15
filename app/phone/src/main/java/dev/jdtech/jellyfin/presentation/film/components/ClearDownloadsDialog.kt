@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import dev.jdtech.jellyfin.core.R as CoreR
@@ -31,6 +33,7 @@ fun ClearDownloadsDialog(
     message: String,
     onConfirm: (checkboxChecked: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    name: String? = null,
     sizeBytes: Long? = null,
     checkboxLabel: String = stringResource(CoreR.string.also_remove_auto_download_rules),
     checkboxSummary: String = stringResource(CoreR.string.also_remove_auto_download_rules_summary),
@@ -40,10 +43,21 @@ fun ClearDownloadsDialog(
     val context = LocalContext.current
 
     AlertDialog(
+        icon = {
+            Icon(
+                painter = painterResource(CoreR.drawable.ic_trash),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+            )
+        },
         title = { Text(text = title) },
         text = {
             Column {
                 Text(text = message)
+                if (name != null) {
+                    Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
+                    Text(text = name, style = MaterialTheme.typography.bodyMedium)
+                }
                 if (sizeBytes != null) {
                     Text(
                         text = Formatter.formatFileSize(context, sizeBytes),
@@ -70,7 +84,10 @@ fun ClearDownloadsDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = { onConfirm(checkboxChecked) }) {
-                Text(text = stringResource(CoreR.string.delete_download))
+                Text(
+                    text = stringResource(CoreR.string.delete_download),
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         },
         dismissButton = {

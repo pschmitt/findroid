@@ -368,6 +368,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
         ClearDownloadsDialog(
             title = stringResource(CoreR.string.clear_show_downloads),
             message = stringResource(CoreR.string.clear_show_downloads_message),
+            name = state.show?.name,
             sizeBytes = state.downloadsSizeBytes,
             onConfirm = { alsoRemoveRules ->
                 onAction(ShowAction.DeleteShowDownloads(alsoRemoveRules))

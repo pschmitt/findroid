@@ -219,6 +219,7 @@ private fun AutoDownloadShowRuleRow(
         ClearDownloadsDialog(
             title = stringResource(CoreR.string.delete_auto_download_rule),
             message = stringResource(CoreR.string.delete_auto_download_rule_message),
+            name = show.showName,
             checkboxLabel = stringResource(CoreR.string.also_delete_downloaded_episodes),
             checkboxSummary = stringResource(CoreR.string.also_delete_downloaded_episodes_summary),
             checkboxDefault = false,

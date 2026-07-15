@@ -5,7 +5,9 @@ import android.content.Intent
 import android.content.res.Resources
 import android.util.Base64
 import dev.jdtech.jellyfin.models.CollectionType
+import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
+import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.View
 import java.nio.charset.StandardCharsets
 import java.text.DateFormat
@@ -53,6 +55,16 @@ fun String.base64ToByteArray(): ByteArray {
 fun ByteArray.toBase64Str(): String {
     return Base64.encodeToString(this, Base64.URL_SAFE or Base64.NO_WRAP)
 }
+
+// For episodes/seasons, `.name` alone ("Pilot", "Season 1") is ambiguous out of context - this
+// adds the show (and, for episodes, season/episode number) so delete confirmations read
+// unambiguously, e.g. "Breaking Bad • S1E1 • Pilot".
+fun FindroidItem.displayNameWithContext(): String =
+    when (this) {
+        is FindroidEpisode -> "$seriesName • S${parentIndexNumber}E$indexNumber • $name"
+        is FindroidSeason -> "$seriesName • $name"
+        else -> name
+    }
 
 // [pattern] is the raw "pref_date_format" preference value ("system"/"iso"/"dmy"/"mdy") - see
 // AppPreferences.dateFormat. Falls back to the locale-based system short date format for
