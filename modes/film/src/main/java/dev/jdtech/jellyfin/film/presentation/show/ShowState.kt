@@ -4,6 +4,7 @@ import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItemPerson
 import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidShow
+import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 
 data class ShowState(
     val show: FindroidShow? = null,
@@ -13,6 +14,7 @@ data class ShowState(
     val director: FindroidItemPerson? = null,
     val writers: List<FindroidItemPerson> = emptyList(),
     val autoDownloadEnabled: Boolean = false,
+    val existingScope: ExistingAutoDownloadScope = ExistingAutoDownloadScope(),
     val hasDownloads: Boolean = false,
     val error: Exception? = null,
 )

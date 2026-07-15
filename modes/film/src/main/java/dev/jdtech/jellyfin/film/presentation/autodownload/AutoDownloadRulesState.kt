@@ -5,13 +5,14 @@ import java.util.UUID
 
 data class AutoDownloadShowRuleUiModel(
     val seriesId: UUID,
-    // all rule ids currently covering this show (normally exactly one; can be more if rules
-    // predate the "one active rule per show" invariant, until the group is next edited)
+    // every rule id covering this show - a season-specific row per selected season, plus an
+    // optional show-level (seasonId == null) row when alsoFutureSeasons is on. These coexist by
+    // design; they're not alternatives to each other.
     val ruleIds: List<Long>,
     val showName: String,
     val enabled: Boolean,
-    val entireShow: Boolean,
     val seasonIds: Set<UUID>,
+    val alsoFutureSeasons: Boolean,
     val scopeLabel: UiText,
     val onlyNewEpisodes: Boolean,
     val onlyUnwatched: Boolean,

@@ -152,7 +152,17 @@ private fun AutoDownloadShowRuleRow(
                 Icon(painter = painterResource(CoreR.drawable.ic_tv), contentDescription = null)
             },
             headlineContent = { Text(text = show.showName) },
-            supportingContent = { Text(text = show.scopeLabel.asString()) },
+            supportingContent = {
+                Column {
+                    Text(text = show.scopeLabel.asString())
+                    if (show.seasonIds.isNotEmpty() && show.alsoFutureSeasons) {
+                        Text(
+                            text = stringResource(CoreR.string.download_scope_future_seasons),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            },
             trailingContent = {
                 Row {
                     Switch(
@@ -189,12 +199,12 @@ private fun AutoDownloadShowRuleRow(
         EditRuleDialog(
             show = show,
             getSeasons = getSeasons,
-            onConfirm = { entireShow, seasonIds, onlyNewEpisodes, onlyUnwatched ->
+            onConfirm = { seasonIds, alsoFutureSeasons, onlyNewEpisodes, onlyUnwatched ->
                 onAction(
                     AutoDownloadRulesAction.UpdateShowRule(
                         show.seriesId,
-                        entireShow,
                         seasonIds,
+                        alsoFutureSeasons,
                         onlyNewEpisodes,
                         onlyUnwatched,
                     )
@@ -234,18 +244,23 @@ private fun EditRuleDialog(
     show: AutoDownloadShowRuleUiModel,
     getSeasons: suspend (UUID) -> List<FindroidSeason>,
     onConfirm:
-        (entireShow: Boolean, seasonIds: Set<UUID>, onlyNewEpisodes: Boolean, onlyUnwatched: Boolean) -> Unit,
+        (
+            seasonIds: Set<UUID>,
+            alsoFutureSeasons: Boolean,
+            onlyNewEpisodes: Boolean,
+            onlyUnwatched: Boolean,
+        ) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var seasons by remember { mutableStateOf<List<FindroidSeason>?>(null) }
-    var entireShow by remember { mutableStateOf(show.entireShow) }
     var selectedSeasonIds by remember { mutableStateOf(show.seasonIds) }
+    var alsoFutureSeasons by remember { mutableStateOf(show.alsoFutureSeasons) }
     var onlyNewEpisodes by remember { mutableStateOf(show.onlyNewEpisodes) }
     var onlyUnwatched by remember { mutableStateOf(show.onlyUnwatched) }
 
     LaunchedEffect(show.seriesId) { seasons = getSeasons(show.seriesId) }
 
-    val canConfirm = entireShow || selectedSeasonIds.isNotEmpty()
+    val canConfirm = selectedSeasonIds.isNotEmpty() || alsoFutureSeasons
 
     AlertDialog(
         title = { Text(text = stringResource(CoreR.string.edit_auto_download_rule)) },
@@ -259,24 +274,25 @@ private fun EditRuleDialog(
                     CircularProgressIndicator()
                 }
             } else {
+                val allSeasonIds = currentSeasons.map { it.id }.toSet()
                 Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
-                    ToggleOptionRow(
-                        checked = entireShow,
-                        label = stringResource(CoreR.string.edit_rule_scope_entire_show),
-                        icon = CoreR.drawable.ic_tv,
-                        onToggle = {
-                            entireShow = it
-                            if (it) selectedSeasonIds = emptySet()
-                        },
-                    )
+                    if (allSeasonIds.isNotEmpty()) {
+                        ToggleOptionRow(
+                            checked = selectedSeasonIds.containsAll(allSeasonIds),
+                            label = stringResource(CoreR.string.edit_rule_scope_entire_show),
+                            icon = CoreR.drawable.ic_tv,
+                            onToggle = { checked ->
+                                selectedSeasonIds = if (checked) allSeasonIds else emptySet()
+                            },
+                        )
+                    }
                     currentSeasons.forEach { season ->
                         ToggleOptionRow(
-                            checked = !entireShow && season.id in selectedSeasonIds,
+                            checked = season.id in selectedSeasonIds,
                             label =
                                 stringResource(CoreR.string.auto_download_rule_season, season.indexNumber),
                             icon = CoreR.drawable.ic_library,
                             onToggle = { checked ->
-                                entireShow = false
                                 selectedSeasonIds =
                                     if (checked) selectedSeasonIds + season.id
                                     else selectedSeasonIds - season.id
@@ -285,17 +301,25 @@ private fun EditRuleDialog(
                     }
                     HorizontalDivider()
                     ToggleOptionRow(
+                        checked = alsoFutureSeasons,
+                        label = stringResource(CoreR.string.download_scope_future_seasons),
+                        icon = CoreR.drawable.ic_sparkles,
+                        onToggle = { alsoFutureSeasons = it },
+                    )
+                    ToggleOptionRow(
                         checked = onlyUnwatched,
                         label = stringResource(CoreR.string.download_scope_only_unwatched),
                         icon = CoreR.drawable.ic_eye_off,
                         onToggle = { onlyUnwatched = it },
                     )
-                    ToggleOptionRow(
-                        checked = onlyNewEpisodes,
-                        label = stringResource(CoreR.string.auto_download_only_new_episodes),
-                        icon = CoreR.drawable.ic_sparkles,
-                        onToggle = { onlyNewEpisodes = it },
-                    )
+                    if (selectedSeasonIds.isNotEmpty()) {
+                        ToggleOptionRow(
+                            checked = onlyNewEpisodes,
+                            label = stringResource(CoreR.string.auto_download_only_new_episodes),
+                            icon = CoreR.drawable.ic_refresh_cw,
+                            onToggle = { onlyNewEpisodes = it },
+                        )
+                    }
                 }
             }
         },
@@ -304,7 +328,7 @@ private fun EditRuleDialog(
             TextButton(
                 enabled = seasons != null && canConfirm,
                 onClick = {
-                    onConfirm(entireShow, selectedSeasonIds, onlyNewEpisodes, onlyUnwatched)
+                    onConfirm(selectedSeasonIds, alsoFutureSeasons, onlyNewEpisodes, onlyUnwatched)
                 },
             ) {
                 Text(text = stringResource(CoreR.string.save))
@@ -330,9 +354,10 @@ private fun AutoDownloadRulesScreenLayoutPreview() {
                                 ruleIds = listOf(1L),
                                 showName = "Example Show",
                                 enabled = true,
-                                entireShow = true,
                                 seasonIds = emptySet(),
-                                scopeLabel = UiText.StringResource(CoreR.string.auto_download_rule_show),
+                                alsoFutureSeasons = true,
+                                scopeLabel =
+                                    UiText.StringResource(CoreR.string.auto_download_rule_future_seasons),
                                 onlyNewEpisodes = false,
                                 onlyUnwatched = false,
                             )

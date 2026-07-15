@@ -12,7 +12,9 @@ import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
+import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 import dev.jdtech.jellyfin.repository.JellyfinRepository
+import dev.jdtech.jellyfin.repository.toExistingScope
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.AutoDownloadRuleEvaluator
 import dev.jdtech.jellyfin.utils.Downloader
@@ -54,6 +56,7 @@ constructor(
                 val director = getDirector(show)
                 val writers = getWriters(show)
                 val autoDownloadEnabled = isAutoDownloadEnabled(showId)
+                val existingScope = getExistingScope(showId)
                 val hasDownloads = hasDownloads(showId)
                 _state.emit(
                     _state.value.copy(
@@ -64,6 +67,7 @@ constructor(
                         director = director,
                         writers = writers,
                         autoDownloadEnabled = autoDownloadEnabled,
+                        existingScope = existingScope,
                         hasDownloads = hasDownloads,
                     )
                 )
@@ -79,6 +83,13 @@ constructor(
         return autoDownloadRuleRepository.isShowRuleEnabled(serverId, userId, showId)
     }
 
+    private suspend fun getExistingScope(showId: UUID): ExistingAutoDownloadScope {
+        val serverId = appPreferences.getValue(appPreferences.currentServer)
+            ?: return ExistingAutoDownloadScope()
+        val userId = repository.getUserId()
+        return autoDownloadRuleRepository.getRulesForSeries(serverId, userId, showId).toExistingScope()
+    }
+
     private fun downloadWithScope(
         selection: DownloadSelection,
         alsoFollowNew: Boolean,
@@ -88,10 +99,9 @@ constructor(
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
             val userId = repository.getUserId()
 
-            val entireShowScope = selection.entireShow || selection.futureSeasonsOnly
-            val scopeSeasonIds: List<UUID?> =
-                if (entireShowScope) listOf(null) else selection.seasonIds.toList()
-            for (seasonId in scopeSeasonIds) {
+            // Only the explicitly-picked seasons are downloaded immediately - "auto-download
+            // future seasons" is a no-op today by definition, it only matters once persisted.
+            for (seasonId in selection.seasonIds) {
                 val transientRule =
                     AutoDownloadRuleDto(
                         serverId = serverId,
@@ -100,19 +110,19 @@ constructor(
                         seasonId = seasonId,
                         enabled = true,
                         createdAt = System.currentTimeMillis(),
-                        onlyNewEpisodes = selection.futureSeasonsOnly,
+                        onlyNewEpisodes = false,
                     )
                 evaluator.evaluate(transientRule, database, repository, downloader, onlyUnwatched)
             }
 
-            if (alsoFollowNew) {
+            if (alsoFollowNew || selection.alsoFutureSeasons) {
                 autoDownloadRuleRepository.reconcileRules(
                     serverId = serverId,
                     userId = userId,
                     seriesId = showId,
-                    entireShow = entireShowScope,
-                    seasonIds = selection.seasonIds,
-                    onlyNewEpisodes = selection.futureSeasonsOnly,
+                    seasonIds = if (alsoFollowNew) selection.seasonIds else emptySet(),
+                    alsoFutureSeasons = selection.alsoFutureSeasons,
+                    onlyNewEpisodes = false,
                     onlyUnwatched = onlyUnwatched,
                 )
             }

@@ -11,6 +11,7 @@ import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.JellyfinRepository
+import dev.jdtech.jellyfin.repository.toExistingScope
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.Downloader
 import dev.jdtech.jellyfin.utils.clearDownloads
@@ -73,21 +74,22 @@ constructor(
         rules: List<AutoDownloadRuleDto>,
     ): AutoDownloadShowRuleUiModel {
         val show = repository.getShow(seriesId)
-        // A show-level rule always wins as the representative rule; otherwise fall back to
-        // whichever season rule happens to be first (there should normally be only one).
-        val primary = rules.find { it.seasonId == null } ?: rules.first()
-        val entireShow = primary.seasonId == null
-        val seasonIds = rules.mapNotNull { it.seasonId }.toSet()
+        val scope = rules.toExistingScope()
+        // Season-specific rules are the representative ones for onlyNewEpisodes/onlyUnwatched -
+        // the future-seasons row is always onlyNewEpisodes=true by definition and isn't a useful
+        // representative of the show's actual backfill preference.
+        val primary = rules.find { it.seasonId != null } ?: rules.first()
         val scopeLabel =
             when {
-                entireShow -> UiText.StringResource(CoreR.string.auto_download_rule_show)
-                seasonIds.size > 1 ->
+                scope.seasonIds.isEmpty() ->
+                    UiText.StringResource(CoreR.string.auto_download_rule_future_seasons)
+                scope.seasonIds.size > 1 ->
                     UiText.StringResource(
                         CoreR.string.auto_download_rule_multiple_seasons,
-                        seasonIds.size,
+                        scope.seasonIds.size,
                     )
                 else -> {
-                    val season = repository.getSeason(seasonIds.first())
+                    val season = repository.getSeason(scope.seasonIds.first())
                     UiText.StringResource(CoreR.string.auto_download_rule_season, season.indexNumber)
                 }
             }
@@ -95,9 +97,9 @@ constructor(
             seriesId = seriesId,
             ruleIds = rules.map { it.id },
             showName = show.name,
-            enabled = primary.enabled,
-            entireShow = entireShow,
-            seasonIds = seasonIds,
+            enabled = rules.any { it.enabled },
+            seasonIds = scope.seasonIds,
+            alsoFutureSeasons = scope.alsoFutureSeasons,
             scopeLabel = scopeLabel,
             onlyNewEpisodes = primary.onlyNewEpisodes,
             onlyUnwatched = primary.onlyUnwatched,
@@ -114,8 +116,8 @@ constructor(
 
     private fun updateShowRule(
         seriesId: UUID,
-        entireShow: Boolean,
         seasonIds: Set<UUID>,
+        alsoFutureSeasons: Boolean,
         onlyNewEpisodes: Boolean,
         onlyUnwatched: Boolean,
     ) {
@@ -126,8 +128,8 @@ constructor(
                 serverId = serverId,
                 userId = userId,
                 seriesId = seriesId,
-                entireShow = entireShow,
                 seasonIds = seasonIds,
+                alsoFutureSeasons = alsoFutureSeasons,
                 onlyNewEpisodes = onlyNewEpisodes,
                 onlyUnwatched = onlyUnwatched,
             )
@@ -160,8 +162,8 @@ constructor(
             is AutoDownloadRulesAction.UpdateShowRule ->
                 updateShowRule(
                     action.seriesId,
-                    action.entireShow,
                     action.seasonIds,
+                    action.alsoFutureSeasons,
                     action.onlyNewEpisodes,
                     action.onlyUnwatched,
                 )

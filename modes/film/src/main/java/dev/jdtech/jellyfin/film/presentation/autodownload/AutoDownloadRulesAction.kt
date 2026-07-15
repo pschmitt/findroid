@@ -7,8 +7,8 @@ sealed interface AutoDownloadRulesAction {
 
     data class UpdateShowRule(
         val seriesId: UUID,
-        val entireShow: Boolean,
         val seasonIds: Set<UUID>,
+        val alsoFutureSeasons: Boolean,
         val onlyNewEpisodes: Boolean,
         val onlyUnwatched: Boolean,
     ) : AutoDownloadRulesAction

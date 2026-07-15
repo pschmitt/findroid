@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.models.FindroidSeason
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummySeason
 import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
@@ -188,7 +189,13 @@ private fun SeasonScreenLayout(
                         downloaderState = DownloaderState(),
                         enableDownloadDialog = true,
                         getSeasons = getSeasons,
-                        defaultSeasonId = season.id,
+                        initialSelection =
+                            DownloadSelection(
+                                seasonIds = state.existingScope.seasonIds.ifEmpty { setOf(season.id) },
+                                alsoFutureSeasons = state.existingScope.alsoFutureSeasons,
+                            ),
+                        initialAlsoFollowNew = state.existingScope.alsoFollowNew,
+                        initialOnlyUnwatched = state.existingScope.onlyUnwatched,
                         hasActiveDownloadOrRule = state.hasDownloads || state.autoDownloadEnabled,
                         onDeleteDownloads = { clearSeasonDownloadsDialogOpen = true },
                         downloadIconTint =

@@ -291,6 +291,15 @@ interface ServerDatabaseDao {
     fun getAutoDownloadRules(serverId: String, userId: UUID): List<AutoDownloadRuleDto>
 
     @Query(
+        "SELECT * FROM autoDownloadRules WHERE serverId = :serverId AND userId = :userId AND seriesId = :seriesId"
+    )
+    fun getAutoDownloadRulesForShow(
+        serverId: String,
+        userId: UUID,
+        seriesId: UUID,
+    ): List<AutoDownloadRuleDto>
+
+    @Query(
         "SELECT * FROM autoDownloadRules WHERE serverId = :serverId AND userId = :userId AND enabled = 1"
     )
     fun getEnabledAutoDownloadRules(serverId: String, userId: UUID): List<AutoDownloadRuleDto>
@@ -319,10 +328,13 @@ interface ServerDatabaseDao {
     @Query("DELETE FROM autoDownloadRules WHERE serverId = :serverId AND userId = :userId")
     fun deleteAllAutoDownloadRules(serverId: String, userId: UUID)
 
+    // Only touches season-specific rows - the show-level (seasonId IS NULL) "auto-download future
+    // seasons" row is managed independently and must not be dropped just because the set of
+    // explicitly-selected seasons changed.
     @Query(
-        "DELETE FROM autoDownloadRules WHERE serverId = :serverId AND userId = :userId AND seriesId = :seriesId AND (seasonId IS NULL OR seasonId NOT IN (:keepSeasonIds))"
+        "DELETE FROM autoDownloadRules WHERE serverId = :serverId AND userId = :userId AND seriesId = :seriesId AND seasonId IS NOT NULL AND seasonId NOT IN (:keepSeasonIds)"
     )
-    fun deleteAutoDownloadRulesForShowExceptSeasons(
+    fun deleteSeasonAutoDownloadRulesForShowExceptSeasons(
         serverId: String,
         userId: UUID,
         seriesId: UUID,

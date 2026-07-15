@@ -132,9 +132,13 @@
     <string name="download_queued_toast">Download queued</string>
     <string name="auto_download_rule_season">Season %1$d</string>
     <string name="auto_download_rule_multiple_seasons">%1$d seasons</string>
+    <string name="auto_download_rule_future_seasons">Future seasons only</string>
     <string name="backup_and_restore">Backup &amp; Restore</string>
     <string name="backup_auto_enable">Enable automatic backups</string>
-    <string name="backup_auto_enable_summary">Periodically back up your servers, logins, auto-download rules, and settings to the chosen folder. Automatic backups are never encrypted.</string>
+    <string name="backup_auto_enable_summary">Periodically back up your servers, logins, auto-download rules, and settings to the chosen folder.</string>
+    <string name="backup_auto_password">Backup password</string>
+    <string name="backup_auto_password_summary">Used to encrypt automatic backups. Leave blank for no encryption.</string>
+    <string name="backup_auto_password_hint">Password (optional)</string>
     <string name="backup_auto_interval">Backup interval</string>
     <string name="backup_auto_interval_summary">How often to create an automatic backup. Between 15 and 43200 minutes.</string>
     <string name="backup_folder">Backup folder</string>
@@ -192,7 +196,7 @@
     <string name="download_scope_episode">This episode</string>
     <string name="download_scope_season">This season</string>
     <string name="download_scope_show">Entire show</string>
-    <string name="download_scope_future_seasons">Future seasons</string>
+    <string name="download_scope_future_seasons">Auto-download future seasons</string>
     <string name="download_scope_only_unwatched">Only unwatched episodes</string>
     <string name="download_scope_also_new">Automatically download new episodes</string>
     <string name="download_scope_remove">Remove</string>

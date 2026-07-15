@@ -46,6 +46,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyShow
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
@@ -219,6 +220,13 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         canPlay = state.seasons.isNotEmpty(),
                         downloaderState = DownloaderState(),
                         enableDownloadDialog = true,
+                        initialSelection =
+                            DownloadSelection(
+                                seasonIds = state.existingScope.seasonIds,
+                                alsoFutureSeasons = state.existingScope.alsoFutureSeasons,
+                            ),
+                        initialAlsoFollowNew = state.existingScope.alsoFollowNew,
+                        initialOnlyUnwatched = state.existingScope.onlyUnwatched,
                         getSeasons = { state.seasons },
                         hasActiveDownloadOrRule = state.hasDownloads || state.autoDownloadEnabled,
                         onDeleteDownloads = { clearShowDownloadsDialogOpen = true },

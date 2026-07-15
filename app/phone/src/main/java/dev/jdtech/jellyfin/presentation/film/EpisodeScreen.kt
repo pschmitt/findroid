@@ -43,6 +43,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderAction
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderEvent
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
@@ -318,6 +319,13 @@ private fun EpisodeScreenLayout(
                         modifier = Modifier.fillMaxWidth(),
                         enableDownloadDialog = true,
                         showEpisodeDownloadOption = true,
+                        initialSelection =
+                            DownloadSelection(
+                                seasonIds = state.existingScope.seasonIds,
+                                alsoFutureSeasons = state.existingScope.alsoFutureSeasons,
+                            ),
+                        initialAlsoFollowNew = state.existingScope.alsoFollowNew,
+                        initialOnlyUnwatched = state.existingScope.onlyUnwatched,
                         getSeasons = getSeasons,
                         onBulkDownload = { selection, alsoFollowNew, onlyUnwatched ->
                             onAction(

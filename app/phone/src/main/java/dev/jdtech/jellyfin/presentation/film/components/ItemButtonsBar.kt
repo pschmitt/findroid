@@ -42,7 +42,6 @@ import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
-import java.util.UUID
 
 @Composable
 fun ItemButtonsBar(
@@ -63,7 +62,9 @@ fun ItemButtonsBar(
     downloadLocationPreference: String = "ask",
     enableDownloadDialog: Boolean = false,
     showEpisodeDownloadOption: Boolean = false,
-    defaultSeasonId: UUID? = null,
+    initialSelection: DownloadSelection = DownloadSelection(),
+    initialAlsoFollowNew: Boolean = false,
+    initialOnlyUnwatched: Boolean = false,
     getSeasons: (suspend () -> List<FindroidSeason>)? = null,
     hasActiveDownloadOrRule: Boolean = false,
     onDeleteDownloads: (() -> Unit)? = null,
@@ -295,7 +296,9 @@ fun ItemButtonsBar(
             DownloadScopeDialog(
                 seasons = seasons,
                 showEpisodeOption = showEpisodeDownloadOption,
-                defaultSeasonId = defaultSeasonId,
+                initialSelection = initialSelection,
+                initialAlsoFollowNew = initialAlsoFollowNew,
+                initialOnlyUnwatched = initialOnlyUnwatched,
                 canDelete = hasActiveDownloadOrRule,
                 onDelete =
                     onDeleteDownloads?.let {
