@@ -74,6 +74,9 @@ fun SettingsScreen(
                     Timber.e(e)
                 }
             }
+            // The download-location relocate prompt is phone-only (that preference isn't
+            // shown on TV), so there's nothing for this screen to react to.
+            is SettingsEvent.DownloadLocationChanged -> Unit
         }
     }
 
