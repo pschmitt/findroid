@@ -196,9 +196,22 @@ constructor(
         }
     }
 
+    fun forceGroup(episodeIds: List<UUID>) {
+        viewModelScope.launch {
+            val downloadIds = episodeIds.mapNotNull { downloadIdsByItem[it] }
+            if (downloadIds.isNotEmpty()) downloader.forceDownloadGroup(downloadIds)
+        }
+    }
+
     fun pauseAll() {
         viewModelScope.launch {
             downloadIdsByItem.values.toList().forEach { downloader.pauseDownload(it) }
+        }
+    }
+
+    fun resumeAll() {
+        viewModelScope.launch {
+            downloadIdsByItem.values.toList().forEach { downloader.resumeDownload(it) }
         }
     }
 

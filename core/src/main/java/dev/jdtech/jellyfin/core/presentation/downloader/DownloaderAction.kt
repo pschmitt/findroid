@@ -10,4 +10,8 @@ sealed interface DownloaderAction {
     data class CancelDownload(val item: FindroidItem) : DownloaderAction
 
     data object ForceDownload : DownloaderAction
+
+    data object PauseDownload : DownloaderAction
+
+    data object ResumeDownload : DownloaderAction
 }

@@ -67,4 +67,21 @@ internal object DownloadSlotLimiter {
             return false
         }
     }
+
+    /**
+     * Moves every waiter in [sourceIds] to the front of the line, in the order [sourceIds] lists
+     * them, without bypassing [limit] - they'll be served next as slots free up naturally, ahead
+     * of whatever else is currently waiting. Used to prioritize a whole show's queued episodes
+     * over other shows' without forcibly pausing multiple unrelated running downloads at once.
+     */
+    suspend fun prioritize(sourceIds: List<String>) {
+        if (sourceIds.isEmpty()) return
+        mutex.withLock {
+            val order = sourceIds.withIndex().associate { (index, id) -> id to index }
+            val sorted =
+                waiters.sortedBy { waiter -> order[waiter.sourceId] ?: sourceIds.size }
+            waiters.clear()
+            waiters.addAll(sorted)
+        }
+    }
 }

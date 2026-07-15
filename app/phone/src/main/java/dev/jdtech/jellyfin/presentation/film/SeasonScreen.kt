@@ -232,6 +232,7 @@ private fun SeasonScreenLayout(
                         episode = episode,
                         onClick = { onAction(SeasonAction.NavigateToItem(episode)) },
                         modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
+                        downloadProgress = state.downloadProgress[episode.id],
                     )
                 }
             }

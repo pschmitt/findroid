@@ -88,6 +88,8 @@ import kotlinx.coroutines.launch
 fun DownloadsScreen(
     onItemClick: (item: FindroidItem) -> Unit,
     onSettingsClick: () -> Unit,
+    onShowClick: (UUID) -> Unit = {},
+    onMoviesClick: () -> Unit = {},
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val androidContext = LocalContext.current
@@ -114,6 +116,10 @@ fun DownloadsScreen(
         onDownloadAction = viewModel::onDownloadAction,
         onSwipeDeleteRequest = { id, title -> pendingDelete = id to title },
         onPauseAllClick = viewModel::pauseAll,
+        onResumeAllClick = viewModel::resumeAll,
+        onShowClick = onShowClick,
+        onMoviesClick = onMoviesClick,
+        onForceGroup = viewModel::forceGroup,
     )
 
     if (clearAllDialogOpen) {
@@ -171,6 +177,10 @@ private fun DownloadsScreenLayout(
     onDownloadAction: (UUID, DownloadAction) -> Unit = { _, _ -> },
     onSwipeDeleteRequest: (UUID, String) -> Unit = { _, _ -> },
     onPauseAllClick: () -> Unit = {},
+    onResumeAllClick: () -> Unit = {},
+    onShowClick: (UUID) -> Unit = {},
+    onMoviesClick: () -> Unit = {},
+    onForceGroup: (List<UUID>) -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val allIds =
@@ -201,10 +211,22 @@ private fun DownloadsScreenLayout(
                 },
                 actions = {
                     if (!selectionMode && state.downloadProgress.isNotEmpty()) {
-                        IconButton(onClick = onPauseAllClick) {
+                        val allPaused =
+                            state.downloadProgress.values.all {
+                                it.status == DownloadManager.STATUS_PAUSED
+                            }
+                        IconButton(onClick = if (allPaused) onResumeAllClick else onPauseAllClick) {
                             Icon(
-                                painter = painterResource(CoreR.drawable.ic_pause),
-                                contentDescription = stringResource(CoreR.string.pause_all_downloads),
+                                painter =
+                                    painterResource(
+                                        if (allPaused) CoreR.drawable.ic_play
+                                        else CoreR.drawable.ic_pause
+                                    ),
+                                contentDescription =
+                                    stringResource(
+                                        if (allPaused) CoreR.string.resume_all_downloads
+                                        else CoreR.string.pause_all_downloads
+                                    ),
                             )
                         }
                     }
@@ -264,7 +286,12 @@ private fun DownloadsScreenLayout(
                     }
                 }
                 if (state.movies.isNotEmpty()) {
-                    stickyHeader { SectionHeader(text = stringResource(CoreR.string.movies_label)) }
+                    stickyHeader {
+                        SectionHeader(
+                            text = stringResource(CoreR.string.movies_label),
+                            onClick = onMoviesClick,
+                        )
+                    }
                     items(items = state.movies, key = { it.id }) { movie ->
                         DownloadRow(
                             item = movie,
@@ -283,6 +310,10 @@ private fun DownloadsScreenLayout(
                 state.showGroups.forEach { group ->
                     val groupIds = group.episodes.map { it.id }.toSet()
                     val groupSelected = groupIds.isNotEmpty() && state.selectedIds.containsAll(groupIds)
+                    val hasQueuedEpisode =
+                        group.episodes.any {
+                            state.downloadProgress[it.id]?.status == DownloadManager.STATUS_PENDING
+                        }
                     stickyHeader {
                         ShowGroupHeader(
                             group = group,
@@ -290,6 +321,9 @@ private fun DownloadsScreenLayout(
                             selectionMode = selectionMode,
                             onToggle = { onToggleGroupSelection(groupIds, !groupSelected) },
                             onLongClick = { onToggleGroupSelection(groupIds, !groupSelected) },
+                            onClick = { onShowClick(group.seriesId) },
+                            canForce = hasQueuedEpisode,
+                            onForceClick = { onForceGroup(group.episodes.map { it.id }) },
                         )
                     }
                     items(items = group.episodes, key = { it.id }) { episode ->
@@ -322,15 +356,16 @@ private fun DownloadsScreenLayout(
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+private fun SectionHeader(text: String, onClick: () -> Unit = {}) {
     Card {
         Text(
             text = text,
             modifier =
-                Modifier.padding(
-                    horizontal = MaterialTheme.spacings.medium,
-                    vertical = MaterialTheme.spacings.medium,
-                ),
+                Modifier.clickable(onClick = onClick)
+                    .padding(
+                        horizontal = MaterialTheme.spacings.medium,
+                        vertical = MaterialTheme.spacings.medium,
+                    ),
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleMedium,
         )
@@ -345,13 +380,16 @@ private fun ShowGroupHeader(
     selectionMode: Boolean,
     onToggle: () -> Unit,
     onLongClick: () -> Unit,
+    onClick: () -> Unit,
+    canForce: Boolean = false,
+    onForceClick: () -> Unit = {},
 ) {
     Card {
         Row(
             modifier =
                 Modifier.fillMaxWidth()
                     .combinedClickable(
-                        onClick = { if (selectionMode) onToggle() },
+                        onClick = { if (selectionMode) onToggle() else onClick() },
                         onLongClick = onLongClick,
                     )
                     .padding(
@@ -372,6 +410,14 @@ private fun ShowGroupHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (!selectionMode && canForce) {
+                IconButton(onClick = onForceClick) {
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_fast_forward),
+                        contentDescription = stringResource(CoreR.string.download_action_force),
+                    )
+                }
+            }
             if (selectionMode) {
                 Checkbox(checked = checked, onCheckedChange = { onToggle() })
             }
@@ -464,6 +510,9 @@ private fun DownloadRow(
             }
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
             when {
+                selectionMode -> {
+                    Checkbox(checked = checked, onCheckedChange = { onToggleSelection() })
+                }
                 activeProgress != null -> {
                     if (isPending) {
                         IconButton(onClick = { onDownloadAction(DownloadAction.Force) }) {
@@ -500,9 +549,6 @@ private fun DownloadRow(
                             contentDescription = stringResource(CoreR.string.download_action_cancel),
                         )
                     }
-                }
-                selectionMode -> {
-                    Checkbox(checked = checked, onCheckedChange = { onToggleSelection() })
                 }
                 item.isDownloaded() -> {
                     IconButton(onClick = onClick) {

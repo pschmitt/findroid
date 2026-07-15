@@ -25,6 +25,8 @@ class FakeDownloader : Downloader {
 
     override suspend fun forceDownload(downloadId: Long) = error("not used")
 
+    override suspend fun forceDownloadGroup(downloadIds: List<Long>) = error("not used")
+
     override suspend fun deleteItem(item: FindroidItem, source: FindroidSource) = error("not used")
 
     override fun getProgressFlow(downloadId: Long): Flow<DownloadProgress> = error("not used")

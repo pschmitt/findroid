@@ -199,6 +199,19 @@ class DownloaderImpl(
     }
 
     override suspend fun forceDownload(downloadId: Long) {
+        forceStart(downloadId)
+    }
+
+    override suspend fun forceDownloadGroup(downloadIds: List<Long>) {
+        if (downloadIds.isEmpty()) return
+        val sourceIds = downloadIds.mapNotNull { database.getSourceByDownloadId(it)?.id }
+        DownloadSlotLimiter.prioritize(sourceIds)
+        // The rest just got moved to the front of the queue and will be picked up next as slots
+        // free naturally; only the first one is force-started immediately.
+        forceStart(downloadIds.first())
+    }
+
+    private suspend fun forceStart(downloadId: Long) {
         val sourceDto = database.getSourceByDownloadId(downloadId) ?: return
         val promoted = DownloadSlotLimiter.forcePromote(sourceDto.id)
         if (promoted) {

@@ -20,7 +20,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptions
 import androidx.navigation.NavOptionsBuilder
@@ -31,6 +33,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.toRoute
 import androidx.window.core.layout.WindowSizeClass
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.film.presentation.media.MediaViewModel
 import dev.jdtech.jellyfin.models.CollectionType
 import dev.jdtech.jellyfin.models.FindroidBoxSet
 import dev.jdtech.jellyfin.models.FindroidCollection
@@ -115,11 +118,35 @@ data class LibraryRoute(
 @Serializable data object AboutRoute
 
 data class TabBarItem(
-    @param:StringRes val title: Int,
+    @param:StringRes val title: Int = 0,
+    val titleText: String? = null,
     @param:DrawableRes val icon: Int,
     val route: Any,
     val enabled: Boolean = true,
 )
+
+@Composable
+private fun TabBarItem.resolvedTitle(): String = titleText ?: stringResource(title)
+
+@DrawableRes
+private fun libraryIcon(type: CollectionType): Int =
+    when (type) {
+        CollectionType.Movies -> CoreR.drawable.ic_film
+        CollectionType.TvShows -> CoreR.drawable.ic_tv
+        else -> CoreR.drawable.ic_library
+    }
+
+private fun libraryTab(library: FindroidCollection) =
+    TabBarItem(
+        titleText = library.name,
+        icon = libraryIcon(library.type),
+        route =
+            LibraryRoute(
+                libraryId = library.id.toString(),
+                libraryName = library.name,
+                libraryType = library.type,
+            ),
+    )
 
 val homeTab =
     TabBarItem(title = CoreR.string.title_home, icon = CoreR.drawable.ic_home, route = HomeRoute)
@@ -142,6 +169,7 @@ fun NavigationRoot(
     hasServers: Boolean,
     hasCurrentServer: Boolean,
     hasCurrentUser: Boolean,
+    mediaViewModel: MediaViewModel = hiltViewModel(),
 ) {
     val isOfflineMode = LocalOfflineMode.current
 
@@ -153,19 +181,43 @@ fun NavigationRoot(
             else -> WelcomeRoute
         }
 
+    val windowAdaptiveInfo = currentWindowAdaptiveInfo()
+    val isTablet =
+        windowAdaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND
+        )
+
+    val mediaState by mediaViewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(isTablet, isOfflineMode) {
+        if (isTablet && !isOfflineMode) mediaViewModel.loadData()
+    }
+
     val navigationItems =
         when (isOfflineMode) {
-            false -> listOf(homeTab, mediaTab, downloadsTab)
+            false ->
+                if (isTablet && mediaState.libraries.isNotEmpty()) {
+                    listOf(homeTab) + mediaState.libraries.map(::libraryTab) + listOf(downloadsTab)
+                } else {
+                    listOf(homeTab, mediaTab, downloadsTab)
+                }
             true -> listOf(homeTab, downloadsTab)
         }
-    val navigationItemClassNames = navigationItems.map { it.route::class.qualifiedName }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
     var searchExpanded by remember { mutableStateOf(false) }
 
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute in navigationItemClassNames && !searchExpanded
+    val currentLibraryRoute =
+        navBackStackEntry?.let { entry -> runCatching { entry.toRoute<LibraryRoute>() }.getOrNull() }
+
+    fun TabBarItem.isSelected(): Boolean =
+        when (val r = route) {
+            is LibraryRoute -> currentLibraryRoute?.libraryId == r.libraryId
+            else -> currentRoute == r::class.qualifiedName
+        }
+
+    val showBottomBar = navigationItems.any { it.isSelected() } && !searchExpanded
 
     val navigationSuiteScaffoldState = rememberNavigationSuiteScaffoldState()
 
@@ -177,14 +229,9 @@ fun NavigationRoot(
         }
     }
 
-    val windowAdaptiveInfo = currentWindowAdaptiveInfo()
     val customNavSuiteType =
         with(windowAdaptiveInfo) {
-            if (
-                windowSizeClass.isWidthAtLeastBreakpoint(
-                    WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND
-                )
-            ) {
+            if (isTablet) {
                 NavigationSuiteType.NavigationRail
             } else {
                 NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(this)
@@ -195,7 +242,7 @@ fun NavigationRoot(
         navigationSuiteItems = {
             navigationItems.forEach { item ->
                 item(
-                    selected = currentRoute == item.route::class.qualifiedName,
+                    selected = item.isSelected(),
                     onClick = {
                         if (
                             item.route is MediaRoute &&
@@ -213,11 +260,11 @@ fun NavigationRoot(
                     icon = {
                         Icon(
                             painter = painterResource(item.icon),
-                            contentDescription = stringResource(item.title),
+                            contentDescription = item.resolvedTitle(),
                         )
                     },
                     enabled = item.enabled,
-                    label = { Text(text = stringResource(item.title)) },
+                    label = { Text(text = item.resolvedTitle()) },
                 )
             }
         },
@@ -343,6 +390,10 @@ fun NavigationRoot(
                     onItemClick = { item ->
                         navigateToItem(navController = navController, item = item)
                     },
+                    onShowClick = { showId ->
+                        navController.safeNavigate(ShowRoute(showId = showId.toString()))
+                    },
+                    onMoviesClick = { navController.safeNavigate(MediaRoute) },
                     onSettingsClick = {
                         navController.safeNavigate(
                             SettingsRoute(
@@ -459,6 +510,9 @@ fun NavigationRoot(
                             popUpTo(SeasonRoute(seasonId = seasonId.toString()))
                             launchSingleTop = true
                         }
+                    },
+                    navigateToShow = { showId ->
+                        navController.safeNavigate(ShowRoute(showId = showId.toString()))
                     },
                 )
             }

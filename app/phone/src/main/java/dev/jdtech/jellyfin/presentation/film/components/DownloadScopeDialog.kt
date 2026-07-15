@@ -164,6 +164,12 @@ fun DownloadScopeDialog(
                     )
                 },
             ) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_download),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                 Text(text = stringResource(CoreR.string.download))
             }
         },
@@ -184,7 +190,15 @@ fun DownloadScopeDialog(
                         )
                     }
                 }
-                TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
+                TextButton(onClick = onDismiss) {
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_x),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                    Text(text = stringResource(CoreR.string.cancel))
+                }
             }
         },
     )

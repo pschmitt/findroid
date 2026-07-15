@@ -30,9 +30,15 @@ import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.DownloadProgress
 
 @Composable
-fun EpisodeCard(episode: FindroidEpisode, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun EpisodeCard(
+    episode: FindroidEpisode,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    downloadProgress: DownloadProgress? = null,
+) {
     val backgroundColor = MaterialTheme.colorScheme.background
 
     Row(
@@ -53,7 +59,11 @@ fun EpisodeCard(episode: FindroidEpisode, onClick: () -> Unit, modifier: Modifie
                 modifier = Modifier.align(Alignment.TopEnd).padding(MaterialTheme.spacings.small),
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
             ) {
-                if (episode.isDownloaded()) DownloadedBadge()
+                if (episode.isDownloaded()) {
+                    DownloadedBadge()
+                } else if (downloadProgress != null) {
+                    DownloadingBadge(progress = downloadProgress)
+                }
                 if (episode.played) PlayedBadge()
             }
         }

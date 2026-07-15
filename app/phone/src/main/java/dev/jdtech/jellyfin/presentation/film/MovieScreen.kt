@@ -285,6 +285,12 @@ private fun MovieScreenLayout(
                         onDownloadForceClick = {
                             onDownloaderAction(DownloaderAction.ForceDownload)
                         },
+                        onDownloadPauseClick = {
+                            onDownloaderAction(DownloaderAction.PauseDownload)
+                        },
+                        onDownloadResumeClick = {
+                            onDownloaderAction(DownloaderAction.ResumeDownload)
+                        },
                         onDownloadDeleteClick = deleteDownload,
                         modifier = Modifier.fillMaxWidth(),
                     )

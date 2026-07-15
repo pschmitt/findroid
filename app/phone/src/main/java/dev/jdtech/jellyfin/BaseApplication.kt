@@ -124,6 +124,7 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
     private fun scheduleAutoDownload(workManager: WorkManager) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
             .build()
 
         val periodicRequest =
@@ -150,7 +151,18 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
     }
 
     private fun scheduleAutoDeleteWatched(workManager: WorkManager) {
-        val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        // Only keep this job scheduled while the feature is actually on - otherwise WorkManager
+        // still wakes the process every interval just to run a worker that immediately no-ops.
+        if (!appPreferences.getValue(appPreferences.autoDeleteWatched)) {
+            workManager.cancelUniqueWork("autoDeleteWatched")
+            return
+        }
+
+        val constraints =
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(true)
+                .build()
 
         val periodicRequest =
             PeriodicWorkRequestBuilder<AutoDeleteWatchedWorker>(

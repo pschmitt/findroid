@@ -42,6 +42,8 @@ fun DownloaderCard(
     onCancelClick: () -> Unit,
     onRetryClick: () -> Unit,
     onForceClick: () -> Unit = {},
+    onPauseClick: () -> Unit = {},
+    onResumeClick: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val animatedProgress by
@@ -160,6 +162,28 @@ fun DownloaderCard(
                             }
                         }
                         DownloadManager.STATUS_RUNNING -> {
+                            FilledTonalIconButton(onClick = onPauseClick) {
+                                Icon(
+                                    painter = painterResource(CoreR.drawable.ic_pause),
+                                    contentDescription =
+                                        stringResource(CoreR.string.download_action_pause),
+                                )
+                            }
+                            FilledTonalIconButton(onClick = onCancelClick) {
+                                Icon(
+                                    painter = painterResource(CoreR.drawable.ic_x),
+                                    contentDescription = null,
+                                )
+                            }
+                        }
+                        DownloadManager.STATUS_PAUSED -> {
+                            FilledTonalIconButton(onClick = onResumeClick) {
+                                Icon(
+                                    painter = painterResource(CoreR.drawable.ic_play),
+                                    contentDescription =
+                                        stringResource(CoreR.string.download_action_resume),
+                                )
+                            }
                             FilledTonalIconButton(onClick = onCancelClick) {
                                 Icon(
                                     painter = painterResource(CoreR.drawable.ic_x),

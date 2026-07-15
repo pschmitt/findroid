@@ -118,10 +118,20 @@ constructor(private val downloader: Downloader, private val appPreferences: AppP
             is DownloaderAction.DeleteDownload -> deleteDownload(action.item)
             is DownloaderAction.CancelDownload -> cancelDownload()
             is DownloaderAction.ForceDownload -> forceDownload()
+            is DownloaderAction.PauseDownload -> pauseDownload()
+            is DownloaderAction.ResumeDownload -> resumeDownload()
         }
     }
 
     private fun forceDownload() {
         viewModelScope.launch { downloadId?.let { downloader.forceDownload(it) } }
+    }
+
+    private fun pauseDownload() {
+        viewModelScope.launch { downloadId?.let { downloader.pauseDownload(it) } }
+    }
+
+    private fun resumeDownload() {
+        viewModelScope.launch { downloadId?.let { downloader.resumeDownload(it) } }
     }
 }

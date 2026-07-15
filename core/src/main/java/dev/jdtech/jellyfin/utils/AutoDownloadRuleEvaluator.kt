@@ -26,29 +26,37 @@ class AutoDownloadRuleEvaluator {
         val ruleCreatedAt =
             Instant.ofEpochMilli(rule.createdAt).atZone(ZoneId.systemDefault()).toLocalDateTime()
 
-        try {
-            val ruleSeasonId = rule.seasonId
-            val seasonIds =
+        val ruleSeasonId = rule.seasonId
+        val seasonIds =
+            try {
                 if (ruleSeasonId == null) {
                     repository.getSeasons(rule.seriesId).map { it.id }
                 } else {
                     listOf(ruleSeasonId)
                 }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to evaluate auto-download rule ${rule.id}")
+                return
+            }
 
-            for (seasonId in seasonIds) {
-                val episodes =
-                    try {
-                        repository.getEpisodes(
-                            seriesId = rule.seriesId,
-                            seasonId = seasonId,
-                            fields = listOf(ItemFields.MEDIA_SOURCES),
-                        )
-                    } catch (e: Exception) {
-                        Timber.e(e, "Failed to fetch episodes for season $seasonId")
-                        continue
-                    }
+        for (seasonId in seasonIds) {
+            val episodes =
+                try {
+                    repository.getEpisodes(
+                        seriesId = rule.seriesId,
+                        seasonId = seasonId,
+                        fields = listOf(ItemFields.MEDIA_SOURCES),
+                    )
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to fetch episodes for season $seasonId")
+                    continue
+                }
 
-                for (episode in episodes) {
+            // Each episode is enqueued independently - one episode failing to download (a
+            // transient network error, missing media source, etc.) must not abort the rest of
+            // the season/show batch.
+            for (episode in episodes) {
+                try {
                     // A sources row already exists the moment a download is enqueued (before it
                     // finishes), so its mere presence covers downloaded/queued/running alike.
                     if (database.getSources(episode.id).isNotEmpty()) continue
@@ -69,10 +77,10 @@ class AutoDownloadRuleEvaluator {
 
                     val sourceId = episode.sources.firstOrNull()?.id ?: continue
                     downloader.downloadItem(episode, sourceId, storageIndex = 0)
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to queue download for episode ${episode.id}")
                 }
             }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to evaluate auto-download rule ${rule.id}")
         }
     }
 }

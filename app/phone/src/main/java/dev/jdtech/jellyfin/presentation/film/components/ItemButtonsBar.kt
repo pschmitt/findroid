@@ -54,6 +54,8 @@ fun ItemButtonsBar(
     onDownloadCancelClick: () -> Unit,
     onDownloadDeleteClick: () -> Unit,
     onDownloadForceClick: () -> Unit = {},
+    onDownloadPauseClick: () -> Unit = {},
+    onDownloadResumeClick: () -> Unit = {},
     onTrailerClick: (uri: String) -> Unit,
     modifier: Modifier = Modifier,
     downloaderState: DownloaderState? = null,
@@ -238,6 +240,8 @@ fun ItemButtonsBar(
                             onCancelClick = { cancelDownloadDialogOpen = true },
                             onRetryClick = { onDownloadClick(selectedStorageIndex) },
                             onForceClick = onDownloadForceClick,
+                            onPauseClick = onDownloadPauseClick,
+                            onResumeClick = onDownloadResumeClick,
                         )
                         Spacer(Modifier.height(MaterialTheme.spacings.small))
                     }

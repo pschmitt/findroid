@@ -6,8 +6,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
+import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSourceType
+import dev.jdtech.jellyfin.models.isDownloading
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.JellyfinRepository
@@ -18,6 +20,7 @@ import dev.jdtech.jellyfin.utils.clearDownloads
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -38,6 +41,9 @@ constructor(
     val state = _state.asStateFlow()
 
     private val evaluator = AutoDownloadRuleEvaluator()
+
+    private val downloadIdsByEpisode = mutableMapOf<UUID, Long>()
+    private val progressJobs = mutableMapOf<UUID, Job>()
 
     lateinit var seasonId: UUID
     private var seriesId: UUID? = null
@@ -64,9 +70,39 @@ constructor(
                         hasDownloads = hasDownloads,
                     )
                 )
+                reconcileDownloadProgress(episodes)
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
             }
+        }
+    }
+
+    private fun reconcileDownloadProgress(episodes: List<FindroidEpisode>) {
+        val trackedEpisodes = episodes.filter { it.isDownloading() }
+        val desiredIds = trackedEpisodes.map { it.id }.toSet()
+
+        (progressJobs.keys - desiredIds).forEach { id ->
+            progressJobs.remove(id)?.cancel()
+            downloadIdsByEpisode.remove(id)
+            _state.value = _state.value.copy(downloadProgress = _state.value.downloadProgress - id)
+        }
+
+        trackedEpisodes.forEach { episode ->
+            if (progressJobs.containsKey(episode.id)) return@forEach
+            val downloadId =
+                episode.sources.firstOrNull { it.type == FindroidSourceType.LOCAL }?.downloadId
+                    ?: return@forEach
+            downloadIdsByEpisode[episode.id] = downloadId
+            progressJobs[episode.id] =
+                viewModelScope.launch {
+                    downloader.getProgressFlow(downloadId).collect { progress ->
+                        _state.value =
+                            _state.value.copy(
+                                downloadProgress =
+                                    _state.value.downloadProgress + (episode.id to progress)
+                            )
+                    }
+                }
         }
     }
 
@@ -183,5 +219,10 @@ constructor(
             is SeasonAction.DeleteSeasonDownloads -> deleteSeasonDownloads(action.alsoRemoveRules)
             else -> Unit
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        progressJobs.values.forEach { it.cancel() }
     }
 }

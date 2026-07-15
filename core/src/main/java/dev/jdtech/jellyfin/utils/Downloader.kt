@@ -28,6 +28,11 @@ interface Downloader {
     // make room for it. No-op if downloadId isn't currently queued (e.g. it already started).
     suspend fun forceDownload(downloadId: Long)
 
+    // Moves every id in downloadIds to the front of the queue (in list order) and force-starts
+    // the first one, without pausing more than one unrelated running download. Used to
+    // prioritize a whole show's queued episodes over other shows'.
+    suspend fun forceDownloadGroup(downloadIds: List<Long>)
+
     suspend fun deleteItem(item: FindroidItem, source: FindroidSource)
 
     fun getProgressFlow(downloadId: Long): Flow<DownloadProgress>

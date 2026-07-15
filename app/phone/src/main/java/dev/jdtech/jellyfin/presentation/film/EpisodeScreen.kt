@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.presentation.film
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,6 +79,7 @@ fun EpisodeScreen(
     navigateHome: () -> Unit,
     navigateToPerson: (personId: UUID) -> Unit,
     navigateToSeason: (seasonId: UUID) -> Unit,
+    navigateToShow: (showId: UUID) -> Unit,
     viewModel: EpisodeViewModel = hiltViewModel(),
     downloaderViewModel: DownloaderViewModel = hiltViewModel(),
 ) {
@@ -126,6 +128,7 @@ fun EpisodeScreen(
                 is EpisodeAction.OnHomeClick -> navigateHome()
                 is EpisodeAction.NavigateToPerson -> navigateToPerson(action.personId)
                 is EpisodeAction.NavigateToSeason -> navigateToSeason(action.seasonId)
+                is EpisodeAction.NavigateToShow -> navigateToShow(action.showId)
                 else -> Unit
             }
             viewModel.onAction(action)
@@ -173,12 +176,25 @@ private fun EpisodeScreenLayout(
                                         )
                                     }
                             Text(
+                                text = episode.seriesName,
+                                modifier =
+                                    Modifier.clickable {
+                                        onAction(EpisodeAction.NavigateToShow(episode.seriesId))
+                                    },
+                                maxLines = 1,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            Text(
                                 text =
                                     "$seasonName - " +
                                         stringResource(
                                             id = CoreR.string.episode_number,
                                             episode.indexNumber,
                                         ),
+                                modifier =
+                                    Modifier.clickable {
+                                        onAction(EpisodeAction.NavigateToSeason(episode.seasonId))
+                                    },
                                 maxLines = 1,
                                 style = MaterialTheme.typography.labelLarge,
                             )
@@ -291,6 +307,12 @@ private fun EpisodeScreenLayout(
                         },
                         onDownloadForceClick = {
                             onDownloaderAction(DownloaderAction.ForceDownload)
+                        },
+                        onDownloadPauseClick = {
+                            onDownloaderAction(DownloaderAction.PauseDownload)
+                        },
+                        onDownloadResumeClick = {
+                            onDownloaderAction(DownloaderAction.ResumeDownload)
                         },
                         onDownloadDeleteClick = deleteDownload,
                         modifier = Modifier.fillMaxWidth(),

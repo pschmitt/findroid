@@ -27,4 +27,6 @@ sealed interface EpisodeAction {
     data class NavigateToPerson(val personId: UUID) : EpisodeAction
 
     data class NavigateToSeason(val seasonId: UUID) : EpisodeAction
+
+    data class NavigateToShow(val showId: UUID) : EpisodeAction
 }
