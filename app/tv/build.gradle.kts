@@ -21,6 +21,19 @@ android {
         versionName = Versions.APP_NAME
     }
 
+    signingConfigs {
+        // Only overridden in CI (see .github/workflows/release-latest.yaml) - see app/phone's
+        // build.gradle.kts for the full rationale.
+        named("debug") {
+            System.getenv("CI_KEYSTORE_PATH")?.let { path ->
+                storeFile = file(path)
+                storePassword = System.getenv("CI_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CI_KEY_ALIAS")
+                keyPassword = System.getenv("CI_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         named("debug") { applicationIdSuffix = ".debug" }
         named("release") {

@@ -25,6 +25,22 @@ android {
         testInstrumentationRunner = "dev.jdtech.jellyfin.HiltTestRunner"
     }
 
+    signingConfigs {
+        // Only overridden in CI (see .github/workflows/release-latest.yaml), which decodes a
+        // persistent keystore from a secret and exports CI_KEYSTORE_PATH - local debug builds
+        // keep using the regular auto-generated ~/.android/debug.keystore. Without this, every CI
+        // run signs with a different ephemeral debug key, which breaks update checks for anyone
+        // installing "latest" builds via Obtainium (signature mismatch on every release).
+        named("debug") {
+            System.getenv("CI_KEYSTORE_PATH")?.let { path ->
+                storeFile = file(path)
+                storePassword = System.getenv("CI_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CI_KEY_ALIAS")
+                keyPassword = System.getenv("CI_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         named("debug") { applicationIdSuffix = ".debug" }
         named("release") {
