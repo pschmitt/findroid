@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
@@ -147,16 +150,6 @@ fun ItemButtonsBar(
                         modifier = Modifier.weight(weight = 1f, fill = true),
                         enabled = item.canPlay && canPlay,
                     )
-                    if (item.playbackPositionTicks.div(600000000) > 0) {
-                        FilledTonalButton(onClick = { onPlayClick(true) }) {
-                            Icon(
-                                painter = painterResource(CoreR.drawable.ic_rotate_ccw),
-                                contentDescription = null,
-                            )
-                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                            Text(text = stringResource(CoreR.string.restart_from_beginning))
-                        }
-                    }
                 }
             }
             FlowRow(
@@ -173,26 +166,6 @@ fun ItemButtonsBar(
                         onClick = { onPlayClick(false) },
                         enabled = item.canPlay && canPlay,
                     )
-                    if (item.playbackPositionTicks.div(600000000) > 0) {
-                        FilledTonalButton(onClick = { onPlayClick(true) }) {
-                            Icon(
-                                painter = painterResource(CoreR.drawable.ic_rotate_ccw),
-                                contentDescription = null,
-                            )
-                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                            Text(text = stringResource(CoreR.string.restart_from_beginning))
-                        }
-                    }
-                }
-                trailerUri?.let { uri ->
-                    FilledTonalButton(onClick = { onTrailerClick(uri) }) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_film),
-                            contentDescription = null,
-                        )
-                        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                        Text(text = stringResource(CoreR.string.watch_trailer))
-                    }
                 }
                 FilledTonalButton(onClick = onMarkAsPlayedClick) {
                     Icon(
@@ -234,11 +207,64 @@ fun ItemButtonsBar(
                             )
                     )
                 }
-                if (onInfoClick != null) {
-                    FilledTonalButton(onClick = onInfoClick) {
-                        Icon(painter = painterResource(CoreR.drawable.ic_info), contentDescription = null)
-                        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                        Text(text = stringResource(CoreR.string.info))
+                val canRestart = item.playbackPositionTicks.div(600000000) > 0
+                if (canRestart || trailerUri != null || onInfoClick != null) {
+                    var overflowMenuExpanded by remember { mutableStateOf(false) }
+                    FilledTonalIconButton(onClick = { overflowMenuExpanded = true }) {
+                        Icon(
+                            painter = painterResource(CoreR.drawable.ic_more_vertical),
+                            contentDescription = stringResource(CoreR.string.more_options),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = overflowMenuExpanded,
+                        onDismissRequest = { overflowMenuExpanded = false },
+                    ) {
+                        if (canRestart) {
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(CoreR.string.restart_from_beginning)) },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_rotate_ccw),
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    overflowMenuExpanded = false
+                                    onPlayClick(true)
+                                },
+                            )
+                        }
+                        trailerUri?.let { uri ->
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(CoreR.string.watch_trailer)) },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_film),
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    overflowMenuExpanded = false
+                                    onTrailerClick(uri)
+                                },
+                            )
+                        }
+                        onInfoClick?.let { infoClick ->
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(CoreR.string.info)) },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_info),
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    overflowMenuExpanded = false
+                                    infoClick()
+                                },
+                            )
+                        }
                     }
                 }
                 trailingContent()
