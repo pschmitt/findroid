@@ -24,6 +24,7 @@ class LibraryViewModel
 constructor(
     private val jellyfinRepository: JellyfinRepository,
     private val appPreferences: AppPreferences,
+    private val libraryItemsCache: LibraryItemsCache,
 ) : ViewModel() {
     private val _state = MutableStateFlow(LibraryState())
     val state = _state.asStateFlow()
@@ -60,25 +61,42 @@ constructor(
 
             initSorting()
 
+            // Jellyfin uses a different enum for sorting series by date played.
+            val effectiveSortBy =
+                if (libraryType == CollectionType.TvShows && sortBy == SortBy.DATE_PLAYED) {
+                    SortBy.SERIES_DATE_PLAYED
+                } else {
+                    sortBy
+                }
+            val searchTerm = _state.value.searchQuery.trim().ifBlank { null }
+
             try {
                 val items =
-                    jellyfinRepository
-                        .getItemsPaging(
-                            parentId = parentId,
-                            includeTypes = itemType,
-                            recursive = recursive,
-                            sortBy =
-                                if (
-                                    libraryType == CollectionType.TvShows &&
-                                        sortBy == SortBy.DATE_PLAYED
-                                )
-                                    SortBy.SERIES_DATE_PLAYED
-                                else sortBy, // Jellyfin uses a different enum for sorting series by
-                            // data played
-                            sortOrder = sortOrder,
-                            searchTerm = _state.value.searchQuery.trim().ifBlank { null },
-                        )
-                        .cachedIn(viewModelScope)
+                    if (searchTerm != null) {
+                        // Search results are transient - never worth caching across ViewModel
+                        // instances the way the plain browse view is below.
+                        jellyfinRepository
+                            .getItemsPaging(
+                                parentId = parentId,
+                                includeTypes = itemType,
+                                recursive = recursive,
+                                sortBy = effectiveSortBy,
+                                sortOrder = sortOrder,
+                                searchTerm = searchTerm,
+                            )
+                            .cachedIn(viewModelScope)
+                    } else {
+                        libraryItemsCache.get("$parentId:$effectiveSortBy:$sortOrder") {
+                            jellyfinRepository.getItemsPaging(
+                                parentId = parentId,
+                                includeTypes = itemType,
+                                recursive = recursive,
+                                sortBy = effectiveSortBy,
+                                sortOrder = sortOrder,
+                                searchTerm = null,
+                            )
+                        }
+                    }
                 _state.emit(_state.value.copy(items = items))
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))

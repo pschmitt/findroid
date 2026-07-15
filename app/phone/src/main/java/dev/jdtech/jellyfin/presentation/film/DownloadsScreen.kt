@@ -191,6 +191,9 @@ private fun DownloadsScreenLayout(
     val allSelected = allIds.isNotEmpty() && state.selectedIds.containsAll(allIds)
     val selectionMode = state.selectedIds.isNotEmpty()
 
+    var moviesCollapsed by remember { mutableStateOf(false) }
+    var collapsedGroupIds by remember { mutableStateOf(emptySet<UUID>()) }
+
     Scaffold(
         modifier =
             Modifier.fillMaxSize()
@@ -290,21 +293,25 @@ private fun DownloadsScreenLayout(
                         SectionHeader(
                             text = stringResource(CoreR.string.movies_label),
                             onClick = onMoviesClick,
+                            collapsed = moviesCollapsed,
+                            onToggleCollapsed = { moviesCollapsed = !moviesCollapsed },
                         )
                     }
-                    items(items = state.movies, key = { it.id }) { movie ->
-                        DownloadRow(
-                            item = movie,
-                            title = movie.name,
-                            checked = movie.id in state.selectedIds,
-                            selectionMode = selectionMode,
-                            progress = state.downloadProgress[movie.id],
-                            onClick = { onItemClick(movie) },
-                            onLongClick = { onToggleSelection(movie.id) },
-                            onToggleSelection = { onToggleSelection(movie.id) },
-                            onDownloadAction = { onDownloadAction(movie.id, it) },
-                            onSwipeDeleteRequest = { onSwipeDeleteRequest(movie.id, movie.name) },
-                        )
+                    if (!moviesCollapsed) {
+                        items(items = state.movies, key = { it.id }) { movie ->
+                            DownloadRow(
+                                item = movie,
+                                title = movie.name,
+                                checked = movie.id in state.selectedIds,
+                                selectionMode = selectionMode,
+                                progress = state.downloadProgress[movie.id],
+                                onClick = { onItemClick(movie) },
+                                onLongClick = { onToggleSelection(movie.id) },
+                                onToggleSelection = { onToggleSelection(movie.id) },
+                                onDownloadAction = { onDownloadAction(movie.id, it) },
+                                onSwipeDeleteRequest = { onSwipeDeleteRequest(movie.id, movie.name) },
+                            )
+                        }
                     }
                 }
                 state.showGroups.forEach { group ->
@@ -314,6 +321,7 @@ private fun DownloadsScreenLayout(
                         group.episodes.any {
                             state.downloadProgress[it.id]?.status == DownloadManager.STATUS_PENDING
                         }
+                    val groupCollapsed = group.seriesId in collapsedGroupIds
                     stickyHeader {
                         ShowGroupHeader(
                             group = group,
@@ -324,8 +332,15 @@ private fun DownloadsScreenLayout(
                             onClick = { onShowClick(group.seriesId) },
                             canForce = hasQueuedEpisode,
                             onForceClick = { onForceGroup(group.episodes.map { it.id }) },
+                            collapsed = groupCollapsed,
+                            onToggleCollapsed = {
+                                collapsedGroupIds =
+                                    if (groupCollapsed) collapsedGroupIds - group.seriesId
+                                    else collapsedGroupIds + group.seriesId
+                            },
                         )
                     }
+                    if (groupCollapsed) return@forEach
                     items(items = group.episodes, key = { it.id }) { episode ->
                         val episodeTitle =
                             stringResource(
@@ -356,19 +371,42 @@ private fun DownloadsScreenLayout(
 }
 
 @Composable
-private fun SectionHeader(text: String, onClick: () -> Unit = {}) {
+private fun SectionHeader(
+    text: String,
+    onClick: () -> Unit = {},
+    collapsed: Boolean = false,
+    onToggleCollapsed: () -> Unit = {},
+) {
     Card {
-        Text(
-            text = text,
-            modifier =
-                Modifier.clickable(onClick = onClick)
-                    .padding(
-                        horizontal = MaterialTheme.spacings.medium,
-                        vertical = MaterialTheme.spacings.medium,
-                    ),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = text,
+                modifier =
+                    Modifier.weight(1f)
+                        .padding(
+                            horizontal = MaterialTheme.spacings.medium,
+                            vertical = MaterialTheme.spacings.medium,
+                        ),
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            IconButton(onClick = onToggleCollapsed) {
+                Icon(
+                    painter =
+                        painterResource(
+                            if (collapsed) CoreR.drawable.ic_chevron_down
+                            else CoreR.drawable.ic_chevron_up
+                        ),
+                    contentDescription =
+                        stringResource(
+                            if (collapsed) CoreR.string.expand else CoreR.string.collapse
+                        ),
+                )
+            }
+        }
     }
 }
 
@@ -383,6 +421,8 @@ private fun ShowGroupHeader(
     onClick: () -> Unit,
     canForce: Boolean = false,
     onForceClick: () -> Unit = {},
+    collapsed: Boolean = false,
+    onToggleCollapsed: () -> Unit = {},
 ) {
     Card {
         Row(
@@ -415,6 +455,21 @@ private fun ShowGroupHeader(
                     Icon(
                         painter = painterResource(CoreR.drawable.ic_fast_forward),
                         contentDescription = stringResource(CoreR.string.download_action_force),
+                    )
+                }
+            }
+            if (!selectionMode) {
+                IconButton(onClick = onToggleCollapsed) {
+                    Icon(
+                        painter =
+                            painterResource(
+                                if (collapsed) CoreR.drawable.ic_chevron_down
+                                else CoreR.drawable.ic_chevron_up
+                            ),
+                        contentDescription =
+                            stringResource(
+                                if (collapsed) CoreR.string.expand else CoreR.string.collapse
+                            ),
                     )
                 }
             }

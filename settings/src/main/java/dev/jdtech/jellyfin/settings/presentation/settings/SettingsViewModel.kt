@@ -635,12 +635,14 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                 PreferenceSwitch(
                                                     nameStringResource =
                                                         R.string.download_mobile_data,
+                                                    iconDrawableId = R.drawable.ic_network,
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
                                                         appPreferences.downloadOverMobileData,
                                                 ),
                                                 PreferenceSwitch(
                                                     nameStringResource = R.string.download_roaming,
+                                                    iconDrawableId = R.drawable.ic_globe,
                                                     dependencies =
                                                         listOf(
                                                             appPreferences.downloadOverMobileData
@@ -651,6 +653,7 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                 ),
                                                 PreferenceSelect(
                                                     nameStringResource = R.string.download_location,
+                                                    iconDrawableId = R.drawable.ic_hard_drive,
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
                                                         appPreferences.downloadLocation,
@@ -662,6 +665,7 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                         R.string.max_parallel_downloads,
                                                     descriptionStringRes =
                                                         R.string.max_parallel_downloads_summary,
+                                                    iconDrawableId = R.drawable.ic_gauge,
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
                                                         appPreferences.maxParallelDownloads,
@@ -671,6 +675,7 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                         R.string.auto_delete_watched,
                                                     descriptionStringRes =
                                                         R.string.auto_delete_watched_summary,
+                                                    iconDrawableId = R.drawable.ic_trash,
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
                                                         appPreferences.autoDeleteWatched,
@@ -690,6 +695,7 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                         R.string.auto_download_check_interval,
                                                     descriptionStringRes =
                                                         R.string.auto_download_check_interval_summary,
+                                                    iconDrawableId = R.drawable.ic_refresh_cw,
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
                                                         appPreferences.autoDownloadCheckIntervalMinutes,

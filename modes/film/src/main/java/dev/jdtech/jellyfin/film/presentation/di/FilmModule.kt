@@ -6,6 +6,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.jdtech.jellyfin.film.domain.VideoMetadataParser
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -14,5 +17,12 @@ object FilmModule {
     @Provides
     fun provideVideoMetadataParser(): VideoMetadataParser {
         return VideoMetadataParser
+    }
+
+    @Singleton
+    @ApplicationScope
+    @Provides
+    fun provideApplicationScope(): CoroutineScope {
+        return CoroutineScope(SupervisorJob() + Dispatchers.Default)
     }
 }
