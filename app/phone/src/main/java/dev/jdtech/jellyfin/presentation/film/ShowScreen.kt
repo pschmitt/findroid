@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.film
 
 import android.content.Intent
+import android.text.format.Formatter
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -249,19 +250,29 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         },
                         trailingContent = {
                             if (state.hasDownloads || state.autoDownloadEnabled) {
-                                FilledTonalIconButton(
-                                    onClick = { clearShowDownloadsDialogOpen = true }
-                                ) {
+                                FilledTonalButton(onClick = { clearShowDownloadsDialogOpen = true }) {
                                     Icon(
                                         painter = painterResource(CoreR.drawable.ic_trash),
-                                        contentDescription =
-                                            stringResource(CoreR.string.clear_show_downloads),
+                                        contentDescription = null,
                                     )
+                                    Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                                    Text(text = stringResource(CoreR.string.clear_show_downloads))
                                 }
                             }
                         },
                     )
                     Spacer(Modifier.height(MaterialTheme.spacings.small))
+                    if (state.downloadsSizeBytes > 0) {
+                        Text(
+                            text =
+                                stringResource(
+                                    CoreR.string.downloads_disk_usage,
+                                    Formatter.formatFileSize(androidContext, state.downloadsSizeBytes),
+                                ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(MaterialTheme.spacings.small))
+                    }
                     OverviewText(text = show.overview, maxCollapsedLines = 3)
                     Spacer(Modifier.height(MaterialTheme.spacings.medium))
                     InfoText(
@@ -351,6 +362,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
         ClearDownloadsDialog(
             title = stringResource(CoreR.string.clear_show_downloads),
             message = stringResource(CoreR.string.clear_show_downloads_message),
+            sizeBytes = state.downloadsSizeBytes,
             onConfirm = { alsoRemoveRules ->
                 onAction(ShowAction.DeleteShowDownloads(alsoRemoveRules))
                 Toast.makeText(

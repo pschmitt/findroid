@@ -3,18 +3,22 @@ package dev.jdtech.jellyfin.presentation.film.components
 import android.app.DownloadManager
 import android.os.Environment
 import android.os.StatFs
+import android.text.format.Formatter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -28,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
@@ -39,9 +44,11 @@ import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidShow
+import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.resolveDownloadStorageIndex
 
 @Composable
 fun ItemButtonsBar(
@@ -73,7 +80,8 @@ fun ItemButtonsBar(
         { _, _, _ ->
         },
     downloadIconTint: Color? = null,
-    trailingContent: @Composable RowScope.() -> Unit = {},
+    onInfoClick: (() -> Unit)? = null,
+    trailingContent: @Composable FlowRowScope.() -> Unit = {},
 ) {
     val context = LocalContext.current
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
@@ -89,6 +97,13 @@ fun ItemButtonsBar(
             else -> null
         }
 
+    val downloadedSource =
+        if (item.isDownloaded()) {
+            item.sources.firstOrNull { it.type == FindroidSourceType.LOCAL }
+        } else {
+            null
+        }
+
     var storageSelectionDialogOpen by remember { mutableStateOf(false) }
     var cancelDownloadDialogOpen by remember { mutableStateOf(false) }
     var deleteDownloadDialogOpen by remember { mutableStateOf(false) }
@@ -99,18 +114,7 @@ fun ItemButtonsBar(
 
     val startDownload: () -> Unit = {
         storageLocations = context.getExternalFilesDirs(null)
-        val preferredIndex =
-            when (downloadLocationPreference) {
-                "internal" ->
-                    storageLocations.indexOfFirst {
-                        it != null && !Environment.isExternalStorageRemovable(it)
-                    }
-                "external" ->
-                    storageLocations.indexOfFirst {
-                        it != null && Environment.isExternalStorageRemovable(it)
-                    }
-                else -> -1
-            }
+        val preferredIndex = resolveDownloadStorageIndex(context, downloadLocationPreference)
         when {
             preferredIndex >= 0 -> {
                 selectedStorageIndex = preferredIndex
@@ -144,16 +148,21 @@ fun ItemButtonsBar(
                         enabled = item.canPlay && canPlay,
                     )
                     if (item.playbackPositionTicks.div(600000000) > 0) {
-                        FilledTonalIconButton(onClick = { onPlayClick(true) }) {
+                        FilledTonalButton(onClick = { onPlayClick(true) }) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_rotate_ccw),
                                 contentDescription = null,
                             )
+                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                            Text(text = stringResource(CoreR.string.restart_from_beginning))
                         }
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+            ) {
                 if (
                     windowSizeClass.isWidthAtLeastBreakpoint(
                         WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND
@@ -165,30 +174,42 @@ fun ItemButtonsBar(
                         enabled = item.canPlay && canPlay,
                     )
                     if (item.playbackPositionTicks.div(600000000) > 0) {
-                        FilledTonalIconButton(onClick = { onPlayClick(true) }) {
+                        FilledTonalButton(onClick = { onPlayClick(true) }) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_rotate_ccw),
                                 contentDescription = null,
                             )
+                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                            Text(text = stringResource(CoreR.string.restart_from_beginning))
                         }
                     }
                 }
                 trailerUri?.let { uri ->
-                    FilledTonalIconButton(onClick = { onTrailerClick(uri) }) {
+                    FilledTonalButton(onClick = { onTrailerClick(uri) }) {
                         Icon(
                             painter = painterResource(CoreR.drawable.ic_film),
                             contentDescription = null,
                         )
+                        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                        Text(text = stringResource(CoreR.string.watch_trailer))
                     }
                 }
-                FilledTonalIconButton(onClick = onMarkAsPlayedClick) {
+                FilledTonalButton(onClick = onMarkAsPlayedClick) {
                     Icon(
                         painter = painterResource(CoreR.drawable.ic_check),
                         contentDescription = null,
                         tint = if (item.played) Color.Red else LocalContentColor.current,
                     )
+                    Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                    Text(
+                        text =
+                            stringResource(
+                                if (item.played) CoreR.string.unmark_as_played
+                                else CoreR.string.mark_as_played
+                            )
+                    )
                 }
-                FilledTonalIconButton(onClick = onMarkAsFavoriteClick) {
+                FilledTonalButton(onClick = onMarkAsFavoriteClick) {
                     when (item.favorite) {
                         true -> {
                             Icon(
@@ -204,18 +225,43 @@ fun ItemButtonsBar(
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                    Text(
+                        text =
+                            stringResource(
+                                if (item.favorite) CoreR.string.remove_from_favorites
+                                else CoreR.string.add_to_favorites
+                            )
+                    )
+                }
+                if (onInfoClick != null) {
+                    FilledTonalButton(onClick = onInfoClick) {
+                        Icon(painter = painterResource(CoreR.drawable.ic_info), contentDescription = null)
+                        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                        Text(text = stringResource(CoreR.string.info))
+                    }
                 }
                 trailingContent()
                 if (downloaderState != null && !downloaderState.isDownloading) {
                     if (item.isDownloaded()) {
-                        FilledTonalIconButton(onClick = { deleteDownloadDialogOpen = true }) {
+                        FilledTonalButton(onClick = { deleteDownloadDialogOpen = true }) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_trash),
                                 contentDescription = null,
                             )
+                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                            Text(
+                                text =
+                                    downloadedSource?.size?.let { size ->
+                                        stringResource(
+                                            CoreR.string.delete_download_with_size,
+                                            Formatter.formatFileSize(context, size),
+                                        )
+                                    } ?: stringResource(CoreR.string.delete_download)
+                            )
                         }
                     } else if (item.canDownload || item is FindroidShow || item is FindroidSeason) {
-                        FilledTonalIconButton(
+                        FilledTonalButton(
                             onClick = {
                                 if (enableDownloadDialog) {
                                     downloadScopeDialogOpen = true
@@ -229,6 +275,8 @@ fun ItemButtonsBar(
                                 contentDescription = null,
                                 tint = downloadIconTint ?: LocalContentColor.current,
                             )
+                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                            Text(text = stringResource(CoreR.string.download))
                         }
                     }
                 }
@@ -288,6 +336,8 @@ fun ItemButtonsBar(
                     deleteDownloadDialogOpen = false
                 },
                 onDismiss = { deleteDownloadDialogOpen = false },
+                path = downloadedSource?.path,
+                sizeBytes = downloadedSource?.size,
             )
         }
         if (downloadScopeDialogOpen) {

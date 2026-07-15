@@ -57,13 +57,11 @@ import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.film.components.ActorsRow
-import dev.jdtech.jellyfin.presentation.film.components.DeleteDownloadDialog
-import dev.jdtech.jellyfin.presentation.film.components.ExtraInfoText
+import dev.jdtech.jellyfin.presentation.film.components.InfoDialog
 import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
 import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
-import dev.jdtech.jellyfin.presentation.film.components.VideoMetadataBar
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.LocalOfflineMode
@@ -217,7 +215,7 @@ private fun EpisodeScreenLayout(
                     ) {
                         episode.premiereDate?.let { premiereDate ->
                             Text(
-                                text = premiereDate.format(),
+                                text = premiereDate.format(state.dateFormat),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -254,32 +252,13 @@ private fun EpisodeScreenLayout(
                             )
                             .show()
                     }
-                    var deleteDownloadDialogOpen by remember { mutableStateOf(false) }
-                    state.videoMetadata?.let { videoMetadata ->
-                        val downloadedSizeBytes =
-                            if (episode.isDownloaded()) {
-                                episode.sources
-                                    .firstOrNull { it.type == FindroidSourceType.LOCAL }
-                                    ?.size
-                            } else {
-                                null
-                            }
-                        VideoMetadataBar(
-                            videoMetadata,
-                            downloadedSizeBytes = downloadedSizeBytes,
-                            onDownloadedSizeClick = { deleteDownloadDialogOpen = true },
-                        )
-                        Spacer(Modifier.height(MaterialTheme.spacings.small))
-                    }
-                    if (deleteDownloadDialogOpen) {
-                        DeleteDownloadDialog(
-                            onDelete = {
-                                deleteDownload()
-                                deleteDownloadDialogOpen = false
-                            },
-                            onDismiss = { deleteDownloadDialogOpen = false },
-                        )
-                    }
+                    val downloadedSource =
+                        if (episode.isDownloaded()) {
+                            episode.sources.firstOrNull { it.type == FindroidSourceType.LOCAL }
+                        } else {
+                            null
+                        }
+                    var infoDialogOpen by remember { mutableStateOf(false) }
                     ItemButtonsBar(
                         item = episode,
                         downloaderState = downloaderState,
@@ -336,11 +315,16 @@ private fun EpisodeScreenLayout(
                                 )
                             )
                         },
+                        onInfoClick = state.videoMetadata?.let { { infoDialogOpen = true } },
                     )
                     Spacer(Modifier.height(MaterialTheme.spacings.small))
-                    if (state.displayExtraInfo && state.videoMetadata != null) {
-                        ExtraInfoText(videoMetadata = state.videoMetadata!!)
-                        Spacer(Modifier.height(MaterialTheme.spacings.medium))
+                    if (infoDialogOpen && state.videoMetadata != null) {
+                        InfoDialog(
+                            videoMetadata = state.videoMetadata!!,
+                            downloadedFilePath =
+                                downloadedSource?.path?.takeUnless { it.endsWith(".download") },
+                            onDismiss = { infoDialogOpen = false },
+                        )
                     }
                     OverviewText(text = episode.overview)
                     Spacer(Modifier.height(MaterialTheme.spacings.medium))

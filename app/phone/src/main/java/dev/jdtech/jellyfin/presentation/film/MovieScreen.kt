@@ -51,14 +51,12 @@ import dev.jdtech.jellyfin.film.presentation.movie.MovieViewModel
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.film.components.ActorsRow
-import dev.jdtech.jellyfin.presentation.film.components.DeleteDownloadDialog
-import dev.jdtech.jellyfin.presentation.film.components.ExtraInfoText
+import dev.jdtech.jellyfin.presentation.film.components.InfoDialog
 import dev.jdtech.jellyfin.presentation.film.components.InfoText
 import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
 import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
-import dev.jdtech.jellyfin.presentation.film.components.VideoMetadataBar
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.LocalOfflineMode
@@ -230,32 +228,13 @@ private fun MovieScreenLayout(
                             )
                             .show()
                     }
-                    var deleteDownloadDialogOpen by remember { mutableStateOf(false) }
-                    state.videoMetadata?.let { videoMetadata ->
-                        val downloadedSizeBytes =
-                            if (movie.isDownloaded()) {
-                                movie.sources
-                                    .firstOrNull { it.type == FindroidSourceType.LOCAL }
-                                    ?.size
-                            } else {
-                                null
-                            }
-                        VideoMetadataBar(
-                            videoMetadata,
-                            downloadedSizeBytes = downloadedSizeBytes,
-                            onDownloadedSizeClick = { deleteDownloadDialogOpen = true },
-                        )
-                        Spacer(Modifier.height(MaterialTheme.spacings.small))
-                    }
-                    if (deleteDownloadDialogOpen) {
-                        DeleteDownloadDialog(
-                            onDelete = {
-                                deleteDownload()
-                                deleteDownloadDialogOpen = false
-                            },
-                            onDismiss = { deleteDownloadDialogOpen = false },
-                        )
-                    }
+                    val downloadedSource =
+                        if (movie.isDownloaded()) {
+                            movie.sources.firstOrNull { it.type == FindroidSourceType.LOCAL }
+                        } else {
+                            null
+                        }
+                    var infoDialogOpen by remember { mutableStateOf(false) }
                     ItemButtonsBar(
                         item = movie,
                         downloaderState = downloaderState,
@@ -292,12 +271,17 @@ private fun MovieScreenLayout(
                             onDownloaderAction(DownloaderAction.ResumeDownload)
                         },
                         onDownloadDeleteClick = deleteDownload,
+                        onInfoClick = state.videoMetadata?.let { { infoDialogOpen = true } },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(MaterialTheme.spacings.small))
-                    if (state.displayExtraInfo && state.videoMetadata != null) {
-                        ExtraInfoText(videoMetadata = state.videoMetadata!!)
-                        Spacer(Modifier.height(MaterialTheme.spacings.medium))
+                    if (infoDialogOpen && state.videoMetadata != null) {
+                        InfoDialog(
+                            videoMetadata = state.videoMetadata!!,
+                            downloadedFilePath =
+                                downloadedSource?.path?.takeUnless { it.endsWith(".download") },
+                            onDismiss = { infoDialogOpen = false },
+                        )
                     }
                     OverviewText(text = movie.overview, maxCollapsedLines = 3)
                     Spacer(Modifier.height(MaterialTheme.spacings.medium))

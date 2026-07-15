@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.film
 
 import android.content.Intent
+import android.text.format.Formatter
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +20,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -221,18 +222,30 @@ private fun SeasonScreenLayout(
                         },
                         trailingContent = {
                             if (state.hasDownloads || state.autoDownloadEnabled) {
-                                FilledTonalIconButton(
-                                    onClick = { clearSeasonDownloadsDialogOpen = true }
-                                ) {
+                                FilledTonalButton(onClick = { clearSeasonDownloadsDialogOpen = true }) {
                                     Icon(
                                         painter = painterResource(CoreR.drawable.ic_trash),
-                                        contentDescription =
-                                            stringResource(CoreR.string.clear_season_downloads),
+                                        contentDescription = null,
                                     )
+                                    Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                                    Text(text = stringResource(CoreR.string.clear_season_downloads))
                                 }
                             }
                         },
                     )
+                    if (state.downloadsSizeBytes > 0) {
+                        Spacer(Modifier.height(MaterialTheme.spacings.small))
+                        Text(
+                            text =
+                                stringResource(
+                                    CoreR.string.downloads_disk_usage,
+                                    Formatter.formatFileSize(androidContext, state.downloadsSizeBytes),
+                                ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier =
+                                Modifier.padding(start = paddingStart, end = paddingEnd),
+                        )
+                    }
                 }
                 items(items = state.episodes, key = { episode -> episode.id }) { episode ->
                     EpisodeCard(
@@ -272,6 +285,7 @@ private fun SeasonScreenLayout(
         ClearDownloadsDialog(
             title = stringResource(CoreR.string.clear_season_downloads),
             message = stringResource(CoreR.string.clear_season_downloads_message),
+            sizeBytes = state.downloadsSizeBytes,
             onConfirm = { alsoRemoveRules ->
                 onAction(SeasonAction.DeleteSeasonDownloads(alsoRemoveRules))
                 Toast.makeText(

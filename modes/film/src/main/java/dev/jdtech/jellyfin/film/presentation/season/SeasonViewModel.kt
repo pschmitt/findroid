@@ -19,6 +19,7 @@ import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.AutoDownloadRuleEvaluator
 import dev.jdtech.jellyfin.utils.Downloader
 import dev.jdtech.jellyfin.utils.clearDownloads
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -64,14 +65,15 @@ constructor(
                     )
                 val autoDownloadEnabled = isAutoDownloadEnabled(season.seriesId, seasonId)
                 val existingScope = getExistingScope(season.seriesId)
-                val hasDownloads = hasDownloads(seasonId)
+                val downloadsSizeBytes = downloadsSizeBytes(seasonId)
                 _state.emit(
                     _state.value.copy(
                         season = season,
                         episodes = episodes,
                         autoDownloadEnabled = autoDownloadEnabled,
                         existingScope = existingScope,
-                        hasDownloads = hasDownloads,
+                        hasDownloads = downloadsSizeBytes > 0,
+                        downloadsSizeBytes = downloadsSizeBytes,
                     )
                 )
                 reconcileDownloadProgress(episodes)
@@ -167,10 +169,13 @@ constructor(
         }
     }
 
-    private suspend fun hasDownloads(seasonId: UUID): Boolean =
+    private suspend fun downloadsSizeBytes(seasonId: UUID): Long =
         withContext(Dispatchers.IO) {
-            database.getEpisodesBySeasonId(seasonId).any { episode ->
-                database.getSources(episode.id).any { it.type == FindroidSourceType.LOCAL }
+            database.getEpisodesBySeasonId(seasonId).sumOf { episode ->
+                database
+                    .getSources(episode.id)
+                    .filter { it.type == FindroidSourceType.LOCAL }
+                    .sumOf { File(it.path).length() }
             }
         }
 

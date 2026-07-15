@@ -16,5 +16,6 @@ data class ShowState(
     val autoDownloadEnabled: Boolean = false,
     val existingScope: ExistingAutoDownloadScope = ExistingAutoDownloadScope(),
     val hasDownloads: Boolean = false,
+    val downloadsSizeBytes: Long = 0L,
     val error: Exception? = null,
 )

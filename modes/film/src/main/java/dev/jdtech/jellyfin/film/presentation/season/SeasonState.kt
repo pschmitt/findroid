@@ -12,6 +12,7 @@ data class SeasonState(
     val autoDownloadEnabled: Boolean = false,
     val existingScope: ExistingAutoDownloadScope = ExistingAutoDownloadScope(),
     val hasDownloads: Boolean = false,
+    val downloadsSizeBytes: Long = 0L,
     val downloadProgress: Map<UUID, DownloadProgress> = emptyMap(),
     val error: Exception? = null,
 )
