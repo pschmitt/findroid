@@ -251,10 +251,21 @@ fun NavigationRoot(
                             searchExpanded = true
                         }
 
-                        navController.navigate(item.route) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                        // Per-library tabs all share the LibraryRoute type, so
+                        // launchSingleTop/restoreState (which dedup by destination type, not by
+                        // route arguments) would otherwise treat switching from one library tab
+                        // to another as "already there" and silently no-op. Only rely on that
+                        // save/restore behavior for tabs with their own dedicated route type, and
+                        // skip re-navigating if the tapped library tab is already the open one.
+                        if (item.route !is LibraryRoute || !item.isSelected()) {
+                            val useSavedState = item.route !is LibraryRoute
+                            navController.navigate(item.route) {
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = useSavedState
+                                }
+                                launchSingleTop = useSavedState
+                                restoreState = useSavedState
+                            }
                         }
                     },
                     icon = {
