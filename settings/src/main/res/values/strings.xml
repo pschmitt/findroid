@@ -35,6 +35,10 @@
     <string name="download_location_ask">Always ask</string>
     <string name="download_location_internal">Internal storage</string>
     <string name="download_location_external">External storage</string>
+    <string name="download_location_changed_title">Download location changed</string>
+    <string name="download_location_changed_message">Existing downloads are still on %1$s. Move them to %2$s, or delete them from %1$s?</string>
+    <string name="download_location_move">Move downloads</string>
+    <string name="download_location_clear">Delete old downloads</string>
     <string name="mpv_player_summary">Use the experimental mpv player to play videos. mpv has support for more video, audio and subtitle codecs.</string>
     <string name="gestures">Gestures</string>
     <string name="player_gestures">Player gestures</string>
@@ -74,6 +78,11 @@
     <string name="theme_dark">Dark</string>
     <string name="dynamic_colors">Dynamic colors</string>
     <string name="dynamic_colors_summary">Use Material You Dynamic colors (only available on Android 12+)</string>
+    <string name="date_format">Date format</string>
+    <string name="date_format_system">Follow system</string>
+    <string name="date_format_iso">YYYY-MM-DD</string>
+    <string name="date_format_dmy">DD/MM/YYYY</string>
+    <string name="date_format_mdy">MM/DD/YYYY</string>
     <string name="extra_info">Display Extra Info</string>
     <string name="extra_info_summary">Displays detailed information about Audio, Video and Subtitles</string>
     <string name="mb">MB</string>

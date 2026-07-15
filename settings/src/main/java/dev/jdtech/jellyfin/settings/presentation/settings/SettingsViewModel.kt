@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+private val CONCRETE_DOWNLOAD_LOCATIONS = setOf("internal", "external")
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(private val appPreferences: AppPreferences) :
     ViewModel() {
@@ -159,6 +161,13 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference = appPreferences.dynamicColors,
                                                 ),
+                                                PreferenceSelect(
+                                                    nameStringResource = R.string.date_format,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference = appPreferences.dateFormat,
+                                                    options = R.array.date_format,
+                                                    optionValues = R.array.date_format_values,
+                                                ),
                                             ),
                                     ),
                                     PreferenceGroup(
@@ -185,18 +194,6 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                     backendPreference = appPreferences.homeLatest,
                                                 ),
                                             ),
-                                    ),
-                                    PreferenceGroup(
-                                        preferences =
-                                            listOf(
-                                                PreferenceSwitch(
-                                                    nameStringResource = R.string.extra_info,
-                                                    descriptionStringRes =
-                                                        R.string.extra_info_summary,
-                                                    backendPreference =
-                                                        appPreferences.displayExtraInfo,
-                                                )
-                                            )
                                     ),
                                 ),
                         )
@@ -962,11 +959,33 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                             action.preference.backendPreference,
                             action.preference.value,
                         )
-                    is PreferenceSelect ->
-                        appPreferences.setValue(
-                            action.preference.backendPreference,
-                            action.preference.value,
-                        )
+                    is PreferenceSelect -> {
+                        val backendPreference = action.preference.backendPreference
+                        val newValue = action.preference.value
+                        if (backendPreference == appPreferences.downloadLocation) {
+                            val oldValue = appPreferences.getValue(backendPreference)
+                            appPreferences.setValue(backendPreference, newValue)
+                            // Only concrete internal<->external switches have an old/new location
+                            // to act on - "ask" has no fixed volume, so there's nothing to move
+                            // from/to and no prompt is shown for changes involving it.
+                            if (
+                                oldValue != newValue &&
+                                    oldValue in CONCRETE_DOWNLOAD_LOCATIONS &&
+                                    newValue in CONCRETE_DOWNLOAD_LOCATIONS
+                            ) {
+                                viewModelScope.launch {
+                                    eventsChannel.send(
+                                        SettingsEvent.DownloadLocationChanged(
+                                            oldValue!!,
+                                            newValue!!,
+                                        )
+                                    )
+                                }
+                            }
+                        } else {
+                            appPreferences.setValue(backendPreference, newValue)
+                        }
+                    }
                     is PreferenceMultiSelect ->
                         appPreferences.setValue(
                             action.preference.backendPreference,

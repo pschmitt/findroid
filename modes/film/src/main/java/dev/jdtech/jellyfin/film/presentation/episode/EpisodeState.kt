@@ -9,7 +9,7 @@ data class EpisodeState(
     val episode: FindroidEpisode? = null,
     val videoMetadata: VideoMetadata? = null,
     val actors: List<FindroidItemPerson> = emptyList(),
-    val displayExtraInfo: Boolean = false,
+    val dateFormat: String = "system",
     val existingScope: ExistingAutoDownloadScope = ExistingAutoDownloadScope(),
     val error: Exception? = null,
 )

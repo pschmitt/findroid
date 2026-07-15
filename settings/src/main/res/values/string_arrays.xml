@@ -62,4 +62,16 @@
         <item>internal</item>
         <item>external</item>
     </string-array>
+    <string-array name="date_format">
+        <item>@string/date_format_system</item>
+        <item>@string/date_format_iso</item>
+        <item>@string/date_format_dmy</item>
+        <item>@string/date_format_mdy</item>
+    </string-array>
+    <string-array name="date_format_values">
+        <item>system</item>
+        <item>iso</item>
+        <item>dmy</item>
+        <item>mdy</item>
+    </string-array>
 </resources>

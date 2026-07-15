@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -156,9 +159,11 @@ private fun RestoreBackupScreenLayout(
                             Text(text = stringResource(CoreR.string.restore_backup_redownload_no))
                         }
                     } else {
-                        Button(onClick = onContinueClick, modifier = Modifier.fillMaxWidth()) {
-                            Text(text = stringResource(CoreR.string.restore_backup_continue))
-                        }
+                        // Nothing left to ask (no downloaded items to restore, or the redownload
+                        // question was just answered) - proceed straight to the restart instead
+                        // of making the user tap through one more empty "Continue" screen.
+                        LaunchedEffect(Unit) { onContinueClick() }
+                        CircularProgressIndicator()
                     }
                 }
                 state.error != null -> {
@@ -199,6 +204,8 @@ private fun RestoreBackupScreenLayout(
                         }
                     },
                     singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
                 )
             },

@@ -9,8 +9,10 @@ import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.View
 import java.nio.charset.StandardCharsets
 import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.time.ZoneOffset
 import java.util.Date
+import java.util.Locale
 import org.jellyfin.sdk.model.DateTime
 import org.jellyfin.sdk.model.api.BaseItemDto
 
@@ -52,8 +54,16 @@ fun ByteArray.toBase64Str(): String {
     return Base64.encodeToString(this, Base64.URL_SAFE or Base64.NO_WRAP)
 }
 
-fun DateTime.format(): String {
+// [pattern] is the raw "pref_date_format" preference value ("system"/"iso"/"dmy"/"mdy") - see
+// AppPreferences.dateFormat. Falls back to the locale-based system short date format for
+// "system" and for any unrecognized value, so an old/blank preference never breaks formatting.
+fun DateTime.format(pattern: String = "system"): String {
     val instant = this.toInstant(ZoneOffset.UTC)
     val date = Date.from(instant)
-    return DateFormat.getDateInstance(DateFormat.SHORT).format(date)
+    return when (pattern) {
+        "iso" -> SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date)
+        "dmy" -> SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(date)
+        "mdy" -> SimpleDateFormat("MM/dd/yyyy", Locale.getDefault()).format(date)
+        else -> DateFormat.getDateInstance(DateFormat.SHORT).format(date)
+    }
 }
