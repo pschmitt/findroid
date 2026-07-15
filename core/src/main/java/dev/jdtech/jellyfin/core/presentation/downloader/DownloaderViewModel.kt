@@ -69,13 +69,13 @@ constructor(private val downloader: Downloader, private val appPreferences: AppP
         }
     }
 
-    private fun cancelDownload(item: FindroidItem) {
+    private fun cancelDownload() {
         viewModelScope.launch {
             // Stop progress polling
             handler.removeCallbacksAndMessages(null)
 
             // Cancel the download
-            downloadId?.let { downloader.cancelDownload(item = item, downloadId = it) }
+            downloadId?.let { downloader.cancelDownload(downloadId = it) }
 
             // Emit empty DownloadState
             _state.emit(DownloaderState())
@@ -123,7 +123,7 @@ constructor(private val downloader: Downloader, private val appPreferences: AppP
         when (action) {
             is DownloaderAction.Download -> download(action.item, action.storageIndex)
             is DownloaderAction.DeleteDownload -> deleteDownload(action.item)
-            is DownloaderAction.CancelDownload -> cancelDownload(action.item)
+            is DownloaderAction.CancelDownload -> cancelDownload()
         }
     }
 

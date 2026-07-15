@@ -17,6 +17,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
+import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -30,6 +31,10 @@ import timber.log.Timber
  * Streams the primary media source to disk in fixed-size chunks under our own control, instead of
  * delegating to the system DownloadManager. DownloadManager is the actual root cause of the
  * >4GiB failure - see DownloaderImpl for the full writeup. Byte counts here are Long end-to-end.
+ *
+ * The ongoing progress notification is shared across every concurrently running/queued download
+ * via [DownloadNotificationCoordinator] rather than posted per-item, so downloading a whole season
+ * doesn't flood the shade with one entry per episode.
  */
 @HiltWorker
 class VideoDownloadWorker
@@ -38,6 +43,7 @@ constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val database: ServerDatabaseDao,
+    private val appPreferences: AppPreferences,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result =
         withContext(Dispatchers.IO) {
@@ -51,14 +57,28 @@ constructor(
                 inputData.getString(KEY_FINAL_PATH) ?: return@withContext Result.failure()
             val expectedSize = inputData.getLong(KEY_EXPECTED_SIZE, -1L)
             val itemName = inputData.getString(KEY_ITEM_NAME) ?: sourceId
-            val notificationId = sourceId.hashCode()
+            val downloadId = inputData.getLong(KEY_DOWNLOAD_ID, -1L)
+            val completionNotificationId = sourceId.hashCode()
 
             createNotificationChannel()
 
             try {
-                setForeground(foregroundInfo(notificationId, progressNotification(itemName, 0, true)))
+                reportQueued(sourceId, downloadId, itemName)
+                setForeground(
+                    foregroundInfo(
+                        DownloadNotificationCoordinator.NOTIFICATION_ID,
+                        DownloadNotificationCoordinator.buildNotification(applicationContext),
+                    )
+                )
 
-                downloadToFile(sourceUrl, destinationPath, expectedSize, notificationId, itemName)
+                val maxParallel = appPreferences.getValue(appPreferences.maxParallelDownloads)
+                DownloadSlotLimiter.acquire(maxParallel)
+                try {
+                    reportProgress(sourceId, downloadId, itemName, 0, 0L, 0L, 0L)
+                    downloadToFile(sourceUrl, destinationPath, expectedSize, sourceId, downloadId, itemName)
+                } finally {
+                    DownloadSlotLimiter.release()
+                }
 
                 val destFile = File(destinationPath)
                 val finalFile = File(finalPath)
@@ -67,7 +87,8 @@ constructor(
                 }
                 database.setSourcePath(sourceId, finalPath)
 
-                notify(notificationId, completeNotification(itemName))
+                DownloadNotificationCoordinator.remove(applicationContext, sourceId)
+                notify(completionNotificationId, completeNotification(itemName))
                 Result.success()
             } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
                 // System denies FGS starts for background-launched processes (e.g. right after
@@ -77,11 +98,11 @@ constructor(
                 Result.retry()
             } catch (e: IOException) {
                 Timber.e(e, "Video download failed for source $sourceId")
+                DownloadNotificationCoordinator.remove(applicationContext, sourceId)
                 if (isStopped) {
-                    NotificationManagerCompat.from(applicationContext).cancel(notificationId)
                     Result.failure()
                 } else {
-                    notify(notificationId, failedNotification(itemName))
+                    notify(completionNotificationId, failedNotification(itemName))
                     Result.retry()
                 }
             }
@@ -91,7 +112,8 @@ constructor(
         sourceUrl: String,
         destinationPath: String,
         expectedSize: Long,
-        notificationId: Int,
+        sourceId: String,
+        downloadId: Long,
         itemName: String,
     ) {
         val destFile = File(destinationPath)
@@ -129,6 +151,7 @@ constructor(
                 FileOutputStream(destFile, append).use { output ->
                     val buffer = ByteArray(BUFFER_SIZE)
                     var lastReportMs = System.currentTimeMillis()
+                    var bytesAtLastReport = downloadedSoFar
                     while (!isStopped) {
                         val read = input.read(buffer)
                         if (read == -1) break
@@ -136,7 +159,8 @@ constructor(
                         downloadedSoFar += read
 
                         val now = System.currentTimeMillis()
-                        if (now - lastReportMs >= PROGRESS_INTERVAL_MS) {
+                        val elapsedMs = now - lastReportMs
+                        if (elapsedMs >= PROGRESS_INTERVAL_MS) {
                             setProgress(
                                 workDataOf(KEY_DOWNLOADED to downloadedSoFar, KEY_TOTAL to totalBytes)
                             )
@@ -146,11 +170,20 @@ constructor(
                                 } else {
                                     0
                                 }
-                            notify(
-                                notificationId,
-                                progressNotification(itemName, percent, totalBytes <= 0),
+                            val bytesSinceLast = downloadedSoFar - bytesAtLastReport
+                            val speedBytesPerSecond =
+                                bytesSinceLast.times(1000).div(elapsedMs.coerceAtLeast(1))
+                            reportProgress(
+                                sourceId,
+                                downloadId,
+                                itemName,
+                                percent,
+                                downloadedSoFar,
+                                totalBytes,
+                                speedBytesPerSecond,
                             )
                             lastReportMs = now
+                            bytesAtLastReport = downloadedSoFar
                         }
                     }
                     output.flush()
@@ -167,6 +200,42 @@ constructor(
                 )
             }
         }
+    }
+
+    private fun reportQueued(sourceId: String, downloadId: Long, itemName: String) {
+        DownloadNotificationCoordinator.update(
+            applicationContext,
+            sourceId,
+            DownloadNotificationCoordinator.Entry(
+                itemName = itemName,
+                downloadId = downloadId,
+                queued = true,
+            ),
+        )
+    }
+
+    private fun reportProgress(
+        sourceId: String,
+        downloadId: Long,
+        itemName: String,
+        percent: Int,
+        downloadedBytes: Long,
+        totalBytes: Long,
+        speedBytesPerSecond: Long,
+    ) {
+        DownloadNotificationCoordinator.update(
+            applicationContext,
+            sourceId,
+            DownloadNotificationCoordinator.Entry(
+                itemName = itemName,
+                downloadId = downloadId,
+                queued = false,
+                percent = percent,
+                downloadedBytes = downloadedBytes,
+                totalBytes = totalBytes,
+                speedBytesPerSecond = speedBytesPerSecond,
+            ),
+        )
     }
 
     private fun createNotificationChannel() {
@@ -193,22 +262,6 @@ constructor(
         NotificationManagerCompat.from(applicationContext).notify(notificationId, notification)
     }
 
-    private fun progressNotification(
-        itemName: String,
-        percent: Int,
-        indeterminate: Boolean,
-    ): Notification {
-        return NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setContentTitle(applicationContext.getString(CoreR.string.downloading_item, itemName))
-            .apply { if (!indeterminate) setContentText("$percent%") }
-            .setSmallIcon(CoreR.drawable.ic_download)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setProgress(100, percent, indeterminate)
-            .build()
-    }
-
     private fun completeNotification(itemName: String): Notification {
         return NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle(applicationContext.getString(CoreR.string.download_complete_item, itemName))
@@ -230,6 +283,7 @@ constructor(
     }
 
     companion object {
+        const val KEY_DOWNLOAD_ID = "KEY_DOWNLOAD_ID"
         const val KEY_SOURCE_ID = "KEY_SOURCE_ID"
         const val KEY_SOURCE_URL = "KEY_SOURCE_URL"
         const val KEY_DESTINATION_PATH = "KEY_DESTINATION_PATH"

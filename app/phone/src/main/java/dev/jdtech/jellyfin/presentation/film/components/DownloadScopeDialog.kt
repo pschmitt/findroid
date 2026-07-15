@@ -11,12 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -185,8 +185,6 @@ internal fun ToggleOptionRow(
                 .padding(vertical = MaterialTheme.spacings.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = checked, onCheckedChange = onToggle)
-        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
         if (icon != null) {
             Icon(
                 painter = painterResource(icon),
@@ -196,7 +194,12 @@ internal fun ToggleOptionRow(
             )
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
         }
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(checked = checked, onCheckedChange = onToggle)
     }
 }
 

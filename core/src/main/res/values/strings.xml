@@ -144,6 +144,13 @@
     <string name="downloading_item">Downloading %1$s</string>
     <string name="download_complete_item">Download complete: %1$s</string>
     <string name="download_failed_item">Failed to download %1$s</string>
+    <string name="download_queued">Queued</string>
+    <string name="download_progress_status">%1$d%% • %2$s • ETA %3$s</string>
+    <string name="download_progress_speed_only">%1$s</string>
+    <string name="download_action_pause">Pause</string>
+    <string name="download_action_resume">Resume</string>
+    <string name="download_action_cancel">Cancel</string>
+    <string name="downloading_items_count">Downloading %1$d of %2$d episodes</string>
     <string name="download_scope_title">Download</string>
     <string name="download_scope_episode">This episode</string>
     <string name="download_scope_season">This season</string>
@@ -154,4 +161,10 @@
     <string name="download">Download</string>
     <string name="clear_season_downloads">Delete season downloads</string>
     <string name="clear_season_downloads_message">This will delete every downloaded episode of this season on this device.</string>
+    <string name="manage_downloads">Manage downloads</string>
+    <string name="manage_downloads_title">Manage downloads</string>
+    <string name="manage_downloads_empty">You have nothing downloaded for this show</string>
+    <string name="manage_downloads_select_all">Select all</string>
+    <string name="delete_selected_downloads">Delete selected downloads</string>
+    <string name="delete_selected_downloads_message">This will delete %1$d selected episode(s) from this device.</string>
 </resources>

@@ -5,6 +5,7 @@ import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import java.time.Instant
 import java.time.ZoneId
+import org.jellyfin.sdk.model.api.ItemFields
 import timber.log.Timber
 
 /**
@@ -37,7 +38,11 @@ class AutoDownloadRuleEvaluator {
             for (seasonId in seasonIds) {
                 val episodes =
                     try {
-                        repository.getEpisodes(seriesId = rule.seriesId, seasonId = seasonId)
+                        repository.getEpisodes(
+                            seriesId = rule.seriesId,
+                            seasonId = seasonId,
+                            fields = listOf(ItemFields.MEDIA_SOURCES),
+                        )
                     } catch (e: Exception) {
                         Timber.e(e, "Failed to fetch episodes for season $seasonId")
                         continue

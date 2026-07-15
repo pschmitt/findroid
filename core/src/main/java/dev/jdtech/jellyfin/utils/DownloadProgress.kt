@@ -1,0 +1,19 @@
+package dev.jdtech.jellyfin.utils
+
+import android.app.DownloadManager
+
+/**
+ * A continuous snapshot of a single download's transfer state, emitted by
+ * [Downloader.getProgressFlow]. [status] uses the [DownloadManager].STATUS_* vocabulary for
+ * consistency with the older one-shot [Downloader.getProgress] - note that here CANCELLED
+ * WorkManager jobs are reported as STATUS_PAUSED rather than STATUS_FAILED, since a "pause" is
+ * implemented as a plain WorkManager cancellation that leaves the partial file and DB row intact.
+ */
+data class DownloadProgress(
+    val status: Int,
+    val percent: Int = -1,
+    val downloadedBytes: Long = 0L,
+    val totalBytes: Long = 0L,
+    val speedBytesPerSecond: Long = 0L,
+    val etaSeconds: Long = -1L,
+)

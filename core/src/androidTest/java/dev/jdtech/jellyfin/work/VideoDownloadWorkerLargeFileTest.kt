@@ -12,6 +12,7 @@ import dev.jdtech.jellyfin.database.ServerDatabase
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.FindroidSourceDto
 import dev.jdtech.jellyfin.models.FindroidSourceType
+import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.LargeFileHttpServer
 import java.io.File
 import java.io.RandomAccessFile
@@ -99,7 +100,18 @@ class VideoDownloadWorkerLargeFileTest {
                     appContext: android.content.Context,
                     workerClassName: String,
                     workerParameters: WorkerParameters,
-                ): ListenableWorker = VideoDownloadWorker(appContext, workerParameters, dao)
+                ): ListenableWorker =
+                    VideoDownloadWorker(
+                        appContext,
+                        workerParameters,
+                        dao,
+                        AppPreferences(
+                            appContext.getSharedPreferences(
+                                "video_worker_test_prefs",
+                                android.content.Context.MODE_PRIVATE,
+                            )
+                        ),
+                    )
             }
         return TestListenableWorkerBuilder<VideoDownloadWorker>(context, inputData)
             .setWorkerFactory(factory)

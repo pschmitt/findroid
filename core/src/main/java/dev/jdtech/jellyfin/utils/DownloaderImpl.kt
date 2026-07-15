@@ -21,8 +21,10 @@ import dev.jdtech.jellyfin.models.FindroidSource
 import dev.jdtech.jellyfin.models.FindroidSources
 import dev.jdtech.jellyfin.models.FindroidTrickplayInfo
 import dev.jdtech.jellyfin.models.UiText
+import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.models.toFindroidEpisodeDto
 import dev.jdtech.jellyfin.models.toFindroidMediaStreamDto
+import dev.jdtech.jellyfin.models.toFindroidMovie
 import dev.jdtech.jellyfin.models.toFindroidMovieDto
 import dev.jdtech.jellyfin.models.toFindroidSeasonDto
 import dev.jdtech.jellyfin.models.toFindroidSegmentsDto
@@ -40,7 +42,10 @@ import java.util.UUID
 import kotlin.Exception
 import kotlin.math.ceil
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import timber.log.Timber
 
 class DownloaderImpl(
@@ -136,20 +141,15 @@ class DownloaderImpl(
 
             // Enqueue only after the sources row exists - VideoDownloadWorker updates that row by
             // id on completion, so it must not race the insert above.
-            val downloadRequest =
-                OneTimeWorkRequestBuilder<VideoDownloadWorker>()
-                    .setInputData(
-                        workDataOf(
-                            VideoDownloadWorker.KEY_SOURCE_ID to source.id,
-                            VideoDownloadWorker.KEY_SOURCE_URL to source.path,
-                            VideoDownloadWorker.KEY_DESTINATION_PATH to path.path,
-                            VideoDownloadWorker.KEY_FINAL_PATH to finalPath,
-                            VideoDownloadWorker.KEY_EXPECTED_SIZE to source.size,
-                            VideoDownloadWorker.KEY_ITEM_NAME to item.name,
-                        )
-                    )
-                    .build()
-            workManager.enqueueUniqueWork(source.id, ExistingWorkPolicy.KEEP, downloadRequest)
+            enqueueVideoDownload(
+                downloadId = downloadId,
+                sourceId = source.id,
+                sourceUrl = source.path,
+                destinationPath = path.path.orEmpty(),
+                finalPath = finalPath,
+                expectedSize = source.size,
+                itemName = downloadDisplayName(item),
+            )
 
             downloadExternalMediaStreams(item, source, storageIndex)
 
@@ -175,11 +175,104 @@ class DownloaderImpl(
         }
     }
 
-    override suspend fun cancelDownload(item: FindroidItem, downloadId: Long) {
-        val source =
-            database.getSourceByDownloadId(downloadId)?.toFindroidSource(database) ?: return
-        workManager.cancelUniqueWork(source.id)
-        deleteItem(item, source)
+    override suspend fun cancelDownload(downloadId: Long) {
+        val sourceDto = database.getSourceByDownloadId(downloadId) ?: return
+        workManager.cancelUniqueWork(sourceDto.id)
+
+        val item = findFindroidItem(sourceDto.itemId)
+        if (item == null) {
+            // The movie/episode row is already gone - fall back to just cleaning up the source
+            // row and the partial file directly, since deleteItem() needs the item's type to
+            // cascade into season/show cleanup.
+            Timber.e("cancelDownload: no FindroidItem found for source ${sourceDto.id}, cleaning up source only")
+            database.deleteSource(sourceDto.id)
+            File(sourceDto.path).delete()
+            return
+        }
+        deleteItem(item, sourceDto.toFindroidSource(database))
+    }
+
+    override suspend fun pauseDownload(downloadId: Long) {
+        val sourceDto = database.getSourceByDownloadId(downloadId) ?: return
+        workManager.cancelUniqueWork(sourceDto.id)
+    }
+
+    override suspend fun resumeDownload(downloadId: Long): UiText? {
+        val sourceDto =
+            database.getSourceByDownloadId(downloadId)
+                ?: return UiText.StringResource(CoreR.string.unknown_error)
+        return try {
+            val remoteSource =
+                jellyfinRepository.getMediaSources(sourceDto.itemId, true).firstOrNull {
+                    it.id == sourceDto.id
+                } ?: return UiText.StringResource(CoreR.string.unknown_error)
+
+            val itemName =
+                findFindroidItem(sourceDto.itemId)?.let { downloadDisplayName(it) } ?: sourceDto.name
+            val finalPath = sourceDto.path.replace(".download", "")
+
+            enqueueVideoDownload(
+                downloadId = downloadId,
+                sourceId = remoteSource.id,
+                sourceUrl = remoteSource.path,
+                destinationPath = sourceDto.path,
+                finalPath = finalPath,
+                expectedSize = remoteSource.size,
+                itemName = itemName,
+            )
+            null
+        } catch (e: Exception) {
+            Timber.e(e)
+            if (e.message != null) UiText.DynamicString(e.message!!)
+            else UiText.StringResource(CoreR.string.unknown_error)
+        }
+    }
+
+    // For episodes, the episode title alone doesn't say which show/season it's from - show that
+    // instead so concurrent downloads are distinguishable in the notification and Downloads page.
+    private fun downloadDisplayName(item: FindroidItem): String =
+        when (item) {
+            is FindroidEpisode -> "${item.seriesName} • S${item.parentIndexNumber}E${item.indexNumber}"
+            else -> item.name
+        }
+
+    private fun findFindroidItem(itemId: UUID): FindroidItem? {
+        val userId = jellyfinRepository.getUserId()
+        return try {
+            database.getMovie(itemId).toFindroidMovie(database, userId)
+        } catch (_: Exception) {
+            try {
+                database.getEpisode(itemId).toFindroidEpisode(database, userId)
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
+    private fun enqueueVideoDownload(
+        downloadId: Long,
+        sourceId: String,
+        sourceUrl: String,
+        destinationPath: String,
+        finalPath: String,
+        expectedSize: Long,
+        itemName: String,
+    ) {
+        val downloadRequest =
+            OneTimeWorkRequestBuilder<VideoDownloadWorker>()
+                .setInputData(
+                    workDataOf(
+                        VideoDownloadWorker.KEY_DOWNLOAD_ID to downloadId,
+                        VideoDownloadWorker.KEY_SOURCE_ID to sourceId,
+                        VideoDownloadWorker.KEY_SOURCE_URL to sourceUrl,
+                        VideoDownloadWorker.KEY_DESTINATION_PATH to destinationPath,
+                        VideoDownloadWorker.KEY_FINAL_PATH to finalPath,
+                        VideoDownloadWorker.KEY_EXPECTED_SIZE to expectedSize,
+                        VideoDownloadWorker.KEY_ITEM_NAME to itemName,
+                    )
+                )
+                .build()
+        workManager.enqueueUniqueWork(sourceId, ExistingWorkPolicy.KEEP, downloadRequest)
     }
 
     override suspend fun deleteItem(item: FindroidItem, source: FindroidSource) {
@@ -256,6 +349,71 @@ class DownloaderImpl(
             }
         }
         return Pair(downloadStatus, progress)
+    }
+
+    override fun getProgressFlow(downloadId: Long): Flow<DownloadProgress> {
+        val sourceId =
+            database.getSourceByDownloadId(downloadId)?.id
+                ?: return flowOf(DownloadProgress(status = DownloadManager.STATUS_FAILED))
+
+        // Bytes/time from the previous emission, used to derive a speed for the current one -
+        // this is per-collector state, safe since each getProgressFlow() call builds a fresh flow.
+        var lastBytes = -1L
+        var lastTimeMs = 0L
+
+        return workManager.getWorkInfosForUniqueWorkFlow(sourceId).map { infos ->
+            val workInfo = infos.firstOrNull() ?: return@map DownloadProgress(DownloadManager.STATUS_FAILED)
+
+            when (workInfo.state) {
+                WorkInfo.State.ENQUEUED,
+                WorkInfo.State.BLOCKED -> DownloadProgress(status = DownloadManager.STATUS_PENDING)
+                WorkInfo.State.RUNNING -> {
+                    val totalBytes = workInfo.progress.getLong(VideoDownloadWorker.KEY_TOTAL, -1L)
+                    val downloadedBytes =
+                        workInfo.progress.getLong(VideoDownloadWorker.KEY_DOWNLOADED, -1L)
+                    val now = System.currentTimeMillis()
+
+                    val speed =
+                        if (lastBytes >= 0 && downloadedBytes >= lastBytes && lastTimeMs > 0) {
+                            val deltaMs = (now - lastTimeMs).coerceAtLeast(1)
+                            (downloadedBytes - lastBytes).times(1000L).div(deltaMs)
+                        } else {
+                            0L
+                        }
+                    lastBytes = downloadedBytes
+                    lastTimeMs = now
+
+                    val percent =
+                        if (totalBytes > 0 && downloadedBytes >= 0) {
+                            downloadedBytes.times(100).div(totalBytes).toInt()
+                        } else {
+                            -1
+                        }
+                    val eta =
+                        if (speed > 0 && totalBytes > 0 && downloadedBytes >= 0) {
+                            (totalBytes - downloadedBytes) / speed
+                        } else {
+                            -1L
+                        }
+
+                    DownloadProgress(
+                        status = DownloadManager.STATUS_RUNNING,
+                        percent = percent,
+                        downloadedBytes = downloadedBytes.coerceAtLeast(0),
+                        totalBytes = totalBytes.coerceAtLeast(0),
+                        speedBytesPerSecond = speed,
+                        etaSeconds = eta,
+                    )
+                }
+                WorkInfo.State.SUCCEEDED ->
+                    DownloadProgress(status = DownloadManager.STATUS_SUCCESSFUL, percent = 100)
+                // A CANCELLED job is what pauseDownload() produces (see the interface doc on
+                // pauseDownload) - report it as paused rather than failed so the Downloads page can
+                // offer Resume instead of treating it as an error.
+                WorkInfo.State.CANCELLED -> DownloadProgress(status = DownloadManager.STATUS_PAUSED)
+                WorkInfo.State.FAILED -> DownloadProgress(status = DownloadManager.STATUS_FAILED)
+            }
+        }
     }
 
     private fun downloadExternalMediaStreams(

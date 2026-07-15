@@ -86,6 +86,7 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val autoDeleteWatchedHours = Preference("pref_downloads_auto_delete_watched_hours", 24)
     val autoDownloadCheckIntervalMinutes =
         Preference("pref_downloads_auto_check_interval_minutes", 240)
+    val maxParallelDownloads = Preference("pref_downloads_max_parallel", 2)
 
     // Network
     val requestTimeout =

@@ -657,6 +657,15 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                     options = R.array.download_locations,
                                                     optionValues = R.array.download_locations_values,
                                                 ),
+                                                PreferenceIntInput(
+                                                    nameStringResource =
+                                                        R.string.max_parallel_downloads,
+                                                    descriptionStringRes =
+                                                        R.string.max_parallel_downloads_summary,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences.maxParallelDownloads,
+                                                ),
                                                 PreferenceSwitch(
                                                     nameStringResource =
                                                         R.string.auto_delete_watched,
