@@ -10,7 +10,7 @@ sealed interface HomeAction {
 
     data object OnRetryClick : HomeAction
 
-    data object OnSearchClick : HomeAction
+    data object OnFavoritesClick : HomeAction
 
     data object OnSettingsClick : HomeAction
 

@@ -43,6 +43,7 @@ fun HomeHeader(
     onErrorClick: () -> Unit,
     onRetryClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onFavoritesClick: () -> Unit,
     onUserClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -148,6 +149,24 @@ fun HomeHeader(
             }
 
             Surface(
+                onClick = onFavoritesClick,
+                modifier = Modifier.fillMaxHeight().aspectRatio(1f),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_heart),
+                        contentDescription = null,
+                    )
+                }
+            }
+
+            Surface(
                 onClick = onUserClick,
                 modifier = Modifier.fillMaxHeight().aspectRatio(1f),
                 shape = CircleShape,
@@ -180,6 +199,7 @@ private fun HomeHeaderLoadingPreview() {
             onErrorClick = {},
             onRetryClick = {},
             onSearchClick = {},
+            onFavoritesClick = {},
             onUserClick = {},
         )
     }
@@ -197,6 +217,7 @@ private fun HomeHeaderErrorPreview() {
             onErrorClick = {},
             onRetryClick = {},
             onSearchClick = {},
+            onFavoritesClick = {},
             onUserClick = {},
         )
     }

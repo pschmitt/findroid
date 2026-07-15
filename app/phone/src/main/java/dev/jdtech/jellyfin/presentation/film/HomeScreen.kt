@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,9 +35,13 @@ import dev.jdtech.jellyfin.core.presentation.dummy.dummyServer
 import dev.jdtech.jellyfin.film.presentation.home.HomeAction
 import dev.jdtech.jellyfin.film.presentation.home.HomeState
 import dev.jdtech.jellyfin.film.presentation.home.HomeViewModel
+import dev.jdtech.jellyfin.film.presentation.search.SearchAction
+import dev.jdtech.jellyfin.film.presentation.search.SearchState
+import dev.jdtech.jellyfin.film.presentation.search.SearchViewModel
 import dev.jdtech.jellyfin.models.FindroidCollection
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.presentation.components.ErrorDialog
+import dev.jdtech.jellyfin.presentation.film.components.FilmSearchBar
 import dev.jdtech.jellyfin.presentation.film.components.HomeCarousel
 import dev.jdtech.jellyfin.presentation.film.components.HomeHeader
 import dev.jdtech.jellyfin.presentation.film.components.HomeSection
@@ -50,35 +55,50 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     onLibraryClick: (library: FindroidCollection) -> Unit,
-    onSearchClick: () -> Unit,
+    onFavoritesClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onManageServers: () -> Unit,
     onItemClick: (item: FindroidItem) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
+    searchViewModel: SearchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val searchState by searchViewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(true) { viewModel.loadData() }
 
     HomeScreenLayout(
         state = state,
+        searchState = searchState,
         onAction = { action ->
             when (action) {
                 is HomeAction.OnItemClick -> onItemClick(action.item)
                 is HomeAction.OnLibraryClick -> onLibraryClick(action.library)
-                is HomeAction.OnSearchClick -> onSearchClick()
+                is HomeAction.OnFavoritesClick -> onFavoritesClick()
                 is HomeAction.OnSettingsClick -> onSettingsClick()
                 is HomeAction.OnManageServers -> onManageServers()
                 else -> Unit
             }
             viewModel.onAction(action)
         },
+        onSearchAction = { action ->
+            when (action) {
+                is SearchAction.OnItemClick -> onItemClick(action.item)
+                else -> Unit
+            }
+            searchViewModel.onAction(action)
+        },
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
+private fun HomeScreenLayout(
+    state: HomeState,
+    searchState: SearchState,
+    onAction: (HomeAction) -> Unit,
+    onSearchAction: (SearchAction) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val safePadding = rememberSafePadding(handleStartInsets = false)
 
@@ -94,6 +114,7 @@ private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
     var showErrorDialog by rememberSaveable { mutableStateOf(false) }
     val showServerSelectionSheetState = rememberModalBottomSheetState()
     var showServerSelectionBottomSheet by remember { mutableStateOf(false) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().semantics { isTraversalGroup = true }) {
         PullToRefreshBox(isRefreshing = false, onRefresh = { onAction(HomeAction.OnRetryClick) }) {
@@ -147,17 +168,30 @@ private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
         }
     }
 
-    HomeHeader(
-        serverName = state.server?.name ?: "",
-        isLoading = state.isLoading,
-        isError = state.error != null,
-        onServerClick = { showServerSelectionBottomSheet = true },
-        onErrorClick = { showErrorDialog = true },
-        onRetryClick = { onAction(HomeAction.OnRetryClick) },
-        onSearchClick = { onAction(HomeAction.OnSearchClick) },
-        onUserClick = { onAction(HomeAction.OnSettingsClick) },
-        modifier = Modifier.padding(start = paddingStart, top = paddingTop, end = paddingEnd),
-    )
+    if (searchExpanded) {
+        FilmSearchBar(
+            state = searchState,
+            expanded = true,
+            onExpand = { searchExpanded = it },
+            onAction = onSearchAction,
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(start = paddingStart, top = paddingTop, end = paddingEnd),
+        )
+    } else {
+        HomeHeader(
+            serverName = state.server?.name ?: "",
+            isLoading = state.isLoading,
+            isError = state.error != null,
+            onServerClick = { showServerSelectionBottomSheet = true },
+            onErrorClick = { showErrorDialog = true },
+            onRetryClick = { onAction(HomeAction.OnRetryClick) },
+            onSearchClick = { searchExpanded = true },
+            onFavoritesClick = { onAction(HomeAction.OnFavoritesClick) },
+            onUserClick = { onAction(HomeAction.OnSettingsClick) },
+            modifier = Modifier.padding(start = paddingStart, top = paddingTop, end = paddingEnd),
+        )
+    }
 
     if (showServerSelectionBottomSheet) {
         ServerSelectionBottomSheet(
@@ -195,7 +229,9 @@ private fun HomeScreenLayoutPreview() {
                     views = listOf(dummyHomeView),
                     error = Exception("Failed to load data"),
                 ),
+            searchState = SearchState(),
             onAction = {},
+            onSearchAction = {},
         )
     }
 }

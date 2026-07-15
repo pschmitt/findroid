@@ -15,8 +15,6 @@ import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -50,7 +48,6 @@ import dev.jdtech.jellyfin.presentation.film.EpisodeScreen
 import dev.jdtech.jellyfin.presentation.film.FavoritesScreen
 import dev.jdtech.jellyfin.presentation.film.HomeScreen
 import dev.jdtech.jellyfin.presentation.film.LibraryScreen
-import dev.jdtech.jellyfin.presentation.film.MediaScreen
 import dev.jdtech.jellyfin.presentation.film.MovieScreen
 import dev.jdtech.jellyfin.presentation.film.PersonScreen
 import dev.jdtech.jellyfin.presentation.film.SeasonScreen
@@ -82,8 +79,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object HomeRoute
 
-@Serializable data object MediaRoute
-
 @Serializable data object DownloadsRoute
 
 @Serializable data object AutoDownloadRulesRoute
@@ -93,6 +88,10 @@ data class LibraryRoute(
     val libraryId: String,
     val libraryName: String,
     val libraryType: CollectionType,
+    // True when reached via its own top-level tab, in which case there's nothing to "go back"
+    // to - false for the "View all" drill-down from a Home library shelf, which does need a
+    // back button to return to Home.
+    val isTab: Boolean = false,
 )
 
 @Serializable data class CollectionRoute(val collectionId: String, val collectionName: String)
@@ -145,17 +144,12 @@ private fun libraryTab(library: FindroidCollection) =
                 libraryId = library.id.toString(),
                 libraryName = library.name,
                 libraryType = library.type,
+                isTab = true,
             ),
     )
 
 val homeTab =
     TabBarItem(title = CoreR.string.title_home, icon = CoreR.drawable.ic_home, route = HomeRoute)
-val mediaTab =
-    TabBarItem(
-        title = CoreR.string.title_media,
-        icon = CoreR.drawable.ic_library,
-        route = MediaRoute,
-    )
 val downloadsTab =
     TabBarItem(
         title = CoreR.string.title_download,
@@ -188,24 +182,17 @@ fun NavigationRoot(
         )
 
     val mediaState by mediaViewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(isTablet, isOfflineMode) {
-        if (isTablet && !isOfflineMode) mediaViewModel.loadData()
+    LaunchedEffect(isOfflineMode) {
+        if (!isOfflineMode) mediaViewModel.loadData()
     }
 
     val navigationItems =
         when (isOfflineMode) {
-            false ->
-                if (isTablet && mediaState.libraries.isNotEmpty()) {
-                    listOf(homeTab) + mediaState.libraries.map(::libraryTab) + listOf(downloadsTab)
-                } else {
-                    listOf(homeTab, mediaTab, downloadsTab)
-                }
+            false -> listOf(homeTab) + mediaState.libraries.map(::libraryTab) + listOf(downloadsTab)
             true -> listOf(homeTab, downloadsTab)
         }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-
-    var searchExpanded by remember { mutableStateOf(false) }
 
     val currentRoute = navBackStackEntry?.destination?.route
     val currentLibraryRoute =
@@ -217,7 +204,7 @@ fun NavigationRoot(
             else -> currentRoute == r::class.qualifiedName
         }
 
-    val showBottomBar = navigationItems.any { it.isSelected() } && !searchExpanded
+    val showBottomBar = navigationItems.any { it.isSelected() }
 
     val navigationSuiteScaffoldState = rememberNavigationSuiteScaffoldState()
 
@@ -244,27 +231,31 @@ fun NavigationRoot(
                 item(
                     selected = item.isSelected(),
                     onClick = {
-                        if (
-                            item.route is MediaRoute &&
-                                currentRoute == MediaRoute::class.qualifiedName
-                        ) {
-                            searchExpanded = true
-                        }
-
-                        // Per-library tabs all share the LibraryRoute type, so
-                        // launchSingleTop/restoreState (which dedup by destination type, not by
-                        // route arguments) would otherwise treat switching from one library tab
-                        // to another as "already there" and silently no-op. Only rely on that
-                        // save/restore behavior for tabs with their own dedicated route type, and
-                        // skip re-navigating if the tapped library tab is already the open one.
-                        if (item.route !is LibraryRoute || !item.isSelected()) {
-                            val useSavedState = item.route !is LibraryRoute
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = useSavedState
+                        when {
+                            // Home is the graph's start destination, so it's always still on the
+                            // bottom of the back stack - just pop back to it directly instead of
+                            // going through popUpTo+saveState+restoreState, which (at least
+                            // empirically) can restore the wrong saved entry when the destination
+                            // being popped up to is also the navigation target.
+                            item.route == HomeRoute -> {
+                                navController.popBackStack(route = HomeRoute, inclusive = false)
+                            }
+                            // Per-library tabs all share the LibraryRoute type, so
+                            // launchSingleTop/restoreState (which dedup by destination type, not
+                            // by route arguments) would otherwise treat switching from one library
+                            // tab to another as "already there" and silently no-op. Only rely on
+                            // that save/restore behavior for tabs with their own dedicated route
+                            // type, and skip re-navigating if the tapped library tab is already
+                            // the open one.
+                            item.route !is LibraryRoute || !item.isSelected() -> {
+                                val useSavedState = item.route !is LibraryRoute
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        saveState = useSavedState
+                                    }
+                                    launchSingleTop = useSavedState
+                                    restoreState = useSavedState
                                 }
-                                launchSingleTop = useSavedState
-                                restoreState = useSavedState
                             }
                         }
                     },
@@ -362,14 +353,7 @@ fun NavigationRoot(
                             )
                         )
                     },
-                    onSearchClick = {
-                        searchExpanded = true
-                        navController.safeNavigate(MediaRoute) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onFavoritesClick = { navController.safeNavigate(FavoritesRoute) },
                     onSettingsClick = {
                         navController.safeNavigate(
                             SettingsRoute(indexes = intArrayOf(CoreR.string.title_settings))
@@ -381,21 +365,6 @@ fun NavigationRoot(
                     },
                 )
             }
-            composable<MediaRoute> {
-                MediaScreen(
-                    onItemClick = { item ->
-                        navigateToItem(navController = navController, item = item)
-                    },
-                    onFavoritesClick = { navController.safeNavigate(FavoritesRoute) },
-                    onSettingsClick = {
-                        navController.safeNavigate(
-                            SettingsRoute(indexes = intArrayOf(CoreR.string.title_settings))
-                        )
-                    },
-                    searchExpanded = searchExpanded,
-                    onSearchExpand = { searchExpanded = it },
-                )
-            }
             composable<DownloadsRoute> {
                 DownloadsScreen(
                     onItemClick = { item ->
@@ -404,7 +373,18 @@ fun NavigationRoot(
                     onShowClick = { showId ->
                         navController.safeNavigate(ShowRoute(showId = showId.toString()))
                     },
-                    onMoviesClick = { navController.safeNavigate(MediaRoute) },
+                    onMoviesClick = {
+                        mediaState.libraries.firstOrNull { it.type == CollectionType.Movies }
+                            ?.let { library ->
+                                navController.safeNavigate(
+                                    LibraryRoute(
+                                        libraryId = library.id.toString(),
+                                        libraryName = library.name,
+                                        libraryType = library.type,
+                                    )
+                                )
+                            }
+                    },
                     onSettingsClick = {
                         navController.safeNavigate(
                             SettingsRoute(
@@ -440,6 +420,7 @@ fun NavigationRoot(
                     libraryId = UUID.fromString(route.libraryId),
                     libraryName = route.libraryName,
                     libraryType = route.libraryType,
+                    showBackButton = !route.isTab,
                     onItemClick = { item ->
                         navigateToItem(navController = navController, item = item)
                     },

@@ -75,6 +75,7 @@ fun LibraryScreen(
     libraryType: CollectionType,
     onItemClick: (item: FindroidItem) -> Unit,
     navigateBack: () -> Unit,
+    showBackButton: Boolean = true,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -92,6 +93,7 @@ fun LibraryScreen(
     LibraryScreenLayout(
         libraryName = libraryName,
         state = state,
+        showBackButton = showBackButton,
         onAction = { action ->
             when (action) {
                 is LibraryAction.OnItemClick -> onItemClick(action.item)
@@ -108,6 +110,7 @@ fun LibraryScreen(
 private fun LibraryScreenLayout(
     libraryName: String,
     state: LibraryState,
+    showBackButton: Boolean = true,
     onAction: (LibraryAction) -> Unit,
 ) {
     val contentPadding = PaddingValues(all = MaterialTheme.spacings.default)
@@ -160,20 +163,22 @@ private fun LibraryScreenLayout(
                     }
                 },
                 navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            if (searchExpanded) {
-                                searchExpanded = false
-                                onAction(LibraryAction.OnSearchQueryChange(""))
-                            } else {
-                                onAction(LibraryAction.OnBackClick)
+                    if (searchExpanded || showBackButton) {
+                        IconButton(
+                            onClick = {
+                                if (searchExpanded) {
+                                    searchExpanded = false
+                                    onAction(LibraryAction.OnSearchQueryChange(""))
+                                } else {
+                                    onAction(LibraryAction.OnBackClick)
+                                }
                             }
+                        ) {
+                            Icon(
+                                painter = painterResource(CoreR.drawable.ic_arrow_left),
+                                contentDescription = null,
+                            )
                         }
-                    ) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_arrow_left),
-                            contentDescription = null,
-                        )
                     }
                 },
                 actions = {
