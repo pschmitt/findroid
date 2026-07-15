@@ -4,6 +4,8 @@ import android.app.DownloadManager
 import android.os.Environment
 import android.os.StatFs
 import android.text.format.Formatter
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,6 +54,12 @@ import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.resolveDownloadStorageIndex
+
+private data class OverflowAction(
+    @DrawableRes val iconRes: Int,
+    @StringRes val labelRes: Int,
+    val onClick: () -> Unit,
+)
 
 @Composable
 fun ItemButtonsBar(
@@ -208,7 +216,44 @@ fun ItemButtonsBar(
                     )
                 }
                 val canRestart = item.playbackPositionTicks.div(600000000) > 0
-                if (canRestart || trailerUri != null || onInfoClick != null) {
+                val overflowActions =
+                    buildList {
+                        if (canRestart) {
+                            add(
+                                OverflowAction(
+                                    iconRes = CoreR.drawable.ic_rotate_ccw,
+                                    labelRes = CoreR.string.restart_from_beginning,
+                                    onClick = { onPlayClick(true) },
+                                )
+                            )
+                        }
+                        trailerUri?.let { uri ->
+                            add(
+                                OverflowAction(
+                                    iconRes = CoreR.drawable.ic_film,
+                                    labelRes = CoreR.string.watch_trailer,
+                                    onClick = { onTrailerClick(uri) },
+                                )
+                            )
+                        }
+                        onInfoClick?.let { infoClick ->
+                            add(
+                                OverflowAction(
+                                    iconRes = CoreR.drawable.ic_info,
+                                    labelRes = CoreR.string.info,
+                                    onClick = infoClick,
+                                )
+                            )
+                        }
+                    }
+                if (overflowActions.size == 1) {
+                    val action = overflowActions.first()
+                    FilledTonalButton(onClick = action.onClick) {
+                        Icon(painter = painterResource(action.iconRes), contentDescription = null)
+                        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                        Text(text = stringResource(action.labelRes))
+                    }
+                } else if (overflowActions.size > 1) {
                     var overflowMenuExpanded by remember { mutableStateOf(false) }
                     FilledTonalIconButton(onClick = { overflowMenuExpanded = true }) {
                         Icon(
@@ -220,48 +265,18 @@ fun ItemButtonsBar(
                         expanded = overflowMenuExpanded,
                         onDismissRequest = { overflowMenuExpanded = false },
                     ) {
-                        if (canRestart) {
+                        overflowActions.forEach { action ->
                             DropdownMenuItem(
-                                text = { Text(text = stringResource(CoreR.string.restart_from_beginning)) },
+                                text = { Text(text = stringResource(action.labelRes)) },
                                 leadingIcon = {
                                     Icon(
-                                        painter = painterResource(CoreR.drawable.ic_rotate_ccw),
+                                        painter = painterResource(action.iconRes),
                                         contentDescription = null,
                                     )
                                 },
                                 onClick = {
                                     overflowMenuExpanded = false
-                                    onPlayClick(true)
-                                },
-                            )
-                        }
-                        trailerUri?.let { uri ->
-                            DropdownMenuItem(
-                                text = { Text(text = stringResource(CoreR.string.watch_trailer)) },
-                                leadingIcon = {
-                                    Icon(
-                                        painter = painterResource(CoreR.drawable.ic_film),
-                                        contentDescription = null,
-                                    )
-                                },
-                                onClick = {
-                                    overflowMenuExpanded = false
-                                    onTrailerClick(uri)
-                                },
-                            )
-                        }
-                        onInfoClick?.let { infoClick ->
-                            DropdownMenuItem(
-                                text = { Text(text = stringResource(CoreR.string.info)) },
-                                leadingIcon = {
-                                    Icon(
-                                        painter = painterResource(CoreR.drawable.ic_info),
-                                        contentDescription = null,
-                                    )
-                                },
-                                onClick = {
-                                    overflowMenuExpanded = false
-                                    infoClick()
+                                    action.onClick()
                                 },
                             )
                         }
