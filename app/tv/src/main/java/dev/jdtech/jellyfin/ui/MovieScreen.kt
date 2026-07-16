@@ -1,5 +1,8 @@
 package dev.jdtech.jellyfin.ui
 
+import android.os.Environment
+import android.os.StatFs
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,14 +10,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -29,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,15 +52,25 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderAction
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderEvent
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderViewModel
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyMovie
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyVideoMetadata
 import dev.jdtech.jellyfin.core.presentation.theme.Yellow
 import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
 import dev.jdtech.jellyfin.film.presentation.movie.MovieState
 import dev.jdtech.jellyfin.film.presentation.movie.MovieViewModel
+import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.DownloadProgress
+import dev.jdtech.jellyfin.utils.ObserveAsEvents
 import dev.jdtech.jellyfin.utils.format
+import dev.jdtech.jellyfin.utils.formatDownloadSpeed
+import dev.jdtech.jellyfin.utils.formatEta
+import dev.jdtech.jellyfin.utils.resolveDownloadStorageIndex
 import java.util.UUID
 
 @Composable
@@ -60,13 +78,26 @@ fun MovieScreen(
     movieId: UUID,
     navigateToPlayer: (itemId: UUID) -> Unit,
     viewModel: MovieViewModel = hiltViewModel(),
+    downloaderViewModel: DownloaderViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val downloaderState by downloaderViewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(true) { viewModel.loadMovie(movieId = movieId) }
 
+    LaunchedEffect(state.movie) { state.movie?.let { movie -> downloaderViewModel.update(movie) } }
+
+    ObserveAsEvents(downloaderViewModel.events) { event ->
+        when (event) {
+            is DownloaderEvent.Successful,
+            is DownloaderEvent.Deleted -> viewModel.loadMovie(movieId = movieId)
+        }
+    }
+
     MovieScreenLayout(
         state = state,
+        downloaderState = downloaderState,
+        downloadLocationPreference = downloaderViewModel.downloadLocationPreference,
         onAction = { action ->
             when (action) {
                 is MovieAction.Play -> {
@@ -76,14 +107,27 @@ fun MovieScreen(
             }
             viewModel.onAction(action)
         },
+        onDownloaderAction = downloaderViewModel::onAction,
     )
 }
 
 @Composable
-private fun MovieScreenLayout(state: MovieState, onAction: (MovieAction) -> Unit) {
+private fun MovieScreenLayout(
+    state: MovieState,
+    onAction: (MovieAction) -> Unit,
+    downloaderState: DownloaderState? = null,
+    downloadLocationPreference: String = "ask",
+    onDownloaderAction: (DownloaderAction) -> Unit = {},
+) {
+    val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
     val configuration = LocalConfiguration.current
     val locale = configuration.locales.get(0)
+
+    var storageSelectionDialogOpen by remember { mutableStateOf(false) }
+    var cancelDownloadDialogOpen by remember { mutableStateOf(false) }
+    var deleteDownloadDialogOpen by remember { mutableStateOf(false) }
+    var selectedStorageIndex by remember { mutableIntStateOf(0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         state.movie?.let { movie ->
@@ -248,6 +292,88 @@ private fun MovieScreenLayout(state: MovieState, onAction: (MovieAction) -> Unit
                                     )
                             )
                         }
+                        if (downloaderState != null && !downloaderState.isDownloading) {
+                            if (movie.isDownloaded()) {
+                                Button(onClick = { deleteDownloadDialogOpen = true }) {
+                                    Icon(
+                                        painter = painterResource(id = CoreR.drawable.ic_trash),
+                                        contentDescription = null,
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = stringResource(id = CoreR.string.delete_download))
+                                }
+                            } else if (movie.canDownload) {
+                                Button(
+                                    onClick = {
+                                        val storageLocations = context.getExternalFilesDirs(null)
+                                        val preferredIndex =
+                                            resolveDownloadStorageIndex(
+                                                context,
+                                                downloadLocationPreference,
+                                            )
+                                        when {
+                                            preferredIndex >= 0 -> {
+                                                onDownloaderAction(
+                                                    DownloaderAction.Download(movie, preferredIndex)
+                                                )
+                                            }
+                                            storageLocations.size > 1 -> {
+                                                storageSelectionDialogOpen = true
+                                            }
+                                            else -> {
+                                                onDownloaderAction(
+                                                    DownloaderAction.Download(movie, 0)
+                                                )
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = CoreR.drawable.ic_download),
+                                        contentDescription = null,
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = stringResource(id = CoreR.string.download))
+                                }
+                            }
+                        }
+                    }
+                    if (downloaderState != null && downloaderState.isDownloading) {
+                        Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+                        ) {
+                            val statusText =
+                                when {
+                                    downloaderState.status == android.app.DownloadManager.STATUS_PENDING ->
+                                        stringResource(id = CoreR.string.download_queued)
+                                    downloaderState.status == android.app.DownloadManager.STATUS_PAUSED ->
+                                        stringResource(id = CoreR.string.download_paused)
+                                    downloaderState.status == DownloadProgress.STATUS_VERIFYING ->
+                                        stringResource(id = CoreR.string.download_verifying)
+                                    downloaderState.progress > 0f ->
+                                        stringResource(
+                                            id = CoreR.string.download_progress_status,
+                                            (downloaderState.progress * 100).toInt(),
+                                            formatDownloadSpeed(
+                                                context,
+                                                downloaderState.speedBytesPerSecond,
+                                            ),
+                                            formatEta(downloaderState.etaSeconds),
+                                        )
+                                    else -> stringResource(id = CoreR.string.download_downloading)
+                                }
+                            Text(text = statusText, style = MaterialTheme.typography.bodyMedium)
+                            Button(onClick = { cancelDownloadDialogOpen = true }) {
+                                Icon(
+                                    painter = painterResource(id = CoreR.drawable.ic_x),
+                                    contentDescription = null,
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = stringResource(id = CoreR.string.download_action_cancel))
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                     Row(
@@ -301,6 +427,91 @@ private fun MovieScreenLayout(state: MovieState, onAction: (MovieAction) -> Unit
 
             LaunchedEffect(true) { focusRequester.requestFocus() }
         } ?: run { CircularProgressIndicator(modifier = Modifier.align(Alignment.Center)) }
+    }
+
+    if (storageSelectionDialogOpen) {
+        val storageLocations = remember { context.getExternalFilesDirs(null) }
+        AlertDialog(
+            title = { Text(text = stringResource(id = CoreR.string.select_storage_location)) },
+            text = {
+                Column {
+                    storageLocations.forEachIndexed { index, dir ->
+                        val locationStringRes =
+                            if (Environment.isExternalStorageRemovable(dir)) CoreR.string.external
+                            else CoreR.string.internal
+                        val availableMegaBytes = StatFs(dir.path).availableBytes.div(1000000)
+                        TextButton(
+                            onClick = {
+                                onDownloaderAction(DownloaderAction.Download(state.movie!!, index))
+                                storageSelectionDialogOpen = false
+                            }
+                        ) {
+                            Text(
+                                text =
+                                    stringResource(
+                                        id = CoreR.string.storage_name,
+                                        stringResource(id = locationStringRes),
+                                        availableMegaBytes,
+                                    )
+                            )
+                        }
+                    }
+                }
+            },
+            onDismissRequest = { storageSelectionDialogOpen = false },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { storageSelectionDialogOpen = false }) {
+                    Text(text = stringResource(id = CoreR.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (cancelDownloadDialogOpen) {
+        AlertDialog(
+            title = { Text(text = stringResource(id = CoreR.string.cancel_download)) },
+            text = { Text(text = stringResource(id = CoreR.string.cancel_download_message)) },
+            onDismissRequest = { cancelDownloadDialogOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDownloaderAction(DownloaderAction.CancelDownload(state.movie!!))
+                        cancelDownloadDialogOpen = false
+                    }
+                ) {
+                    Text(text = stringResource(id = CoreR.string.stop_download))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { cancelDownloadDialogOpen = false }) {
+                    Text(text = stringResource(id = CoreR.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (deleteDownloadDialogOpen) {
+        AlertDialog(
+            title = { Text(text = stringResource(id = CoreR.string.delete_download)) },
+            text = { state.movie?.let { movie -> Text(text = movie.name) } },
+            onDismissRequest = { deleteDownloadDialogOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDownloaderAction(DownloaderAction.DeleteDownload(state.movie!!))
+                        deleteDownloadDialogOpen = false
+                    }
+                ) {
+                    Text(text = stringResource(id = CoreR.string.delete_download))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteDownloadDialogOpen = false }) {
+                    Text(text = stringResource(id = CoreR.string.cancel))
+                }
+            },
+        )
     }
 }
 

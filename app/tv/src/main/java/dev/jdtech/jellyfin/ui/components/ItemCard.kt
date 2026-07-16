@@ -29,8 +29,10 @@ import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyMovie
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
+import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.DownloadProgress
 
 @Composable
 fun ItemCard(
@@ -38,6 +40,7 @@ fun ItemCard(
     direction: Direction,
     onClick: (FindroidItem) -> Unit,
     modifier: Modifier = Modifier,
+    downloadProgress: DownloadProgress? = null,
 ) {
     val width =
         when (direction) {
@@ -62,6 +65,18 @@ fun ItemCard(
                     modifier =
                         Modifier.align(Alignment.TopEnd).padding(MaterialTheme.spacings.small),
                 )
+                if (downloadProgress != null) {
+                    DownloadingBadge(
+                        progress = downloadProgress,
+                        modifier =
+                            Modifier.align(Alignment.TopStart).padding(MaterialTheme.spacings.small),
+                    )
+                } else if (item.isDownloaded()) {
+                    DownloadedBadge(
+                        modifier =
+                            Modifier.align(Alignment.TopStart).padding(MaterialTheme.spacings.small)
+                    )
+                }
                 if (direction == Direction.HORIZONTAL) {
                     Column(
                         modifier =

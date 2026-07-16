@@ -1,0 +1,211 @@
+package dev.jdtech.jellyfin.presentation.film.components
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.tv.material3.Button
+import androidx.tv.material3.Icon
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.RadioButton
+import androidx.tv.material3.Surface
+import androidx.tv.material3.Text
+import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
+import dev.jdtech.jellyfin.models.FindroidSeason
+import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
+import dev.jdtech.jellyfin.presentation.theme.spacings
+
+/**
+ * TV equivalent of phone's `DownloadScopeDialog` for Show/Season screens. There's no per-episode
+ * detail screen on TV (episodes navigate straight to the player), so unlike phone this dialog
+ * only ever offers season/show/future-seasons scope - no "this episode only" option.
+ */
+@Composable
+fun DownloadScopeDialog(
+    seasons: List<FindroidSeason>?,
+    initialSelection: DownloadSelection = DownloadSelection(),
+    initialAlsoFollowNew: Boolean = false,
+    initialOnlyUnwatched: Boolean = false,
+    canDelete: Boolean = false,
+    onDelete: (() -> Unit)? = null,
+    onConfirm: (selection: DownloadSelection, alsoFollowNew: Boolean, onlyUnwatched: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selectedSeasonIds by remember { mutableStateOf(initialSelection.seasonIds) }
+    var alsoFutureSeasons by remember { mutableStateOf(initialSelection.alsoFutureSeasons) }
+    var alsoFollowNew by remember { mutableStateOf(initialAlsoFollowNew) }
+    var onlyUnwatched by remember { mutableStateOf(initialOnlyUnwatched) }
+
+    val bulkModeSelected = selectedSeasonIds.isNotEmpty() || alsoFutureSeasons
+    val allSeasonIds = seasons?.map { it.id }?.toSet().orEmpty()
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().heightIn(max = 540.dp),
+            shape = MaterialTheme.shapes.large,
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
+                Text(
+                    text = stringResource(CoreR.string.download_scope_title),
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .padding(horizontal = MaterialTheme.spacings.default),
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Spacer(modifier = Modifier.height(MaterialTheme.spacings.medium))
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    if (seasons == null) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.large),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                    } else {
+                        if (allSeasonIds.isNotEmpty()) {
+                            item {
+                                ScopeToggleRow(
+                                    checked = selectedSeasonIds.containsAll(allSeasonIds),
+                                    label = stringResource(CoreR.string.download_scope_show),
+                                    icon = CoreR.drawable.ic_tv,
+                                    onToggle = { checked ->
+                                        selectedSeasonIds = if (checked) allSeasonIds else emptySet()
+                                    },
+                                )
+                            }
+                        }
+                        items(seasons) { season ->
+                            ScopeToggleRow(
+                                checked = season.id in selectedSeasonIds,
+                                label =
+                                    stringResource(
+                                        CoreR.string.auto_download_rule_season,
+                                        season.indexNumber,
+                                    ),
+                                icon = CoreR.drawable.ic_library,
+                                onToggle = { checked ->
+                                    selectedSeasonIds =
+                                        if (checked) selectedSeasonIds + season.id
+                                        else selectedSeasonIds - season.id
+                                },
+                            )
+                        }
+                    }
+                    item { HorizontalDivider() }
+                    item {
+                        ScopeToggleRow(
+                            checked = alsoFutureSeasons,
+                            label = stringResource(CoreR.string.download_scope_future_seasons),
+                            icon = CoreR.drawable.ic_sparkles,
+                            onToggle = { alsoFutureSeasons = it },
+                        )
+                    }
+                    if (bulkModeSelected) {
+                        item {
+                            ScopeToggleRow(
+                                checked = onlyUnwatched,
+                                label = stringResource(CoreR.string.download_scope_only_unwatched),
+                                icon = CoreR.drawable.ic_eye_off,
+                                onToggle = { onlyUnwatched = it },
+                            )
+                        }
+                        if (selectedSeasonIds.isNotEmpty()) {
+                            item {
+                                ScopeToggleRow(
+                                    checked = alsoFollowNew,
+                                    label = stringResource(CoreR.string.download_scope_also_new),
+                                    icon = CoreR.drawable.ic_refresh_cw,
+                                    onToggle = { alsoFollowNew = it },
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(MaterialTheme.spacings.medium))
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth().padding(horizontal = MaterialTheme.spacings.default),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+                ) {
+                    if (canDelete && onDelete != null) {
+                        Button(onClick = onDelete) {
+                            Icon(painter = painterResource(CoreR.drawable.ic_trash), contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = stringResource(CoreR.string.download_scope_remove))
+                        }
+                    }
+                    Button(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
+                    Button(
+                        enabled = bulkModeSelected,
+                        onClick = { onConfirm(DownloadSelection(seasonIds = selectedSeasonIds, alsoFutureSeasons = alsoFutureSeasons), alsoFollowNew, onlyUnwatched) },
+                    ) {
+                        Icon(painter = painterResource(CoreR.drawable.ic_download), contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = stringResource(CoreR.string.download))
+                    }
+                }
+                Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScopeToggleRow(
+    checked: Boolean,
+    label: String,
+    onToggle: (Boolean) -> Unit,
+    icon: Int? = null,
+) {
+    Row(
+        modifier =
+            Modifier.fillMaxWidth()
+                .clickable { onToggle(!checked) }
+                .padding(
+                    horizontal = MaterialTheme.spacings.default,
+                    vertical = MaterialTheme.spacings.small,
+                ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = checked, onClick = { onToggle(!checked) })
+        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+        if (icon != null) {
+            Icon(painter = painterResource(icon), contentDescription = null)
+            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+        }
+        Text(text = label, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+@Preview
+private fun DownloadScopeDialogPreview() {
+    FindroidTheme { DownloadScopeDialog(seasons = emptyList(), onConfirm = { _, _, _ -> }, onDismiss = {}) }
+}
