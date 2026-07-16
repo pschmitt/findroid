@@ -80,6 +80,7 @@ fun EpisodeScreen(
     navigateToPerson: (personId: UUID) -> Unit,
     navigateToSeason: (seasonId: UUID) -> Unit,
     navigateToShow: (showId: UUID) -> Unit,
+    navigateToSettings: () -> Unit,
     viewModel: EpisodeViewModel = hiltViewModel(),
     downloaderViewModel: DownloaderViewModel = hiltViewModel(),
 ) {
@@ -126,6 +127,7 @@ fun EpisodeScreen(
                 }
                 is EpisodeAction.OnBackClick -> navigateBack()
                 is EpisodeAction.OnHomeClick -> navigateHome()
+                is EpisodeAction.OnSettingsClick -> navigateToSettings()
                 is EpisodeAction.NavigateToPerson -> navigateToPerson(action.personId)
                 is EpisodeAction.NavigateToSeason -> navigateToSeason(action.seasonId)
                 is EpisodeAction.NavigateToShow -> navigateToShow(action.showId)
@@ -354,6 +356,7 @@ private fun EpisodeScreenLayout(
             hasHomeButton = true,
             onBackClick = { onAction(EpisodeAction.OnBackClick) },
             onHomeClick = { onAction(EpisodeAction.OnHomeClick) },
+            onSettingsClick = { onAction(EpisodeAction.OnSettingsClick) },
         ) {
             Spacer(modifier = Modifier.width(4.dp))
             state.episode?.let { episode ->

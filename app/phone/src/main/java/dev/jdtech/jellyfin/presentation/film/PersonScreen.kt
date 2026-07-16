@@ -57,6 +57,7 @@ fun PersonScreen(
     navigateBack: () -> Unit,
     navigateHome: () -> Unit,
     navigateToItem: (item: FindroidItem) -> Unit,
+    navigateToSettings: () -> Unit,
     viewModel: PersonViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -69,6 +70,7 @@ fun PersonScreen(
             when (action) {
                 is PersonAction.NavigateBack -> navigateBack()
                 is PersonAction.NavigateHome -> navigateHome()
+                is PersonAction.NavigateToSettings -> navigateToSettings()
                 is PersonAction.NavigateToItem -> navigateToItem(action.item)
             }
         },
@@ -195,6 +197,7 @@ private fun PersonScreenLayout(state: PersonState, onAction: (PersonAction) -> U
             hasHomeButton = true,
             onBackClick = { onAction(PersonAction.NavigateBack) },
             onHomeClick = { onAction(PersonAction.NavigateHome) },
+            onSettingsClick = { onAction(PersonAction.NavigateToSettings) },
         )
     }
 }

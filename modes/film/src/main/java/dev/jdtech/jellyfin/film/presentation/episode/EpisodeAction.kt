@@ -24,6 +24,8 @@ sealed interface EpisodeAction {
 
     data object OnHomeClick : EpisodeAction
 
+    data object OnSettingsClick : EpisodeAction
+
     data class NavigateToPerson(val personId: UUID) : EpisodeAction
 
     data class NavigateToSeason(val seasonId: UUID) : EpisodeAction

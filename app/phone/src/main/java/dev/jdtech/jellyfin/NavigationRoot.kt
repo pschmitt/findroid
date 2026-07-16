@@ -175,6 +175,22 @@ val calendarTab =
         route = CalendarRoute,
     )
 
+/** Plain "open Settings at its root", not scrolled to any particular section. */
+private fun settingsRootRoute() = SettingsRoute(indexes = intArrayOf(CoreR.string.title_settings))
+
+// Routes reachable before there's a logged-in server/user - the nav rail's tabs (Home, libraries,
+// Downloads, Calendar) would be empty/non-functional here, so these never show it, tablet or not.
+private val preAuthRouteNames =
+    listOf(
+            WelcomeRoute::class,
+            ServersRoute::class,
+            AddServerRoute::class,
+            ServerAddressesRoute::class,
+            UsersRoute::class,
+            LoginRoute::class,
+        )
+        .map { it.qualifiedName }
+
 @Composable
 fun NavigationRoot(
     navController: NavHostController,
@@ -206,7 +222,8 @@ fun NavigationRoot(
             false ->
                 listOf(homeTab) +
                     mediaState.libraries.map(::libraryTab) +
-                    listOf(downloadsTab, calendarTab)
+                    listOf(downloadsTab) +
+                    (if (mediaState.showCalendarTab) listOf(calendarTab) else emptyList())
             true -> listOf(homeTab, downloadsTab)
         }
 
@@ -222,7 +239,16 @@ fun NavigationRoot(
             else -> currentRoute == r::class.qualifiedName
         }
 
-    val showBottomBar = navigationItems.any { it.isSelected() }
+    // Matched by prefix since some pre-auth routes carry args (e.g. LoginRoute(username)), whose
+    // NavDestination.route pattern is "qualifiedName/{arg}", not the bare qualified name.
+    val isPreAuthRoute = preAuthRouteNames.any { name -> currentRoute?.startsWith(name!!) == true }
+
+    // On tablet, keep the nav rail visible everywhere past login - including on "fullscreen"
+    // detail screens (Show/Movie/Season/Episode/...) that used to hide it, since there's plenty
+    // of width for both. On phone, keep the original behavior: only show it on an actual tab.
+    // The video player is a separate Activity (PlayerActivity), not a route in this NavHost, so
+    // it's unaffected either way and stays truly fullscreen.
+    val showBottomBar = !isPreAuthRoute && (isTablet || navigationItems.any { it.isSelected() })
 
     val navigationSuiteScaffoldState = rememberNavigationSuiteScaffoldState()
 
@@ -384,11 +410,7 @@ fun NavigationRoot(
                         )
                     },
                     onFavoritesClick = { navController.safeNavigate(FavoritesRoute) },
-                    onSettingsClick = {
-                        navController.safeNavigate(
-                            SettingsRoute(indexes = intArrayOf(CoreR.string.title_settings))
-                        )
-                    },
+                    onSettingsClick = { navController.safeNavigate(settingsRootRoute()) },
                     onManageServers = { navController.safeNavigate(ServersRoute) },
                     onItemClick = { item ->
                         navigateToItem(navController = navController, item = item)
@@ -495,6 +517,7 @@ fun NavigationRoot(
                     navigateToPerson = { personId ->
                         navController.safeNavigate(PersonRoute(personId.toString()))
                     },
+                    navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
                 )
             }
             composable<ShowRoute> { backStackEntry ->
@@ -509,6 +532,7 @@ fun NavigationRoot(
                     navigateToPerson = { personId ->
                         navController.safeNavigate(PersonRoute(personId.toString()))
                     },
+                    navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
                 )
             }
             composable<SeasonRoute> { backStackEntry ->
@@ -526,6 +550,7 @@ fun NavigationRoot(
                             launchSingleTop = true
                         }
                     },
+                    navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
                 )
             }
             composable<EpisodeRoute> { backStackEntry ->
@@ -546,6 +571,7 @@ fun NavigationRoot(
                     navigateToShow = { showId ->
                         navController.safeNavigate(ShowRoute(showId = showId.toString()))
                     },
+                    navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
                 )
             }
             composable<PersonRoute> { backStackEntry ->
@@ -557,6 +583,7 @@ fun NavigationRoot(
                     navigateToItem = { item ->
                         navigateToItem(navController = navController, item = item)
                     },
+                    navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
                 )
             }
             composable<SettingsRoute> { backStackEntry ->

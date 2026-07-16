@@ -80,6 +80,7 @@ fun ShowScreen(
     navigateHome: () -> Unit,
     navigateToItem: (item: FindroidItem) -> Unit,
     navigateToPerson: (personId: UUID) -> Unit,
+    navigateToSettings: () -> Unit,
     viewModel: ShowViewModel = hiltViewModel(),
 ) {
     val androidContext = LocalContext.current
@@ -108,6 +109,7 @@ fun ShowScreen(
                 }
                 is ShowAction.OnBackClick -> navigateBack()
                 is ShowAction.OnHomeClick -> navigateHome()
+                is ShowAction.OnSettingsClick -> navigateToSettings()
                 is ShowAction.NavigateToItem -> navigateToItem(action.item)
                 is ShowAction.NavigateToPerson -> navigateToPerson(action.personId)
                 else -> Unit
@@ -376,6 +378,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
             hasHomeButton = true,
             onBackClick = { onAction(ShowAction.OnBackClick) },
             onHomeClick = { onAction(ShowAction.OnHomeClick) },
+            onSettingsClick = { onAction(ShowAction.OnSettingsClick) },
         )
     }
 

@@ -29,6 +29,8 @@ sealed interface ShowAction {
 
     data object OnHomeClick : ShowAction
 
+    data object OnSettingsClick : ShowAction
+
     data class NavigateToItem(val item: FindroidItem) : ShowAction
 
     data class NavigateToPerson(val personId: UUID) : ShowAction

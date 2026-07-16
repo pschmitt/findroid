@@ -76,6 +76,7 @@ fun SeasonScreen(
     navigateHome: () -> Unit,
     navigateToItem: (item: FindroidItem) -> Unit,
     navigateToSeries: (seriesId: UUID) -> Unit,
+    navigateToSettings: () -> Unit,
     viewModel: SeasonViewModel = hiltViewModel(),
 ) {
     val androidContext = LocalContext.current
@@ -96,6 +97,7 @@ fun SeasonScreen(
                 }
                 is SeasonAction.OnBackClick -> navigateBack()
                 is SeasonAction.OnHomeClick -> navigateHome()
+                is SeasonAction.OnSettingsClick -> navigateToSettings()
                 is SeasonAction.NavigateToItem -> navigateToItem(action.item)
                 is SeasonAction.NavigateToSeries -> navigateToSeries(action.seriesId)
                 else -> Unit
@@ -273,6 +275,7 @@ private fun SeasonScreenLayout(
             hasHomeButton = true,
             onBackClick = { onAction(SeasonAction.OnBackClick) },
             onHomeClick = { onAction(SeasonAction.OnHomeClick) },
+            onSettingsClick = { onAction(SeasonAction.OnSettingsClick) },
         ) {
             Spacer(modifier = Modifier.width(4.dp))
             state.season?.let { season ->

@@ -27,6 +27,8 @@ sealed interface SeasonAction {
 
     data object OnHomeClick : SeasonAction
 
+    data object OnSettingsClick : SeasonAction
+
     data class NavigateToItem(val item: FindroidItem) : SeasonAction
 
     data class NavigateToSeries(val seriesId: UUID) : SeasonAction

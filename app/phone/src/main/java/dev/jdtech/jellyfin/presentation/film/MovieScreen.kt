@@ -73,6 +73,7 @@ fun MovieScreen(
     navigateBack: () -> Unit,
     navigateHome: () -> Unit,
     navigateToPerson: (personId: UUID) -> Unit,
+    navigateToSettings: () -> Unit,
     viewModel: MovieViewModel = hiltViewModel(),
     downloaderViewModel: DownloaderViewModel = hiltViewModel(),
 ) {
@@ -124,6 +125,7 @@ fun MovieScreen(
                 }
                 is MovieAction.OnBackClick -> navigateBack()
                 is MovieAction.OnHomeClick -> navigateHome()
+                is MovieAction.OnSettingsClick -> navigateToSettings()
                 is MovieAction.NavigateToPerson -> navigateToPerson(action.personId)
                 else -> Unit
             }
@@ -318,6 +320,7 @@ private fun MovieScreenLayout(
             hasHomeButton = true,
             onBackClick = { onAction(MovieAction.OnBackClick) },
             onHomeClick = { onAction(MovieAction.OnHomeClick) },
+            onSettingsClick = { onAction(MovieAction.OnSettingsClick) },
         )
     }
 }

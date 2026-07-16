@@ -19,5 +19,7 @@ sealed interface MovieAction {
 
     data object OnHomeClick : MovieAction
 
+    data object OnSettingsClick : MovieAction
+
     data class NavigateToPerson(val personId: UUID) : MovieAction
 }
