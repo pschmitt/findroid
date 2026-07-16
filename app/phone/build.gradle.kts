@@ -50,6 +50,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Reuses the CI keystore override above so CI can also produce a signed, installable
+            // release build - fastlane's `publish` lane overrides this via injected Gradle
+            // properties for the real Play Store signing key, so this has no effect there.
+            signingConfig = signingConfigs.getByName("debug")
         }
         register("staging") {
             initWith(getByName("release"))

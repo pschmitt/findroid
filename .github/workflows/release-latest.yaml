@@ -39,8 +39,13 @@ jobs:
           fileName: 'findroid-ci.jks'
           encodedString: ${{ secrets.CI_KEYSTORE_BASE64 }}
 
-      - name: Build debug APKs
-        run: ./gradlew assembleDebug --stacktrace --build-cache
+      - name: Build debug and release APKs
+        # Scoped to the app modules specifically (not a bare assembleRelease) - building every
+        # library module's standalone release AAR pulls in verifyReleaseResources, which fails on
+        # ?attr/colorControlNormal lookups that only resolve inside a themed app context.
+        run: >
+          ./gradlew :app:phone:assembleDebug :app:phone:assembleRelease
+          :app:tv:assembleDebug :app:tv:assembleRelease --stacktrace --build-cache
         env:
           CI_KEYSTORE_PATH: ${{ steps.ci_keystore.outputs.filePath }}
           CI_KEYSTORE_PASSWORD: ${{ secrets.CI_KEYSTORE_PASSWORD }}
@@ -60,8 +65,16 @@ jobs:
             app/tv/build/outputs/apk/libre/debug/tv-libre-armeabi-v7a-debug.apk \
             app/tv/build/outputs/apk/libre/debug/tv-libre-x86_64-debug.apk \
             app/tv/build/outputs/apk/libre/debug/tv-libre-x86-debug.apk \
+            app/phone/build/outputs/apk/libre/release/phone-libre-arm64-v8a-release.apk \
+            app/phone/build/outputs/apk/libre/release/phone-libre-armeabi-v7a-release.apk \
+            app/phone/build/outputs/apk/libre/release/phone-libre-x86_64-release.apk \
+            app/phone/build/outputs/apk/libre/release/phone-libre-x86-release.apk \
+            app/tv/build/outputs/apk/libre/release/tv-libre-arm64-v8a-release.apk \
+            app/tv/build/outputs/apk/libre/release/tv-libre-armeabi-v7a-release.apk \
+            app/tv/build/outputs/apk/libre/release/tv-libre-x86_64-release.apk \
+            app/tv/build/outputs/apk/libre/release/tv-libre-x86-release.apk \
           ; do
-            name="findroid-latest-$(basename "$apk" | sed -E 's/^(phone|tv)-libre-/\1-/; s/-debug\.apk$/.apk/')"
+            name="findroid-latest-$(basename "$apk" | sed -E 's/^(phone|tv)-libre-/\1-/')"
             cp "$apk" "/tmp/findroid-latest/$name"
           done
           echo "dir=/tmp/findroid-latest" >> "$GITHUB_OUTPUT"
@@ -81,9 +94,11 @@ jobs:
           tag_name: latest
           name: "Latest build"
           body: |
-            Automated debug build of the latest main (${{ github.sha }}), built ${{ steps.date.outputs.date }}.
+            Automated build of the latest main (${{ github.sha }}), built ${{ steps.date.outputs.date }}. Not a stable release.
 
-            Debug-signed, unsigned for distribution — not a stable release.
+            Two variants are provided, both signed with the same CI key so upgrades between them work:
+            - `*-debug.apk` — debuggable, uses the `dev.jdtech.jellyfin.debug` applicationId, installs side by side with a Play Store install.
+            - `*-release.apk` — minified/optimized like a real release build, but uses the same `dev.jdtech.jellyfin` applicationId as the Play Store app. Installing it over an existing Play Store install will fail with a signature mismatch — uninstall that first.
           files: ${{ steps.apks.outputs.dir }}/*.apk
           prerelease: true
           make_latest: false
