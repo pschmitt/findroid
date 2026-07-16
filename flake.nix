@@ -7,6 +7,10 @@
       url = "github:tadfisher/android-nixpkgs";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -14,6 +18,7 @@
       self,
       nixpkgs,
       android-nixpkgs,
+      git-hooks,
     }:
     let
       system = "x86_64-linux";
@@ -31,16 +36,41 @@
         ]
       );
 
+      pre-commit-check = git-hooks.lib.${system}.run {
+        src = ./.;
+        hooks = {
+          trim-trailing-whitespace.enable = true;
+          end-of-file-fixer.enable = true;
+          check-merge-conflicts.enable = true;
+          check-added-large-files.enable = true;
+          check-yaml.enable = true;
+          nixfmt.enable = true;
+          statix.enable = true;
+
+          ktfmt = {
+            enable = true;
+            name = "ktfmt";
+            description = "Format Kotlin sources with ktfmt (kotlinlang style)";
+            entry = "${pkgs.ktfmt}/bin/ktfmt --kotlinlang-style";
+            files = "\\.(kt|kts)$";
+          };
+        };
+      };
+
     in
     {
+      checks.${system}.pre-commit-check = pre-commit-check;
+
       devShells.${system} = {
         default = pkgs.mkShell {
           buildInputs = with pkgs; [
             jdk21
             android-composition
+            just
+            ktfmt
           ];
 
-          shellHook = ''
+          shellHook = pre-commit-check.shellHook + ''
             echo "🤖 Findroid development environment"
 
             # Set JAVA_HOME for Gradle
@@ -69,12 +99,24 @@
             echo "✅ Environment ready!"
             echo "• JAVA_HOME: $JAVA_HOME"
             echo "• ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
-            echo "• Available commands: ./gradlew, adb, aapt2"
+            echo "• Available commands: ./gradlew, adb, aapt2, just, ktfmt"
             echo ""
-            echo "🚀 Quick start:"
-            echo "  ./gradlew assembleLibreDebug        # Build debug APK (phone)"
-            echo "  ./gradlew installLibreDebug         # Install to connected device"
-            echo "  ./gradlew :data:connectedAndroidTest :core:connectedAndroidTest"
+            if [ "$(hostname)" != "rofl-13" ] && [ "$(hostname)" != "rofl-14" ]; then
+              echo "⚠️  Don't run ./gradlew directly on this machine - see AGENTS.md."
+              echo "   Use the 'just' recipes below, which build on rofl-13/rofl-14 instead:"
+              echo ""
+              echo "🚀 Quick start:"
+              echo "  just build-phone-debug              # Build debug APK (phone) on rofl-13"
+              echo "  just build-and-fetch-phone-debug    # ...and copy it back to ./dist"
+              echo "  just deploy-phone-debug             # ...and install it on the Mi Pad 4"
+              echo "  just mipad-logcat                   # Tail logs from the Mi Pad 4"
+              echo "  just --list                         # See all available recipes"
+            else
+              echo "🚀 Quick start (on a remote build host):"
+              echo "  ./gradlew :app:phone:assembleLibreDebug   # Build debug APK (phone)"
+              echo "  ./gradlew :app:phone:installLibreDebug    # Install to connected device"
+              echo "  ./gradlew :data:testLibreDebugUnitTest :core:testLibreDebugUnitTest"
+            fi
           '';
         };
       };
