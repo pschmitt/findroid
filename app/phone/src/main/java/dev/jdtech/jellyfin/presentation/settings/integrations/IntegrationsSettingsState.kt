@@ -9,6 +9,10 @@ data class IntegrationsSettingsState(
     val radarrBaseUrl: String = "",
     val radarrApiKey: String = "",
     val radarrTestState: PvrTestState = PvrTestState.Idle,
+    val jellyseerrEnabled: Boolean = false,
+    val jellyseerrBaseUrl: String = "",
+    val jellyseerrApiKey: String = "",
+    val jellyseerrTestState: PvrTestState = PvrTestState.Idle,
     val pvrPollIntervalMinutes: Int = 15,
     val pvrReleaseCacheMinutes: Int = 15,
 )

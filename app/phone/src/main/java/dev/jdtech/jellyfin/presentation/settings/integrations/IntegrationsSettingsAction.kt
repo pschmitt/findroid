@@ -19,6 +19,14 @@ sealed interface IntegrationsSettingsAction {
 
     data object OnTestRadarrConnection : IntegrationsSettingsAction
 
+    data class OnJellyseerrEnabledChanged(val enabled: Boolean) : IntegrationsSettingsAction
+
+    data class OnJellyseerrBaseUrlChanged(val baseUrl: String) : IntegrationsSettingsAction
+
+    data class OnJellyseerrApiKeyChanged(val apiKey: String) : IntegrationsSettingsAction
+
+    data object OnTestJellyseerrConnection : IntegrationsSettingsAction
+
     data class OnPollIntervalChanged(val minutes: Int) : IntegrationsSettingsAction
 
     data class OnReleaseCacheChanged(val minutes: Int) : IntegrationsSettingsAction

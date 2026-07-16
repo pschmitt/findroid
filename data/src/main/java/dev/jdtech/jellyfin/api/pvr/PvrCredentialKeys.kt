@@ -10,4 +10,5 @@ package dev.jdtech.jellyfin.api.pvr
 object PvrCredentialKeys {
     const val SONARR_API_KEY = "sonarr_api_key"
     const val RADARR_API_KEY = "radarr_api_key"
+    const val JELLYSEERR_API_KEY = "jellyseerr_api_key"
 }

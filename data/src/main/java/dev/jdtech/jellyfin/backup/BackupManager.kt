@@ -176,6 +176,11 @@ class BackupManager(
     }
 
     private companion object {
-        val SECRET_KEYS = listOf(PvrCredentialKeys.SONARR_API_KEY, PvrCredentialKeys.RADARR_API_KEY)
+        val SECRET_KEYS =
+            listOf(
+                PvrCredentialKeys.SONARR_API_KEY,
+                PvrCredentialKeys.RADARR_API_KEY,
+                PvrCredentialKeys.JELLYSEERR_API_KEY,
+            )
     }
 }

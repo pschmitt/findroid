@@ -135,6 +135,29 @@ private fun IntegrationsSettingsScreenLayout(
 
             HorizontalDivider()
 
+            PvrServiceSection(
+                nameRes = CoreR.string.integrations_jellyseerr,
+                enableLabelRes = CoreR.string.integrations_enable_jellyseerr,
+                enabled = state.jellyseerrEnabled,
+                baseUrl = state.jellyseerrBaseUrl,
+                apiKey = state.jellyseerrApiKey,
+                testState = state.jellyseerrTestState,
+                onEnabledChanged = {
+                    onAction(IntegrationsSettingsAction.OnJellyseerrEnabledChanged(it))
+                },
+                onBaseUrlChanged = {
+                    onAction(IntegrationsSettingsAction.OnJellyseerrBaseUrlChanged(it))
+                },
+                onApiKeyChanged = {
+                    onAction(IntegrationsSettingsAction.OnJellyseerrApiKeyChanged(it))
+                },
+                onTestConnectionClick = {
+                    onAction(IntegrationsSettingsAction.OnTestJellyseerrConnection)
+                },
+            )
+
+            HorizontalDivider()
+
             Column {
                 Text(
                     text = stringResource(CoreR.string.integrations_poll_interval),

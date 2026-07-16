@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.presentation.settings.integrations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.api.pvr.JellyseerrApi
 import dev.jdtech.jellyfin.api.pvr.PvrCredentialKeys
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
@@ -42,6 +43,10 @@ constructor(
                 radarrEnabled = appPreferences.getValue(appPreferences.radarrEnabled),
                 radarrBaseUrl = appPreferences.getValue(appPreferences.radarrBaseUrl).orEmpty(),
                 radarrApiKey = secureCredentialStore.getString(PvrCredentialKeys.RADARR_API_KEY).orEmpty(),
+                jellyseerrEnabled = appPreferences.getValue(appPreferences.jellyseerrEnabled),
+                jellyseerrBaseUrl = appPreferences.getValue(appPreferences.jellyseerrBaseUrl).orEmpty(),
+                jellyseerrApiKey =
+                    secureCredentialStore.getString(PvrCredentialKeys.JELLYSEERR_API_KEY).orEmpty(),
                 pvrPollIntervalMinutes =
                     appPreferences.getValue(appPreferences.pvrPollIntervalMinutes),
                 pvrReleaseCacheMinutes =
@@ -100,6 +105,30 @@ constructor(
                     )
             }
             is IntegrationsSettingsAction.OnTestRadarrConnection -> testRadarrConnection()
+            is IntegrationsSettingsAction.OnJellyseerrEnabledChanged -> {
+                appPreferences.setValue(appPreferences.jellyseerrEnabled, action.enabled)
+                _state.value = _state.value.copy(jellyseerrEnabled = action.enabled)
+            }
+            is IntegrationsSettingsAction.OnJellyseerrBaseUrlChanged -> {
+                appPreferences.setValue(
+                    appPreferences.jellyseerrBaseUrl,
+                    action.baseUrl.ifBlank { null },
+                )
+                _state.value =
+                    _state.value.copy(
+                        jellyseerrBaseUrl = action.baseUrl,
+                        jellyseerrTestState = PvrTestState.Idle,
+                    )
+            }
+            is IntegrationsSettingsAction.OnJellyseerrApiKeyChanged -> {
+                persistApiKeyDebounced(PvrCredentialKeys.JELLYSEERR_API_KEY, action.apiKey)
+                _state.value =
+                    _state.value.copy(
+                        jellyseerrApiKey = action.apiKey,
+                        jellyseerrTestState = PvrTestState.Idle,
+                    )
+            }
+            is IntegrationsSettingsAction.OnTestJellyseerrConnection -> testJellyseerrConnection()
             is IntegrationsSettingsAction.OnPollIntervalChanged -> {
                 appPreferences.setValue(appPreferences.pvrPollIntervalMinutes, action.minutes)
                 _state.value = _state.value.copy(pvrPollIntervalMinutes = action.minutes)
@@ -138,6 +167,12 @@ constructor(
                 _state.value.radarrApiKey.ifBlank { null },
             )
         }
+        if (PvrCredentialKeys.JELLYSEERR_API_KEY in dirtyApiKeys) {
+            secureCredentialStore.putString(
+                PvrCredentialKeys.JELLYSEERR_API_KEY,
+                _state.value.jellyseerrApiKey.ifBlank { null },
+            )
+        }
     }
 
     private fun testSonarrConnection() {
@@ -173,6 +208,27 @@ constructor(
                     PvrTestState.Error(e.message ?: e.toString())
                 }
             _state.value = _state.value.copy(radarrTestState = result)
+        }
+    }
+
+    private fun testJellyseerrConnection() {
+        val baseUrl = _state.value.jellyseerrBaseUrl
+        val apiKey = _state.value.jellyseerrApiKey
+        _state.value = _state.value.copy(jellyseerrTestState = PvrTestState.Testing)
+        viewModelScope.launch {
+            val result =
+                try {
+                    val api = JellyseerrApi(baseUrl, apiKey)
+                    // auth/me validates the key; the request count doubles as the "N items" the
+                    // shared success message expects.
+                    api.getCurrentUser()
+                    PvrTestState.Success(api.getRequests(take = 1).pageInfo.results)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    PvrTestState.Error(e.message ?: e.toString())
+                }
+            _state.value = _state.value.copy(jellyseerrTestState = result)
         }
     }
 

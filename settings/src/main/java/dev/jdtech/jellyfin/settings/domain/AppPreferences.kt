@@ -127,6 +127,10 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val pvrPollIntervalMinutes = Preference("pref_pvr_poll_interval_minutes", 15)
     val pvrReleaseCacheMinutes = Preference("pref_pvr_release_cache_minutes", 15)
 
+    // Jellyseerr/Seerr (media requests) - same secret-handling split as Sonarr/Radarr above.
+    val jellyseerrEnabled = Preference("pref_pvr_jellyseerr_enabled", false)
+    val jellyseerrBaseUrl = Preference<String?>("pref_pvr_jellyseerr_base_url", null)
+
     inline fun <reified T> getValue(preference: Preference<T>): T {
         return try {
             @Suppress("UNCHECKED_CAST")

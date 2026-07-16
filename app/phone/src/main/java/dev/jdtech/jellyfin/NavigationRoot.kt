@@ -44,6 +44,7 @@ import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.presentation.film.AutoDownloadRulesScreen
 import dev.jdtech.jellyfin.presentation.film.CalendarScreen
 import dev.jdtech.jellyfin.presentation.film.CollectionScreen
+import dev.jdtech.jellyfin.presentation.film.DiscoverScreen
 import dev.jdtech.jellyfin.presentation.film.DownloadsScreen
 import dev.jdtech.jellyfin.presentation.film.EpisodeScreen
 import dev.jdtech.jellyfin.presentation.film.FavoritesScreen
@@ -86,6 +87,8 @@ import kotlinx.serialization.Serializable
 @Serializable data object DownloadsRoute
 
 @Serializable data object CalendarRoute
+
+@Serializable data object DiscoverRoute
 
 @Serializable data object AutoDownloadRulesRoute
 
@@ -174,6 +177,12 @@ val calendarTab =
         icon = CoreR.drawable.ic_calendar,
         route = CalendarRoute,
     )
+val discoverTab =
+    TabBarItem(
+        title = CoreR.string.title_discover,
+        icon = CoreR.drawable.ic_sparkles,
+        route = DiscoverRoute,
+    )
 
 /** Plain "open Settings at its root", not scrolled to any particular section. */
 private fun settingsRootRoute() = SettingsRoute(indexes = intArrayOf(CoreR.string.title_settings))
@@ -223,7 +232,8 @@ fun NavigationRoot(
                 listOf(homeTab) +
                     mediaState.libraries.map(::libraryTab) +
                     listOf(downloadsTab) +
-                    (if (mediaState.showCalendarTab) listOf(calendarTab) else emptyList())
+                    (if (mediaState.showCalendarTab) listOf(calendarTab) else emptyList()) +
+                    (if (mediaState.showDiscoverTab) listOf(discoverTab) else emptyList())
             true -> listOf(homeTab, downloadsTab)
         }
 
@@ -460,6 +470,7 @@ fun NavigationRoot(
                     },
                 )
             }
+            composable<DiscoverRoute> { DiscoverScreen() }
             composable<AutoDownloadRulesRoute> {
                 AutoDownloadRulesScreen(
                     navigateBack = { navController.safePopBackStack() },
