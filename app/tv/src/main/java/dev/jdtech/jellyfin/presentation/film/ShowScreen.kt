@@ -18,7 +18,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +59,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyShow
 import dev.jdtech.jellyfin.core.presentation.theme.Yellow
@@ -64,6 +67,7 @@ import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
 import dev.jdtech.jellyfin.film.presentation.show.ShowViewModel
 import dev.jdtech.jellyfin.models.FindroidItem
+import dev.jdtech.jellyfin.presentation.film.components.DownloadScopeDialog
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.Direction
@@ -112,6 +116,9 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
     val focusRequester = remember { FocusRequester() }
     val configuration = LocalConfiguration.current
     val locale = configuration.locales.get(0)
+
+    var downloadScopeDialogOpen by remember { mutableStateOf(false) }
+    var clearDownloadsDialogOpen by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
     val listSize = remember { mutableIntStateOf(2) }
@@ -317,6 +324,25 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                                             )
                                     )
                                 }
+                                if (state.hasDownloads) {
+                                    Button(onClick = { clearDownloadsDialogOpen = true }) {
+                                        Icon(
+                                            painter = painterResource(id = CoreR.drawable.ic_trash),
+                                            contentDescription = null,
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(text = stringResource(id = CoreR.string.clear_show_downloads))
+                                    }
+                                } else {
+                                    Button(onClick = { downloadScopeDialogOpen = true }) {
+                                        Icon(
+                                            painter = painterResource(id = CoreR.drawable.ic_download),
+                                            contentDescription = null,
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(text = stringResource(id = CoreR.string.download))
+                                    }
+                                }
                             }
                             Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                             Row(
@@ -387,6 +413,49 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
 
             LaunchedEffect(true) { focusRequester.requestFocus() }
         } ?: run { CircularProgressIndicator(modifier = Modifier.align(Alignment.Center)) }
+    }
+
+    if (downloadScopeDialogOpen) {
+        DownloadScopeDialog(
+            seasons = state.seasons,
+            initialSelection =
+                DownloadSelection(
+                    seasonIds = state.existingScope.seasonIds,
+                    alsoFutureSeasons = state.existingScope.alsoFutureSeasons,
+                ),
+            initialAlsoFollowNew = state.existingScope.alsoFollowNew,
+            initialOnlyUnwatched = state.existingScope.onlyUnwatched,
+            canDelete = state.hasDownloads || state.autoDownloadEnabled,
+            onDelete = { downloadScopeDialogOpen = false; clearDownloadsDialogOpen = true },
+            onConfirm = { selection, alsoFollowNew, onlyUnwatched ->
+                onAction(ShowAction.DownloadWithScope(selection, alsoFollowNew, onlyUnwatched))
+                downloadScopeDialogOpen = false
+            },
+            onDismiss = { downloadScopeDialogOpen = false },
+        )
+    }
+
+    if (clearDownloadsDialogOpen) {
+        AlertDialog(
+            title = { Text(text = stringResource(id = CoreR.string.clear_show_downloads)) },
+            text = { Text(text = stringResource(id = CoreR.string.clear_show_downloads_message)) },
+            onDismissRequest = { clearDownloadsDialogOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onAction(ShowAction.DeleteShowDownloads(alsoRemoveRules = true))
+                        clearDownloadsDialogOpen = false
+                    }
+                ) {
+                    Text(text = stringResource(id = CoreR.string.delete_download))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { clearDownloadsDialogOpen = false }) {
+                    Text(text = stringResource(id = CoreR.string.cancel))
+                }
+            },
+        )
     }
 }
 

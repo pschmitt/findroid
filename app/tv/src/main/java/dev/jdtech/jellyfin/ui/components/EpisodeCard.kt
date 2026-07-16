@@ -28,11 +28,17 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.models.FindroidEpisode
+import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.DownloadProgress
 
 @Composable
-fun EpisodeCard(episode: FindroidEpisode, onClick: (FindroidEpisode) -> Unit) {
+fun EpisodeCard(
+    episode: FindroidEpisode,
+    onClick: (FindroidEpisode) -> Unit,
+    downloadProgress: DownloadProgress? = null,
+) {
     Surface(
         onClick = { onClick(episode) },
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
@@ -62,6 +68,20 @@ fun EpisodeCard(episode: FindroidEpisode, onClick: (FindroidEpisode) -> Unit) {
                         Modifier.align(Alignment.TopEnd)
                             .padding(PaddingValues(MaterialTheme.spacings.small)),
                 )
+                if (downloadProgress != null) {
+                    DownloadingBadge(
+                        progress = downloadProgress,
+                        modifier =
+                            Modifier.align(Alignment.TopStart)
+                                .padding(PaddingValues(MaterialTheme.spacings.small)),
+                    )
+                } else if (episode.isDownloaded()) {
+                    DownloadedBadge(
+                        modifier =
+                            Modifier.align(Alignment.TopStart)
+                                .padding(PaddingValues(MaterialTheme.spacings.small)),
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.medium))
             Column {
