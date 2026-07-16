@@ -45,6 +45,7 @@ import dev.jdtech.jellyfin.presentation.film.components.DownloadScopeDialog
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.EpisodeCard
+import dev.jdtech.jellyfin.ui.components.UpcomingEpisodeCard
 import java.util.UUID
 
 @Composable
@@ -131,6 +132,12 @@ private fun SeasonScreenLayout(
                             onClick = { onAction(SeasonAction.NavigateToItem(episode)) },
                             downloadProgress = state.downloadProgress[episode.id],
                         )
+                    }
+                    items(
+                        items = state.upcomingEpisodes,
+                        key = { episode -> "upcoming-${episode.episodeNumber}" },
+                    ) { episode ->
+                        UpcomingEpisodeCard(episode = episode)
                     }
                 }
             }
