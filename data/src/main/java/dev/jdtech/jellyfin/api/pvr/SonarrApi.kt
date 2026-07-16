@@ -60,6 +60,12 @@ class SonarrApi(private val baseUrl: String, private val apiKey: String) {
             json.decodeFromString<List<SonarrCalendarEntry>>(execute(url))
         }
 
+    suspend fun getEpisodes(seriesId: Int): List<SonarrEpisodeDto> =
+        withContext(Dispatchers.IO) {
+            val url = buildUrl("api", "v3", "episode", queryParams = mapOf("seriesId" to seriesId.toString()))
+            json.decodeFromString<List<SonarrEpisodeDto>>(execute(url))
+        }
+
     private fun buildUrl(
         vararg pathSegments: String,
         queryParams: Map<String, String> = emptyMap(),

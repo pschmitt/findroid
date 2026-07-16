@@ -9,12 +9,14 @@ import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSourceType
+import dev.jdtech.jellyfin.models.UpcomingEpisode
 import dev.jdtech.jellyfin.models.isDownloading
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
+import dev.jdtech.jellyfin.repository.SeasonEpisodesRepository
 import dev.jdtech.jellyfin.repository.toExistingScope
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.AutoDownloadRuleEvaluator
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.model.api.ItemFields
+import timber.log.Timber
 
 @HiltViewModel
 class SeasonViewModel
@@ -41,6 +44,7 @@ constructor(
     private val autoDownloadRuleRepository: AutoDownloadRuleRepository,
     private val appPreferences: AppPreferences,
     private val queueStatusRepository: QueueStatusRepository,
+    private val seasonEpisodesRepository: SeasonEpisodesRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SeasonState())
     val state = _state.asStateFlow()
@@ -81,10 +85,39 @@ constructor(
                 )
                 reconcileDownloadProgress(episodes)
                 observeQueueStatus(episodes)
+                loadUpcomingEpisodes(season.seriesId, season.indexNumber, episodes)
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
             }
         }
+    }
+
+    private suspend fun loadUpcomingEpisodes(
+        seriesId: UUID,
+        seasonNumber: Int,
+        knownEpisodes: List<FindroidEpisode>,
+    ) {
+        val upcoming =
+            if (!appPreferences.getValue(appPreferences.sonarrEnabled)) {
+                emptyList()
+            } else {
+                try {
+                    val tvdbId = repository.getShow(seriesId).tvdbId
+                    if (tvdbId == null) {
+                        emptyList()
+                    } else {
+                        seasonEpisodesRepository.getUpcomingEpisodes(
+                            seriesTvdbId = tvdbId,
+                            seasonNumber = seasonNumber,
+                            knownEpisodeNumbers = knownEpisodes.map { it.indexNumber }.toSet(),
+                        )
+                    }
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to load upcoming episodes for season $seasonNumber")
+                    emptyList()
+                }
+            }
+        _state.emit(_state.value.copy(upcomingEpisodes = upcoming))
     }
 
     private fun observeQueueStatus(episodes: List<FindroidEpisode>) {

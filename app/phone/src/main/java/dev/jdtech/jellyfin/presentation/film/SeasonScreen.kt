@@ -62,6 +62,7 @@ import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemPoster
 import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
+import dev.jdtech.jellyfin.presentation.film.components.UpcomingEpisodeCard
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.displayNameWithContext
@@ -265,6 +266,15 @@ private fun SeasonScreenLayout(
                         modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
                         downloadProgress = state.downloadProgress[episode.id],
                         queueStatus = state.queueStatus[episode.id],
+                    )
+                }
+                items(
+                    items = state.upcomingEpisodes,
+                    key = { episode -> "upcoming-${episode.episodeNumber}" },
+                ) { episode ->
+                    UpcomingEpisodeCard(
+                        episode = episode,
+                        modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
                     )
                 }
             }

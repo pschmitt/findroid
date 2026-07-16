@@ -111,6 +111,25 @@ data class SonarrCalendarEntry(
 
 // endregion
 
+// region Sonarr - GET /api/v3/episode?seriesId=X
+// Unlike /calendar (a global date-range view across all shows), this returns every episode of one
+// specific series - what SeasonUpcomingEpisodesRepository needs to find episodes Sonarr knows
+// about that aren't in the Jellyfin library yet, regardless of whether they've aired. A flat JSON
+// array, same as /calendar and /series.
+
+@Serializable
+data class SonarrEpisodeDto(
+    val id: Int,
+    val seasonNumber: Int = 0,
+    val episodeNumber: Int = 0,
+    val title: String? = null,
+    val airDateUtc: String? = null,
+    val hasFile: Boolean = false,
+    val monitored: Boolean = false,
+)
+
+// endregion
+
 // region Radarr - GET /api/v3/calendar
 // Radarr's calendar entries are full movie objects (same shape as /api/v3/movie), so tmdbId is
 // already present per entry - no separate getMovie() call/join needed. Also a flat JSON array,
