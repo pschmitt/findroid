@@ -18,6 +18,16 @@ Instead, install and auto-update Findroid+ via [Obtainium](https://obtainium.imr
 pointed at this repository, or grab an APK directly from the
 [Releases page](https://github.com/pschmitt/findroidplus/releases).
 
+[<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60">][obtainium-link]
+
+The badge tracks the `phone`/`release` APK (the same `dev.pschmitt.findroidplus` applicationId
+as a Play Store install, arch auto-selected) from the ["latest"](https://github.com/pschmitt/findroidplus/releases/tag/latest)
+pre-release build. Want the TV build or a debuggable variant instead? Add the app normally in
+Obtainium via this repo's URL and adjust the APK filter regex/prerelease settings, or just grab
+the specific APK from the [Releases page](https://github.com/pschmitt/findroidplus/releases).
+
+[obtainium-link]: https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.pschmitt.findroidplus%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fpschmitt%2Ffindroidplus%22%2C%22author%22%3A%22pschmitt%22%2C%22name%22%3A%22Findroid%2B%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Atrue%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22phone-.*-release%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22invertAPKFilter%5C%22%3Afalse%2C%5C%22autoApkFilterByArch%5C%22%3Atrue%2C%5C%22trackOnly%5C%22%3Afalse%7D%22%7D
+
 ## Features
 - Native interface for phone and Android TV, browsing movies, series, seasons, and
   episodes (direct play only, no transcoding)
