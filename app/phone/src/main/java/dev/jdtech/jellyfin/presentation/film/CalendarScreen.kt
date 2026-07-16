@@ -228,19 +228,25 @@ private fun CalendarEntryRow(entry: CalendarEntry, onClick: () -> Unit) {
     }
 }
 
-/** Small source + status indicator: SONARR/RADARR plus whether the file already exists/is monitored. */
+/**
+ * PVR status indicator - NOT related to Findroid's own on-device downloads (compare
+ * [dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar]'s download button). This
+ * reflects whether Sonarr/Radarr itself has already grabbed/imported the file on the *server*:
+ * - [CalendarEntry.hasFile]: Sonarr/Radarr already has it - it should already be in Jellyfin.
+ * - [CalendarEntry.monitored] (and no file yet): tracked, still upcoming.
+ * - neither: Sonarr/Radarr isn't monitoring this release at all.
+ */
 @Composable
 private fun CalendarEntryBadge(entry: CalendarEntry) {
+    val (icon, description) =
+        when {
+            entry.hasFile -> CoreR.drawable.ic_download to CoreR.string.calendar_status_available
+            entry.monitored -> CoreR.drawable.ic_calendar to CoreR.string.calendar_status_upcoming
+            else -> CoreR.drawable.ic_x to CoreR.string.calendar_status_unmonitored
+        }
     Icon(
-        painter =
-            painterResource(
-                when {
-                    entry.hasFile -> CoreR.drawable.ic_download
-                    entry.monitored -> CoreR.drawable.ic_calendar
-                    else -> CoreR.drawable.ic_x
-                }
-            ),
-        contentDescription = null,
+        painter = painterResource(icon),
+        contentDescription = stringResource(description),
         tint =
             if (entry.hasFile) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant,
