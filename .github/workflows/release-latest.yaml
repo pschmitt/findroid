@@ -55,7 +55,7 @@ jobs:
       - name: Collect and rename APKs
         id: apks
         run: |
-          mkdir -p /tmp/findroid-latest
+          mkdir -p /tmp/findroid-plus-latest
           for apk in \
             app/phone/build/outputs/apk/libre/debug/phone-libre-arm64-v8a-debug.apk \
             app/phone/build/outputs/apk/libre/debug/phone-libre-armeabi-v7a-debug.apk \
@@ -74,10 +74,10 @@ jobs:
             app/tv/build/outputs/apk/libre/release/tv-libre-x86_64-release.apk \
             app/tv/build/outputs/apk/libre/release/tv-libre-x86-release.apk \
           ; do
-            name="findroid-latest-$(basename "$apk" | sed -E 's/^(phone|tv)-libre-/\1-/')"
-            cp "$apk" "/tmp/findroid-latest/$name"
+            name="findroid-plus-latest-$(basename "$apk" | sed -E 's/^(phone|tv)-libre-/\1-/')"
+            cp "$apk" "/tmp/findroid-plus-latest/$name"
           done
-          echo "dir=/tmp/findroid-latest" >> "$GITHUB_OUTPUT"
+          echo "dir=/tmp/findroid-plus-latest" >> "$GITHUB_OUTPUT"
 
       - name: Move latest tag
         run: |
