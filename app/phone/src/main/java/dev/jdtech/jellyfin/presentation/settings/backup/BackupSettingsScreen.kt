@@ -128,7 +128,9 @@ fun BackupSettingsScreen(
     )
 
     if (showPasswordDialog) {
-        var password by rememberSaveable { mutableStateOf("") }
+        // Pre-fill with the auto-backup encryption password (if set) - the user is likely
+        // encrypting this manual backup the same way, and re-typing it here would be redundant.
+        var password by rememberSaveable { mutableStateOf(state.autoBackupPassword.orEmpty()) }
         AlertDialog(
             onDismissRequest = { showPasswordDialog = false },
             title = { Text(text = stringResource(CoreR.string.backup_now_password_title)) },

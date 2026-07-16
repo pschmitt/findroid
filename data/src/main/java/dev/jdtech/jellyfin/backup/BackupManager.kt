@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.backup
 
 import android.content.Context
 import android.net.Uri
+import dev.jdtech.jellyfin.api.pvr.PvrCredentialKeys
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.FindroidSourceType
@@ -14,11 +15,18 @@ import kotlinx.serialization.json.Json
  * Builds, encodes/decodes, and restores backups. Not `@Inject`-constructed directly (`data`
  * module has no Hilt setup, matching how `JellyfinRepositoryImpl` etc. are wired) - see
  * core/di/BackupModule.kt for the Hilt `@Provides` binding.
+ *
+ * [getSecret]/[putSecret] read/write `SecureCredentialStore` - passed in as plain lambdas (rather
+ * than depending on `SecureCredentialStore` directly) because that type lives in `core`, which
+ * depends on `data`, not the other way around. Same pattern as `CalendarRepositoryImpl`'s
+ * `sonarrApiKeyProvider`.
  */
 class BackupManager(
     private val context: Context,
     private val database: ServerDatabaseDao,
     private val appPreferences: AppPreferences,
+    private val getSecret: (key: String) -> String? = { null },
+    private val putSecret: (key: String, value: String) -> Unit = { _, _ -> },
 ) {
     private val json = Json { prettyPrint = false }
 
@@ -34,6 +42,7 @@ class BackupManager(
                 autoDownloadRules = database.getAllAutoDownloadRules(),
                 preferences = dumpPreferences(),
                 downloadedItems = buildDownloadedItemsManifest(),
+                secrets = dumpSecrets(),
             )
         }
 
@@ -78,6 +87,7 @@ class BackupManager(
                 for (user in backupServer.users) database.insertUser(user)
             }
             restorePreferences(envelope.preferences)
+            for ((key, value) in envelope.secrets) putSecret(key, value)
 
             RestoreSummary(
                 serversRestored = envelope.servers.size,
@@ -120,6 +130,9 @@ class BackupManager(
         return items
     }
 
+    private fun dumpSecrets(): Map<String, String> =
+        SECRET_KEYS.mapNotNull { key -> getSecret(key)?.let { key to it } }.toMap()
+
     private fun dumpPreferences(): Map<String, PrefValue> {
         val result = mutableMapOf<String, PrefValue>()
         for ((key, value) in appPreferences.sharedPreferences.all) {
@@ -160,5 +173,9 @@ class BackupManager(
         // now-current server/user), which would otherwise race apply()'s async disk write and
         // could lose the just-restored preferences on the very next cold start.
         editor.commit()
+    }
+
+    private companion object {
+        val SECRET_KEYS = listOf(PvrCredentialKeys.SONARR_API_KEY, PvrCredentialKeys.RADARR_API_KEY)
     }
 }

@@ -5,6 +5,7 @@ import dev.jdtech.jellyfin.api.pvr.SonarrCalendarEntry
 import dev.jdtech.jellyfin.api.pvr.SonarrCalendarSeries
 import dev.jdtech.jellyfin.models.FindroidImages
 import dev.jdtech.jellyfin.models.FindroidMovie
+import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.PvrSource
 import java.time.LocalDate
@@ -38,9 +39,11 @@ class CalendarMatchingTest {
     // region matchSonarrCalendar
 
     @Test
-    fun `matchSonarrCalendar resolves an exact match through tvdbId`() {
+    fun `matchSonarrCalendar resolves an exact match through tvdbId to the matching season`() {
         val showId = UUID.randomUUID()
-        val show = testShow(id = showId, tvdbId = "1000", name = "House of the Dragon")
+        val seasonId = UUID.randomUUID()
+        val season = testSeason(id = seasonId, seriesId = showId, indexNumber = 3)
+        val show = testShow(id = showId, tvdbId = "1000", name = "House of the Dragon", seasons = listOf(season))
 
         val entries =
             listOf(
@@ -62,12 +65,45 @@ class CalendarMatchingTest {
         assertEquals(1, result.size)
         val entry = result[0]
         assertEquals(PvrSource.SONARR, entry.source)
-        assertEquals(showId, entry.itemId)
+        // Navigating to the season, not the show - the episode itself lives there.
+        assertEquals(seasonId, entry.itemId)
         assertEquals("House of the Dragon", entry.title)
         assertEquals("S03E05 - The Choice", entry.subtitle)
         assertEquals(LocalDate.of(2024, 7, 24), entry.date)
         assertEquals(false, entry.hasFile)
         assertTrue(entry.monitored)
+        assertEquals(1, entry.episodeId)
+    }
+
+    @Test
+    fun `matchSonarrCalendar leaves itemId null when the show matches but the season doesn't`() {
+        val showId = UUID.randomUUID()
+        // Only season 1 is in the library - the calendar entry is for season 3, not yet added.
+        // Deliberately doesn't fall back to the show id - there's no season to navigate to yet.
+        val show =
+            testShow(
+                id = showId,
+                tvdbId = "1000",
+                name = "House of the Dragon",
+                seasons = listOf(testSeason(id = UUID.randomUUID(), seriesId = showId, indexNumber = 1)),
+            )
+
+        val entries =
+            listOf(
+                SonarrCalendarEntry(
+                    id = 1,
+                    seriesId = 1,
+                    seasonNumber = 3,
+                    episodeNumber = 5,
+                    airDateUtc = "2024-07-24T01:00:00Z",
+                    series = SonarrCalendarSeries(tvdbId = 1000, title = "House of the Dragon"),
+                )
+            )
+
+        val result = matchSonarrCalendar(entries, listOf(show))
+
+        assertEquals(1, result.size)
+        assertNull(result[0].itemId)
     }
 
     @Test
@@ -306,14 +342,38 @@ class CalendarMatchingTest {
 
     // endregion
 
-    private fun testShow(id: UUID, tvdbId: String?, name: String): FindroidShow =
+    private fun testSeason(id: UUID, seriesId: UUID, indexNumber: Int): FindroidSeason =
+        FindroidSeason(
+            id = id,
+            name = "Season $indexNumber",
+            seriesId = seriesId,
+            seriesName = "",
+            originalTitle = null,
+            overview = "",
+            sources = emptyList(),
+            indexNumber = indexNumber,
+            episodes = emptyList(),
+            played = false,
+            favorite = false,
+            canPlay = true,
+            canDownload = false,
+            unplayedItemCount = null,
+            images = FindroidImages(),
+        )
+
+    private fun testShow(
+        id: UUID,
+        tvdbId: String?,
+        name: String,
+        seasons: List<FindroidSeason> = emptyList(),
+    ): FindroidShow =
         FindroidShow(
             id = id,
             name = name,
             originalTitle = null,
             overview = "",
             sources = emptyList(),
-            seasons = emptyList(),
+            seasons = seasons,
             played = false,
             favorite = false,
             canPlay = true,

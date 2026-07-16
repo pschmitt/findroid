@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,13 +44,18 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import dev.jdtech.jellyfin.api.pvr.SonarrRelease
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.core.presentation.search.SearchEvent
 import dev.jdtech.jellyfin.film.presentation.calendar.CalendarState
 import dev.jdtech.jellyfin.film.presentation.calendar.CalendarViewModel
 import dev.jdtech.jellyfin.models.CalendarEntry
 import dev.jdtech.jellyfin.models.PvrSource
+import dev.jdtech.jellyfin.presentation.film.components.EpisodeSearchButton
+import dev.jdtech.jellyfin.presentation.film.components.ReleasePickerSheet
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.ObserveAsEvents
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -56,23 +63,40 @@ import java.util.UUID
 
 @Composable
 fun CalendarScreen(
-    onShowClick: (UUID) -> Unit = {},
+    onSeasonClick: (UUID) -> Unit = {},
     onMovieClick: (UUID) -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(true) { viewModel.refresh() }
 
+    ObserveAsEvents(viewModel.searchEvents) { event ->
+        val messageRes =
+            when (event) {
+                is SearchEvent.SearchTriggered -> CoreR.string.search_triggered_toast
+                is SearchEvent.ReleaseGrabbed -> CoreR.string.release_grabbed_toast
+                is SearchEvent.Failed -> CoreR.string.search_failed_toast
+            }
+        Toast.makeText(context, messageRes, Toast.LENGTH_SHORT).show()
+    }
+
     CalendarScreenLayout(
         state = state,
         onEntryClick = { entry ->
+            // entry.itemId is the season for Sonarr entries (see matchSonarrCalendar) - the
+            // episode itself lives there, not on the show's overview page.
             val itemId = entry.itemId ?: return@CalendarScreenLayout
             when (entry.source) {
-                PvrSource.SONARR -> onShowClick(itemId)
+                PvrSource.SONARR -> onSeasonClick(itemId)
                 PvrSource.RADARR -> onMovieClick(itemId)
             }
         },
+        onSearchAutomatic = viewModel::searchEpisodeAutomatic,
+        onSearchManual = viewModel::openReleasePicker,
+        onGrabRelease = viewModel::grabRelease,
+        onDismissReleasePicker = viewModel::dismissReleasePicker,
     )
 }
 
@@ -81,6 +105,10 @@ fun CalendarScreen(
 private fun CalendarScreenLayout(
     state: CalendarState,
     onEntryClick: (CalendarEntry) -> Unit = {},
+    onSearchAutomatic: (CalendarEntry) -> Unit = {},
+    onSearchManual: (CalendarEntry) -> Unit = {},
+    onGrabRelease: (SonarrRelease) -> Unit = {},
+    onDismissReleasePicker: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -110,10 +138,33 @@ private fun CalendarScreenLayout(
                 state.groupedEntries.forEach { (date, entries) ->
                     stickyHeader { CalendarDateHeader(date = date) }
                     items(items = entries) { entry ->
-                        CalendarEntryRow(entry = entry, onClick = { onEntryClick(entry) })
+                        CalendarEntryRow(
+                            entry = entry,
+                            onClick = { onEntryClick(entry) },
+                            onSearchAutomatic =
+                                if (entry.episodeId != null) {
+                                    { onSearchAutomatic(entry) }
+                                } else {
+                                    null
+                                },
+                            onSearchManual =
+                                if (entry.episodeId != null) {
+                                    { onSearchManual(entry) }
+                                } else {
+                                    null
+                                },
+                        )
                     }
                 }
             }
+        }
+
+        state.releasePicker?.let { releasePicker ->
+            ReleasePickerSheet(
+                state = releasePicker,
+                onGrab = onGrabRelease,
+                onDismissRequest = onDismissReleasePicker,
+            )
         }
     }
 }
@@ -162,7 +213,12 @@ private const val CALENDAR_TOMORROW_PLACEHOLDER = "Tomorrow"
  * [CalendarEntry.itemId] is null (unmatched entry - nothing to navigate to yet).
  */
 @Composable
-private fun CalendarEntryRow(entry: CalendarEntry, onClick: () -> Unit) {
+private fun CalendarEntryRow(
+    entry: CalendarEntry,
+    onClick: () -> Unit,
+    onSearchAutomatic: (() -> Unit)? = null,
+    onSearchManual: (() -> Unit)? = null,
+) {
     Row(
         modifier =
             Modifier.fillMaxWidth()
@@ -225,6 +281,9 @@ private fun CalendarEntryRow(entry: CalendarEntry, onClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
         CalendarEntryBadge(entry = entry)
+        if (onSearchAutomatic != null && onSearchManual != null) {
+            EpisodeSearchButton(onAutomaticSearch = onSearchAutomatic, onManualSearch = onSearchManual)
+        }
     }
 }
 

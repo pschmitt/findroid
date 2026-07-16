@@ -452,8 +452,8 @@ fun NavigationRoot(
             }
             composable<CalendarRoute> {
                 CalendarScreen(
-                    onShowClick = { showId ->
-                        navController.safeNavigate(ShowRoute(showId = showId.toString()))
+                    onSeasonClick = { seasonId ->
+                        navController.safeNavigate(SeasonRoute(seasonId = seasonId.toString()))
                     },
                     onMovieClick = { movieId ->
                         navController.safeNavigate(MovieRoute(movieId = movieId.toString()))

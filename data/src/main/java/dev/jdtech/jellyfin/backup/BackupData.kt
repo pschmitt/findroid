@@ -22,6 +22,14 @@ data class BackupEnvelope(
     val autoDownloadRules: List<AutoDownloadRuleDto>,
     val preferences: Map<String, PrefValue>,
     val downloadedItems: List<BackupDownloadedItem>,
+    // dev.jdtech.jellyfin.security.SecureCredentialStore entries, keyed by its own key names
+    // (currently just PvrCredentialKeys.SONARR_API_KEY/RADARR_API_KEY) - see
+    // BackupManager.buildBackup()/restore(). Plain preferences (the Sonarr/Radarr enabled toggle,
+    // base URL) already round-trip via [preferences] above; without this, a restored backup would
+    // look "configured" but silently fail to fetch anything, since the API key itself lives in a
+    // separate encrypted store dumpPreferences() never touches. Defaults to empty so backups
+    // written before this field existed still decode.
+    val secrets: Map<String, String> = emptyMap(),
 )
 
 /**

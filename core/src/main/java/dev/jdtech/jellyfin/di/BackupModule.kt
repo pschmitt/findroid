@@ -7,6 +7,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.jdtech.jellyfin.backup.BackupManager
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
+import dev.jdtech.jellyfin.security.SecureCredentialStore
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import javax.inject.Singleton
 
@@ -19,7 +20,14 @@ object BackupModule {
         application: Application,
         serverDatabase: ServerDatabaseDao,
         appPreferences: AppPreferences,
+        secureCredentialStore: SecureCredentialStore,
     ): BackupManager {
-        return BackupManager(application, serverDatabase, appPreferences)
+        return BackupManager(
+            context = application,
+            database = serverDatabase,
+            appPreferences = appPreferences,
+            getSecret = secureCredentialStore::getString,
+            putSecret = secureCredentialStore::putString,
+        )
     }
 }

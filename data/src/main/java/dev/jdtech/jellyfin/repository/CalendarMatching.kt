@@ -41,16 +41,21 @@ fun matchSonarrCalendar(
         // but never to entry.title (the episode's own title) - that belongs in the subtitle
         // (see buildEpisodeSubtitle below), not the show-title slot.
         val title = show?.name ?: entry.series?.title?.takeIf { it.isNotBlank() } ?: ""
+        // Tapping a calendar entry should land on the season (where the episode itself lives),
+        // not the show's overview page - see SeasonScreen's own episode list. Falls back to the
+        // show's own images if the matching season isn't found (e.g. season not yet in Jellyfin).
+        val season = show?.seasons?.firstOrNull { it.indexNumber == entry.seasonNumber }
 
         CalendarEntry(
             date = date,
             source = PvrSource.SONARR,
             title = title,
             subtitle = buildEpisodeSubtitle(entry.seasonNumber, entry.episodeNumber, entry.title),
-            itemId = show?.id,
+            itemId = season?.id,
             hasFile = entry.hasFile,
             monitored = entry.monitored,
-            images = show?.images,
+            images = season?.images ?: show?.images,
+            episodeId = entry.id,
         )
     }
 }
