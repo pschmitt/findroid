@@ -35,17 +35,25 @@ constructor(
                 loadBackup(password = action.password)
             }
             is RestoreBackupAction.OnRedownloadYes -> {
-                val items = _state.value.summary?.downloadedItems.orEmpty()
+                val summary = _state.value.summary
+                val items = summary?.downloadedItems.orEmpty()
                 appPreferences.setValue(
                     appPreferences.pendingRestoreDownloads,
                     encodePendingRestoreDownloads(items),
                 )
-                _state.value = _state.value.copy(downloadPromptAnswered = true)
+                // Only actually import auto-download rules once the user opts into restoring
+                // downloads - see BackupManager.restore()'s doc for why this can't just happen
+                // unconditionally at restore() time.
+                viewModelScope.launch {
+                    summary?.autoDownloadRules?.let { rules -> backupManager.applyAutoDownloadRules(rules) }
+                    _state.value = _state.value.copy(downloadPromptAnswered = true)
+                }
             }
             is RestoreBackupAction.OnRedownloadNo -> {
                 // Explicitly clear rather than just leaving it untouched: a prior backup could
                 // have captured a non-null value (e.g. from an earlier "Yes") that would
-                // otherwise silently override this "No" answer once Home reads it.
+                // otherwise silently override this "No" answer once Home reads it. Auto-download
+                // rules are simply never applied in this branch - see BackupManager.restore().
                 appPreferences.setValue(appPreferences.pendingRestoreDownloads, null)
                 _state.value = _state.value.copy(downloadPromptAnswered = true)
             }

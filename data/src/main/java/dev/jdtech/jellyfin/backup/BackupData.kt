@@ -55,6 +55,9 @@ data class RestoreSummary(
     val usersRestored: Int,
     val rulesRestored: Int,
     val downloadedItems: List<BackupDownloadedItem>,
+    // Not yet written to the DB - see BackupManager.restore()'s doc. Applied only once the user
+    // answers the redownload prompt, via BackupManager.applyAutoDownloadRules().
+    val autoDownloadRules: List<AutoDownloadRuleDto>,
 )
 
 object BackupDownloadedItemKind {

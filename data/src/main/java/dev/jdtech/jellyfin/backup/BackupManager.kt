@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.backup
 import android.content.Context
 import android.net.Uri
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
+import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +61,15 @@ class BackupManager(
         return BackupCrypto.isEncrypted(bytes)
     }
 
+    /**
+     * Deliberately does NOT insert [BackupEnvelope.autoDownloadRules] here, unlike servers/
+     * users/preferences - those rules drive [dev.jdtech.jellyfin.work.AutoDownloadWorker]
+     * automatically, so importing them unconditionally would start downloading monitored
+     * episodes/movies again even if the user answers "No" to the separate "redownload?" prompt
+     * shown after this returns. They're carried on [RestoreSummary] instead and only actually
+     * written by [applyAutoDownloadRules], which [RestoreBackupViewModel] calls solely from the
+     * "Yes" branch of that prompt.
+     */
     suspend fun restore(envelope: BackupEnvelope): RestoreSummary =
         withContext(Dispatchers.IO) {
             for (backupServer in envelope.servers) {
@@ -67,7 +77,6 @@ class BackupManager(
                 for (address in backupServer.addresses) database.insertServerAddress(address)
                 for (user in backupServer.users) database.insertUser(user)
             }
-            for (rule in envelope.autoDownloadRules) database.insertAutoDownloadRule(rule)
             restorePreferences(envelope.preferences)
 
             RestoreSummary(
@@ -75,8 +84,12 @@ class BackupManager(
                 usersRestored = envelope.servers.sumOf { it.users.size },
                 rulesRestored = envelope.autoDownloadRules.size,
                 downloadedItems = envelope.downloadedItems,
+                autoDownloadRules = envelope.autoDownloadRules,
             )
         }
+
+    suspend fun applyAutoDownloadRules(rules: List<AutoDownloadRuleDto>) =
+        withContext(Dispatchers.IO) { for (rule in rules) database.insertAutoDownloadRule(rule) }
 
     private fun buildDownloadedItemsManifest(): List<BackupDownloadedItem> {
         val items = mutableListOf<BackupDownloadedItem>()
