@@ -7,21 +7,20 @@ import dev.jdtech.jellyfin.api.pvr.SonarrSeries
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
+import dev.jdtech.jellyfin.models.PvrQueueEntry
 import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.QueueItemStatus
 import dev.jdtech.jellyfin.models.QueueStatus
 import java.util.UUID
 
 /**
- * Pure functions matching Sonarr/Radarr queue entries to Jellyfin item ids - no suspend, no I/O,
- * so they're directly unit-testable without Room/Hilt/Android in the loop. Any lookup that fails
- * along the way (unknown provider id, orphaned queue reference, episode not yet synced into
- * Jellyfin's library, ...) just skips that queue entry - this must never throw, since a single bad
- * PVR-side reference shouldn't take down the whole match.
- *
- * If two queue entries resolve to the same Jellyfin item (e.g. a retried download that shows up
- * as two queue rows before Sonarr/Radarr cleans up the old one), the later entry in [queue] wins -
- * both loops below iterate in list order and overwrite the map entry.
+ * Pure functions matching Sonarr/Radarr queue entries to Jellyfin items - no suspend, no I/O, so
+ * they're directly unit-testable without Room/Hilt/Android in the loop. Every queue entry produces
+ * a [PvrQueueEntry]; a lookup that fails along the way (unknown provider id, orphaned queue
+ * reference, episode not yet synced into Jellyfin's library, a torrent added manually on the PVR
+ * side, ...) yields an unmatched entry (`item = null`) titled from the PVR side's own metadata
+ * instead of being dropped - this must never throw, since a single bad PVR-side reference
+ * shouldn't take down the whole match.
  */
 
 /** Sonarr's `series.tvdbId`/`movie.tmdbId` default to 0 when the field is absent from the DTO. */
@@ -32,45 +31,88 @@ fun matchSonarr(
     queue: List<SonarrQueueItem>,
     jellyfinShows: List<FindroidShow>,
     episodesByShowId: Map<UUID, List<FindroidEpisode>>,
-): Map<UUID, QueueStatus> {
+): List<PvrQueueEntry> {
     val showByTvdbId: Map<String, FindroidShow> =
         jellyfinShows.mapNotNull { show -> show.tvdbId?.let { it to show } }.toMap()
-    val tvdbIdBySeriesId: Map<Int, Int> =
-        series.filter { it.tvdbId != UNSET_PROVIDER_ID }.associate { it.id to it.tvdbId }
+    val seriesById: Map<Int, SonarrSeries> = series.associateBy { it.id }
 
-    val result = mutableMapOf<UUID, QueueStatus>()
-    for (item in queue) {
-        val tvdbId = tvdbIdBySeriesId[item.seriesId] ?: continue
-        val show = showByTvdbId[tvdbId.toString()] ?: continue
-        val episodeNumber = item.episode?.episodeNumber?.takeIf { it != UNSET_PROVIDER_ID } ?: continue
-        val episodes = episodesByShowId[show.id] ?: continue
+    return queue.map { item ->
+        val sonarrSeries = seriesById[item.seriesId]
+        val episodeNumber = item.episode?.episodeNumber?.takeIf { it != UNSET_PROVIDER_ID }
+        val show =
+            sonarrSeries
+                ?.tvdbId
+                ?.takeIf { it != UNSET_PROVIDER_ID }
+                ?.let { showByTvdbId[it.toString()] }
         val episode =
-            episodes.firstOrNull {
-                it.parentIndexNumber == item.seasonNumber && it.indexNumber == episodeNumber
-            } ?: continue
-        result[episode.id] = item.toQueueStatus()
+            if (show != null && episodeNumber != null) {
+                episodesByShowId[show.id]?.firstOrNull {
+                    it.parentIndexNumber == item.seasonNumber && it.indexNumber == episodeNumber
+                }
+            } else {
+                null
+            }
+        PvrQueueEntry(
+            item = episode,
+            title = sonarrQueueTitle(sonarrSeries, item, episodeNumber),
+            status = item.toQueueStatus(),
+        )
     }
-    return result
 }
 
 fun matchRadarr(
     movies: List<RadarrMovie>,
     queue: List<RadarrQueueItem>,
     jellyfinMovies: List<FindroidMovie>,
-): Map<UUID, QueueStatus> {
+): List<PvrQueueEntry> {
     val movieByTmdbId: Map<String, FindroidMovie> =
         jellyfinMovies.mapNotNull { movie -> movie.tmdbId?.let { it to movie } }.toMap()
-    val tmdbIdByMovieId: Map<Int, Int> =
-        movies.filter { it.tmdbId != UNSET_PROVIDER_ID }.associate { it.id to it.tmdbId }
+    val radarrMovieById: Map<Int, RadarrMovie> = movies.associateBy { it.id }
 
-    val result = mutableMapOf<UUID, QueueStatus>()
-    for (item in queue) {
-        val tmdbId = tmdbIdByMovieId[item.movieId] ?: continue
-        val movie = movieByTmdbId[tmdbId.toString()] ?: continue
-        result[movie.id] = item.toQueueStatus()
+    return queue.map { item ->
+        val radarrMovie = radarrMovieById[item.movieId]
+        val movie =
+            radarrMovie
+                ?.tmdbId
+                ?.takeIf { it != UNSET_PROVIDER_ID }
+                ?.let { movieByTmdbId[it.toString()] }
+        PvrQueueEntry(
+            item = movie,
+            title = radarrMovie?.title?.takeIf { it.isNotBlank() } ?: item.title ?: UNKNOWN_TITLE,
+            status = item.toQueueStatus(),
+        )
     }
-    return result
 }
+
+/**
+ * Collapses queue entries into the per-item status map used for badges. Unmatched entries have no
+ * item id to key by and are left out. If two queue entries resolve to the same Jellyfin item
+ * (e.g. a retried download that shows up as two queue rows before Sonarr/Radarr cleans up the old
+ * one), the later entry wins - [toMap] keeps the last occurrence of a duplicate key.
+ */
+fun List<PvrQueueEntry>.toQueueStatusMap(): Map<UUID, QueueStatus> =
+    mapNotNull { entry -> entry.item?.let { it.id to entry.status } }.toMap()
+
+/**
+ * "Series - S1E5" when the episode is identified, "Series - Season 1" for season-pack grabs
+ * (no per-episode number), falling back to the release title Sonarr reports for the download.
+ */
+private fun sonarrQueueTitle(
+    series: SonarrSeries?,
+    item: SonarrQueueItem,
+    episodeNumber: Int?,
+): String {
+    val seriesTitle = series?.title?.takeIf { it.isNotBlank() }
+    return when {
+        seriesTitle != null && episodeNumber != null ->
+            "$seriesTitle - S${item.seasonNumber}E$episodeNumber"
+        seriesTitle != null && item.seasonNumber != 0 -> "$seriesTitle - Season ${item.seasonNumber}"
+        seriesTitle != null -> seriesTitle
+        else -> item.title ?: UNKNOWN_TITLE
+    }
+}
+
+private const val UNKNOWN_TITLE = "Unknown"
 
 private fun SonarrQueueItem.toQueueStatus(): QueueStatus =
     buildQueueStatus(

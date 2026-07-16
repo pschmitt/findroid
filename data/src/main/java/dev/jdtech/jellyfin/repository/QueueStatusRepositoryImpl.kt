@@ -2,21 +2,20 @@ package dev.jdtech.jellyfin.repository
 
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
-import dev.jdtech.jellyfin.database.ServerDatabaseDao
+import dev.jdtech.jellyfin.api.pvr.SonarrQueueItem
+import dev.jdtech.jellyfin.api.pvr.SonarrSeries
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
+import dev.jdtech.jellyfin.models.PvrQueueEntry
 import dev.jdtech.jellyfin.models.QueueStatus
-import dev.jdtech.jellyfin.models.toFindroidEpisode
-import dev.jdtech.jellyfin.models.toFindroidMovie
-import dev.jdtech.jellyfin.models.toFindroidShow
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -28,7 +27,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
+import org.jellyfin.sdk.model.api.BaseItemKind
 import timber.log.Timber
 
 /**
@@ -36,26 +35,34 @@ import timber.log.Timber
  * `SecureCredentialStore` - passed in as plain lambdas (rather than depending on
  * `SecureCredentialStore` directly) because that type lives in `core`, which depends on `data`,
  * not the other way around. Everything else this needs (`AppPreferences`, the PVR API clients,
- * `ServerDatabaseDao`) is already reachable from `data`.
+ * `JellyfinRepository`) is already reachable from `data`.
  *
  * Constructed via [dev.jdtech.jellyfin.di.QueueStatusModule] (a Hilt `@Provides`, mirroring
  * `AutoDownloadRuleModule`) rather than an `@Inject` constructor, since `data` has no Hilt plugin.
+ *
+ * Match candidates are fetched from the *live* Jellyfin library via [JellyfinRepository] rather
+ * than the local Room cache (which only holds downloaded items) - same reasoning as
+ * `CalendarRepositoryImpl`, which hit this exact bug first. To keep the per-poll request count
+ * bounded, only shows/seasons actually referenced by the current queue get their episodes
+ * fetched.
  */
 class QueueStatusRepositoryImpl(
     private val appPreferences: AppPreferences,
-    private val serverDatabase: ServerDatabaseDao,
     private val jellyfinRepository: JellyfinRepository,
     private val sonarrApiKeyProvider: () -> String?,
     private val radarrApiKeyProvider: () -> String?,
     private val scope: CoroutineScope,
 ) : QueueStatusRepository {
 
-    private val _queueStatus = MutableStateFlow<Map<UUID, QueueStatus>>(emptyMap())
+    private val _queueEntries = MutableStateFlow<List<PvrQueueEntry>>(emptyList())
     private val refreshMutex = Mutex()
     private val pollingStarted = AtomicBoolean(false)
 
+    override fun getQueueEntriesFlow(): Flow<List<PvrQueueEntry>> =
+        _queueEntries.onStart { ensurePollingStarted() }
+
     override fun getQueueStatusFlow(): Flow<Map<UUID, QueueStatus>> =
-        _queueStatus.onStart { ensurePollingStarted() }
+        getQueueEntriesFlow().map { it.toQueueStatusMap() }.distinctUntilChanged()
 
     override fun getQueueStatusFlow(itemId: UUID): Flow<QueueStatus?> =
         getQueueStatusFlow().map { it[itemId] }.distinctUntilChanged()
@@ -63,7 +70,7 @@ class QueueStatusRepositoryImpl(
     override suspend fun refreshNow() {
         // Serializes concurrent callers (poll loop, WorkManager backstop, a manual pull-to-refresh)
         // so two overlapping fetches can't race to publish a stale result after a fresher one.
-        refreshMutex.withLock { _queueStatus.value = fetchQueueStatus() }
+        refreshMutex.withLock { _queueEntries.value = fetchQueueEntries() }
     }
 
     private fun ensurePollingStarted() {
@@ -86,85 +93,113 @@ class QueueStatusRepositoryImpl(
         }
     }
 
-    private suspend fun fetchQueueStatus(): Map<UUID, QueueStatus> = coroutineScope {
+    private suspend fun fetchQueueEntries(): List<PvrQueueEntry> = coroutineScope {
         // Each service is independently try/caught inside its own fetch function - a failure in
-        // one must never blank out or crash the other's contribution to the merged map.
-        val sonarrDeferred = async { fetchSonarrStatus() }
-        val radarrDeferred = async { fetchRadarrStatus() }
+        // one must never blank out or crash the other's contribution to the merged list.
+        val sonarrDeferred = async { fetchSonarrEntries() }
+        val radarrDeferred = async { fetchRadarrEntries() }
         sonarrDeferred.await() + radarrDeferred.await()
     }
 
-    private suspend fun fetchSonarrStatus(): Map<UUID, QueueStatus> {
-        if (!appPreferences.getValue(appPreferences.sonarrEnabled)) return emptyMap()
+    private suspend fun fetchSonarrEntries(): List<PvrQueueEntry> {
+        if (!appPreferences.getValue(appPreferences.sonarrEnabled)) return emptyList()
         val baseUrl = appPreferences.getValue(appPreferences.sonarrBaseUrl)
         val apiKey = sonarrApiKeyProvider()
-        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return emptyMap()
+        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return emptyList()
 
         return try {
             val api = SonarrApi(baseUrl, apiKey)
-            val series = api.getSeries()
             val queue = api.getQueue()
-            val (shows, episodesByShowId) = loadJellyfinShowsAndEpisodes()
+            if (queue.isEmpty()) return emptyList()
+            val series = api.getSeries()
+            val (shows, episodesByShowId) = loadQueueReferencedShowsAndEpisodes(series, queue)
             matchSonarr(series, queue, shows, episodesByShowId)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Timber.w(e, "Failed to refresh Sonarr queue status")
-            emptyMap()
+            emptyList()
         }
     }
 
-    private suspend fun fetchRadarrStatus(): Map<UUID, QueueStatus> {
-        if (!appPreferences.getValue(appPreferences.radarrEnabled)) return emptyMap()
+    private suspend fun fetchRadarrEntries(): List<PvrQueueEntry> {
+        if (!appPreferences.getValue(appPreferences.radarrEnabled)) return emptyList()
         val baseUrl = appPreferences.getValue(appPreferences.radarrBaseUrl)
         val apiKey = radarrApiKeyProvider()
-        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return emptyMap()
+        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return emptyList()
 
         return try {
             val api = RadarrApi(baseUrl, apiKey)
-            val movies = api.getMovie()
             val queue = api.getQueue()
-            val jellyfinMovies = loadJellyfinMovies()
-            matchRadarr(movies, queue, jellyfinMovies)
+            if (queue.isEmpty()) return emptyList()
+            val movies = api.getMovie()
+            matchRadarr(movies, queue, loadJellyfinMovies())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Timber.w(e, "Failed to refresh Radarr queue status")
-            emptyMap()
+            emptyList()
         }
     }
 
-    private suspend fun loadJellyfinShowsAndEpisodes():
-        Pair<List<FindroidShow>, Map<UUID, List<FindroidEpisode>>> =
-        withContext(Dispatchers.IO) {
-            val serverId = appPreferences.getValue(appPreferences.currentServer)
-            if (serverId == null) return@withContext emptyList<FindroidShow>() to emptyMap()
-            val userId = jellyfinRepository.getUserId()
-
-            val shows =
-                serverDatabase.getShowsByServerId(serverId).map {
-                    it.toFindroidShow(serverDatabase, userId)
-                }
-            val episodesByShowId =
-                shows.associate { show ->
-                    show.id to
-                        serverDatabase.getEpisodesByShowId(show.id).map {
-                            it.toFindroidEpisode(serverDatabase, userId)
-                        }
-                }
-            shows to episodesByShowId
+    /**
+     * Fetches the Jellyfin shows and episodes the current [queue] can possibly match against:
+     * the full show list is one request, but episodes are fetched only for the shows *and
+     * seasons* the queue references, since episode listing is one request per season and a
+     * long-running show can have dozens of seasons irrelevant to the queue.
+     */
+    private suspend fun loadQueueReferencedShowsAndEpisodes(
+        series: List<SonarrSeries>,
+        queue: List<SonarrQueueItem>,
+    ): Pair<List<FindroidShow>, Map<UUID, List<FindroidEpisode>>> = coroutineScope {
+        val tvdbIdBySeriesId: Map<Int, String> =
+            series.filter { it.tvdbId != 0 }.associate { it.id to it.tvdbId.toString() }
+        val seasonNumbersByTvdbId: Map<String, Set<Int>> =
+            queue
+                .mapNotNull { item -> tvdbIdBySeriesId[item.seriesId]?.let { it to item.seasonNumber } }
+                .groupBy({ it.first }, { it.second })
+                .mapValues { (_, seasonNumbers) -> seasonNumbers.toSet() }
+        if (seasonNumbersByTvdbId.isEmpty()) {
+            return@coroutineScope emptyList<FindroidShow>() to emptyMap()
         }
+
+        val shows =
+            jellyfinRepository
+                .getItems(includeTypes = listOf(BaseItemKind.SERIES), recursive = true)
+                .filterIsInstance<FindroidShow>()
+                .filter { it.tvdbId in seasonNumbersByTvdbId.keys }
+
+        val episodesByShowId =
+            shows
+                .map { show ->
+                    async {
+                        val queuedSeasonNumbers = seasonNumbersByTvdbId[show.tvdbId].orEmpty()
+                        val episodes =
+                            jellyfinRepository
+                                .getSeasons(show.id)
+                                .filter { it.indexNumber in queuedSeasonNumbers }
+                                .map { season ->
+                                    async {
+                                        jellyfinRepository.getEpisodes(
+                                            seriesId = show.id,
+                                            seasonId = season.id,
+                                        )
+                                    }
+                                }
+                                .awaitAll()
+                                .flatten()
+                        show.id to episodes
+                    }
+                }
+                .awaitAll()
+                .toMap()
+        shows to episodesByShowId
+    }
 
     private suspend fun loadJellyfinMovies(): List<FindroidMovie> =
-        withContext(Dispatchers.IO) {
-            val serverId =
-                appPreferences.getValue(appPreferences.currentServer)
-                    ?: return@withContext emptyList()
-            val userId = jellyfinRepository.getUserId()
-            serverDatabase.getMoviesByServerId(serverId).map {
-                it.toFindroidMovie(serverDatabase, userId)
-            }
-        }
+        jellyfinRepository
+            .getItems(includeTypes = listOf(BaseItemKind.MOVIE), recursive = true)
+            .filterIsInstance<FindroidMovie>()
 
     private companion object {
         // Guards against a misconfigured 0 (or negative) pvrPollIntervalMinutes hammering

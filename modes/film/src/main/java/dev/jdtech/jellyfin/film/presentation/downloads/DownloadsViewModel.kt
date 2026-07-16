@@ -8,7 +8,7 @@ import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidSourceType
-import dev.jdtech.jellyfin.models.QueueStatus
+import dev.jdtech.jellyfin.models.PvrQueueEntry
 import dev.jdtech.jellyfin.models.isDownloading
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.models.toFindroidMovie
@@ -49,11 +49,6 @@ constructor(
     private val progressJobs = mutableMapOf<UUID, Job>()
     private var refreshJob: Job? = null
 
-    // Latest snapshot from QueueStatusRepository, kept around so a library refresh (which can
-    // resolve/lose local item matches) and a queue-status update (which arrives on its own poll
-    // cadence) both recompute pvrQueueGroups off the same up-to-date inputs.
-    private var latestQueueStatus: Map<UUID, QueueStatus> = emptyMap()
-
     fun startObserving() {
         if (refreshJob != null) return
         refreshJob =
@@ -69,17 +64,8 @@ constructor(
             }
         }
         viewModelScope.launch {
-            queueStatusRepository.getQueueStatusFlow().collect { queueStatus ->
-                latestQueueStatus = queueStatus
-                _state.value =
-                    _state.value.copy(
-                        pvrQueueGroups =
-                            buildPvrQueueGroups(
-                                queueStatus,
-                                _state.value.movies,
-                                _state.value.showGroups,
-                            )
-                    )
+            queueStatusRepository.getQueueEntriesFlow().collect { entries ->
+                _state.value = _state.value.copy(pvrQueueGroups = buildPvrQueueGroups(entries))
             }
         }
     }
@@ -124,7 +110,6 @@ constructor(
                     movies = movies,
                     showGroups = showGroups,
                     selectedIds = _state.value.selectedIds.intersect(allIds),
-                    pvrQueueGroups = buildPvrQueueGroups(latestQueueStatus, movies, showGroups),
                 )
             reconcileDownloadProgress(movies, episodes)
         } catch (e: Exception) {
@@ -267,50 +252,37 @@ constructor(
 }
 
 /**
- * Maps [QueueStatusRepository]'s raw `itemId -> QueueStatus` snapshot into the UI-facing
- * [PvrQueueGroup] list, resolving each item id against the movies/episodes already loaded from
- * Room. `QueueStatusRepository` only ever keys its map by an id it already matched to a real
- * local Jellyfin item (see `matchSonarr`/`matchRadarr`), so [PvrQueueUiItem.itemId] should always
- * resolve here in practice - the null-itemId/title-only branch exists purely as a defensive
- * fallback for the (theoretical) case where the local item disappeared between the repository's
- * match and this lookup, e.g. a delete racing a poll.
+ * Maps [QueueStatusRepository]'s queue-entry snapshot into the UI-facing [PvrQueueGroup] list.
+ * Matched entries carry the live-library [FindroidItem][dev.jdtech.jellyfin.models.FindroidItem]
+ * the repository resolved (poster + click-through); unmatched entries (e.g. a torrent added
+ * manually on the PVR side for something not yet in Jellyfin) become title-only rows using the
+ * PVR-side title the repository built.
  *
  * A free function (not a method) so it's directly unit-testable without a ViewModel/Hilt/Android
  * in the loop.
  */
-internal fun buildPvrQueueGroups(
-    queueStatus: Map<UUID, QueueStatus>,
-    movies: List<FindroidMovie>,
-    showGroups: List<DownloadShowGroup>,
-): List<PvrQueueGroup> {
-    if (queueStatus.isEmpty()) return emptyList()
-
-    val itemsById: Map<UUID, FindroidItem> =
-        (movies.associateBy { it.id }) + (showGroups.flatMap { it.episodes }.associateBy { it.id })
-
-    return queueStatus.entries
-        .groupBy { (_, status) -> status.source }
-        .map { (source, entries) ->
+internal fun buildPvrQueueGroups(entries: List<PvrQueueEntry>): List<PvrQueueGroup> =
+    entries
+        .groupBy { it.status.source }
+        .map { (source, groupEntries) ->
             PvrQueueGroup(
                 source = source,
                 items =
-                    entries.map { (id, status) ->
-                        val item = itemsById[id]
+                    groupEntries.map { entry ->
                         PvrQueueUiItem(
-                            itemId = item?.id,
-                            title = item.toQueueTitle(),
-                            item = item,
-                            status = status,
+                            itemId = entry.item?.id,
+                            title = entry.item.toQueueTitle(fallback = entry.title),
+                            item = entry.item,
+                            status = entry.status,
                         )
                     },
             )
         }
-}
 
-private fun FindroidItem?.toQueueTitle(): String =
+private fun FindroidItem?.toQueueTitle(fallback: String): String =
     when (this) {
         is FindroidEpisode -> "$seriesName - S${parentIndexNumber}E$indexNumber"
         is FindroidMovie -> name
-        null -> "Unknown item"
+        null -> fallback
         else -> name
     }

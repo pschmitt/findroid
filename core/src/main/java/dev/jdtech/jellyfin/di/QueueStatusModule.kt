@@ -5,7 +5,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.jdtech.jellyfin.api.pvr.PvrCredentialKeys
-import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepositoryImpl
@@ -23,7 +22,6 @@ object QueueStatusModule {
     @Provides
     fun provideQueueStatusRepository(
         appPreferences: AppPreferences,
-        serverDatabase: ServerDatabaseDao,
         jellyfinRepository: JellyfinRepository,
         secureCredentialStore: SecureCredentialStore,
     ): QueueStatusRepository {
@@ -33,7 +31,6 @@ object QueueStatusModule {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         return QueueStatusRepositoryImpl(
             appPreferences = appPreferences,
-            serverDatabase = serverDatabase,
             jellyfinRepository = jellyfinRepository,
             sonarrApiKeyProvider = { secureCredentialStore.getString(PvrCredentialKeys.SONARR_API_KEY) },
             radarrApiKeyProvider = { secureCredentialStore.getString(PvrCredentialKeys.RADARR_API_KEY) },

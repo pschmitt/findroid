@@ -13,6 +13,7 @@ import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.QueueItemStatus
 import java.util.UUID
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -50,31 +51,36 @@ class QueueStatusMatchingTest {
             )
 
         assertEquals(1, result.size)
-        val status = result[episodeId]
+        assertEquals(episodeId, result.single().item?.id)
+        val status = result.toQueueStatusMap()[episodeId]
         assertEquals(PvrSource.SONARR, status?.source)
         assertEquals(QueueItemStatus.DOWNLOADING, status?.status)
         assertEquals(75, status?.percent)
     }
 
     @Test
-    fun `matchSonarr skips silently when neither side has a tvdbId`() {
+    fun `matchSonarr yields an unmatched entry when neither side has a tvdbId`() {
         val showId = UUID.randomUUID()
         val show = testShow(id = showId, tvdbId = null)
         val episode = testEpisode(id = UUID.randomUUID(), seriesId = showId, season = 1, index = 5)
 
         // SonarrSeries.tvdbId defaults to 0, the DTO's "unset" sentinel.
-        val series = listOf(SonarrSeries(id = 1))
+        val series = listOf(SonarrSeries(id = 1, title = "Some Show"))
         val queue =
             listOf(SonarrQueueItem(id = 42, seriesId = 1, seasonNumber = 1, episode = SonarrEpisode(5)))
 
         val result =
             matchSonarr(series, queue, listOf(show), mapOf(showId to listOf(episode)))
 
-        assertTrue(result.isEmpty())
+        assertEquals(1, result.size)
+        assertNull(result.single().item)
+        // The unmatched entry is still titled from Sonarr's own series metadata.
+        assertEquals("Some Show - S1E5", result.single().title)
+        assertTrue(result.toQueueStatusMap().isEmpty())
     }
 
     @Test
-    fun `matchSonarr skips a queue entry whose seriesId is not in the series list at all`() {
+    fun `matchSonarr yields an unmatched entry titled from the release when the seriesId is unknown`() {
         val showId = UUID.randomUUID()
         val show = testShow(id = showId, tvdbId = "1000")
         val episode = testEpisode(id = UUID.randomUUID(), seriesId = showId, season = 1, index = 5)
@@ -82,16 +88,27 @@ class QueueStatusMatchingTest {
         val series = listOf(SonarrSeries(id = 1, tvdbId = 1000))
         // References seriesId 999, which doesn't exist in `series` - an orphaned reference.
         val queue =
-            listOf(SonarrQueueItem(id = 42, seriesId = 999, seasonNumber = 1, episode = SonarrEpisode(5)))
+            listOf(
+                SonarrQueueItem(
+                    id = 42,
+                    seriesId = 999,
+                    seasonNumber = 1,
+                    episode = SonarrEpisode(5),
+                    title = "Some.Show.S01E05.1080p.WEB.h264-GROUP",
+                )
+            )
 
         val result =
             matchSonarr(series, queue, listOf(show), mapOf(showId to listOf(episode)))
 
-        assertTrue(result.isEmpty())
+        assertEquals(1, result.size)
+        assertNull(result.single().item)
+        assertEquals("Some.Show.S01E05.1080p.WEB.h264-GROUP", result.single().title)
+        assertTrue(result.toQueueStatusMap().isEmpty())
     }
 
     @Test
-    fun `matchSonarr skips when the episode is not yet synced into Jellyfin's library`() {
+    fun `matchSonarr yields an unmatched entry when the episode is not yet in Jellyfin's library`() {
         val showId = UUID.randomUUID()
         val show = testShow(id = showId, tvdbId = "1000")
 
@@ -102,14 +119,30 @@ class QueueStatusMatchingTest {
         // episodesByShowId has no entry at all for showId - show exists, but nothing has synced yet.
         val result = matchSonarr(series, queue, listOf(show), emptyMap())
 
-        assertTrue(result.isEmpty())
+        assertEquals(1, result.size)
+        assertNull(result.single().item)
+        assertTrue(result.toQueueStatusMap().isEmpty())
 
         // Also covers the case where the show's episode list exists but simply doesn't (yet)
         // contain the queued episode.
         val otherEpisode = testEpisode(id = UUID.randomUUID(), seriesId = showId, season = 1, index = 1)
         val result2 =
             matchSonarr(series, queue, listOf(show), mapOf(showId to listOf(otherEpisode)))
-        assertTrue(result2.isEmpty())
+        assertNull(result2.single().item)
+        assertTrue(result2.toQueueStatusMap().isEmpty())
+    }
+
+    @Test
+    fun `matchSonarr titles a season-pack grab without a per-episode number`() {
+        // A whole-season grab has no nested episode object - it can't be matched to a single
+        // Jellyfin episode, but the row should still read as "show + season", not a raw release.
+        val series = listOf(SonarrSeries(id = 1, tvdbId = 1000, title = "Some Show"))
+        val queue = listOf(SonarrQueueItem(id = 42, seriesId = 1, seasonNumber = 2))
+
+        val result = matchSonarr(series, queue, emptyList(), emptyMap())
+
+        assertEquals("Some Show - Season 2", result.single().title)
+        assertNull(result.single().item)
     }
 
     @Test
@@ -143,8 +176,12 @@ class QueueStatusMatchingTest {
         val result =
             matchSonarr(series, queue, listOf(show), mapOf(showId to listOf(episode)))
 
-        assertEquals(1, result.size)
-        assertEquals(QueueItemStatus.QUEUED, result[episodeId]?.status)
+        // Both queue rows are kept in the list (a queue view should show both downloads), but the
+        // per-item badge map collapses them with the later entry winning.
+        assertEquals(2, result.size)
+        val statusMap = result.toQueueStatusMap()
+        assertEquals(1, statusMap.size)
+        assertEquals(QueueItemStatus.QUEUED, statusMap[episodeId]?.status)
     }
 
     // endregion
@@ -163,44 +200,56 @@ class QueueStatusMatchingTest {
         val result = matchRadarr(movies, queue, listOf(movie))
 
         assertEquals(1, result.size)
-        val status = result[movieId]
+        assertEquals(movieId, result.single().item?.id)
+        val status = result.toQueueStatusMap()[movieId]
         assertEquals(PvrSource.RADARR, status?.source)
         assertEquals(QueueItemStatus.DOWNLOADING, status?.status)
         assertEquals(90, status?.percent)
     }
 
     @Test
-    fun `matchRadarr skips silently when neither side has a tmdbId`() {
+    fun `matchRadarr yields an unmatched entry when neither side has a tmdbId`() {
         val movie = testMovie(id = UUID.randomUUID(), tmdbId = null)
         // RadarrMovie.tmdbId defaults to 0, the DTO's "unset" sentinel.
-        val movies = listOf(RadarrMovie(id = 7))
+        val movies = listOf(RadarrMovie(id = 7, title = "Some Movie"))
         val queue = listOf(RadarrQueueItem(id = 1, movieId = 7))
 
         val result = matchRadarr(movies, queue, listOf(movie))
 
-        assertTrue(result.isEmpty())
+        assertEquals(1, result.size)
+        assertNull(result.single().item)
+        // The unmatched entry is still titled from Radarr's own movie metadata.
+        assertEquals("Some Movie", result.single().title)
+        assertTrue(result.toQueueStatusMap().isEmpty())
     }
 
     @Test
-    fun `matchRadarr skips a queue entry whose movieId is not in the movie list at all`() {
+    fun `matchRadarr yields an unmatched entry titled from the release when the movieId is unknown`() {
         val movie = testMovie(id = UUID.randomUUID(), tmdbId = "2000")
         val movies = listOf(RadarrMovie(id = 7, tmdbId = 2000))
         // References movieId 999, which doesn't exist in `movies` - an orphaned reference.
-        val queue = listOf(RadarrQueueItem(id = 1, movieId = 999))
+        val queue =
+            listOf(RadarrQueueItem(id = 1, movieId = 999, title = "Some.Movie.2024.2160p.WEB-DL"))
 
         val result = matchRadarr(movies, queue, listOf(movie))
 
-        assertTrue(result.isEmpty())
+        assertEquals(1, result.size)
+        assertNull(result.single().item)
+        assertEquals("Some.Movie.2024.2160p.WEB-DL", result.single().title)
+        assertTrue(result.toQueueStatusMap().isEmpty())
     }
 
     @Test
-    fun `matchRadarr skips when the movie is not yet synced into Jellyfin's library`() {
-        val movies = listOf(RadarrMovie(id = 7, tmdbId = 2000))
+    fun `matchRadarr yields an unmatched entry when the movie is not yet in Jellyfin's library`() {
+        val movies = listOf(RadarrMovie(id = 7, tmdbId = 2000, title = "Some Movie"))
         val queue = listOf(RadarrQueueItem(id = 1, movieId = 7))
 
         val result = matchRadarr(movies, queue, emptyList())
 
-        assertTrue(result.isEmpty())
+        assertEquals(1, result.size)
+        assertNull(result.single().item)
+        assertEquals("Some Movie", result.single().title)
+        assertTrue(result.toQueueStatusMap().isEmpty())
     }
 
     @Test
@@ -216,8 +265,12 @@ class QueueStatusMatchingTest {
 
         val result = matchRadarr(movies, queue, listOf(movie))
 
-        assertEquals(1, result.size)
-        assertEquals(QueueItemStatus.WARNING, result[movieId]?.status)
+        // Both queue rows are kept in the list; the per-item badge map collapses them with the
+        // later entry winning.
+        assertEquals(2, result.size)
+        val statusMap = result.toQueueStatusMap()
+        assertEquals(1, statusMap.size)
+        assertEquals(QueueItemStatus.WARNING, statusMap[movieId]?.status)
     }
 
     // endregion
