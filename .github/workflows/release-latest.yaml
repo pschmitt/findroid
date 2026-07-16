@@ -102,3 +102,24 @@ jobs:
           files: ${{ steps.apks.outputs.dir }}/*.apk
           prerelease: true
           make_latest: false
+
+      - name: Vacuum stale release assets
+        # action-gh-release above overwrites assets whose filenames match what we just
+        # uploaded, but never removes ones left over from a previous run under a different
+        # name (e.g. after an ABI/flavor list change). Delete anything attached to the
+        # release that isn't one of the files from this run.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -t expected < <(basename -a "${{ steps.apks.outputs.dir }}"/*.apk)
+          gh release view latest --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
+            while IFS= read -r name; do
+              keep=0
+              for f in "${expected[@]}"; do
+                [ "$name" = "$f" ] && keep=1 && break
+              done
+              if [ "$keep" -eq 0 ]; then
+                echo "Deleting stale asset: $name"
+                gh release delete-asset latest "$name" --repo "$GITHUB_REPOSITORY" -y
+              fi
+            done
