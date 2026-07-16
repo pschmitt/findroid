@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.presentation.settings.integrations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.api.pvr.PvrCredentialKeys
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
 import dev.jdtech.jellyfin.security.SecureCredentialStore
@@ -12,10 +13,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-
-// Not stored in AppPreferences - these are secrets and go through SecureCredentialStore instead.
-private const val SONARR_API_KEY = "sonarr_api_key"
-private const val RADARR_API_KEY = "radarr_api_key"
 
 @HiltViewModel
 class IntegrationsSettingsViewModel
@@ -32,10 +29,10 @@ constructor(
             IntegrationsSettingsState(
                 sonarrEnabled = appPreferences.getValue(appPreferences.sonarrEnabled),
                 sonarrBaseUrl = appPreferences.getValue(appPreferences.sonarrBaseUrl).orEmpty(),
-                sonarrApiKey = secureCredentialStore.getString(SONARR_API_KEY).orEmpty(),
+                sonarrApiKey = secureCredentialStore.getString(PvrCredentialKeys.SONARR_API_KEY).orEmpty(),
                 radarrEnabled = appPreferences.getValue(appPreferences.radarrEnabled),
                 radarrBaseUrl = appPreferences.getValue(appPreferences.radarrBaseUrl).orEmpty(),
-                radarrApiKey = secureCredentialStore.getString(RADARR_API_KEY).orEmpty(),
+                radarrApiKey = secureCredentialStore.getString(PvrCredentialKeys.RADARR_API_KEY).orEmpty(),
                 pvrPollIntervalMinutes =
                     appPreferences.getValue(appPreferences.pvrPollIntervalMinutes),
             )
@@ -60,7 +57,7 @@ constructor(
                     )
             }
             is IntegrationsSettingsAction.OnSonarrApiKeyChanged -> {
-                secureCredentialStore.putString(SONARR_API_KEY, action.apiKey.ifBlank { null })
+                secureCredentialStore.putString(PvrCredentialKeys.SONARR_API_KEY, action.apiKey.ifBlank { null })
                 _state.value =
                     _state.value.copy(
                         sonarrApiKey = action.apiKey,
@@ -84,7 +81,7 @@ constructor(
                     )
             }
             is IntegrationsSettingsAction.OnRadarrApiKeyChanged -> {
-                secureCredentialStore.putString(RADARR_API_KEY, action.apiKey.ifBlank { null })
+                secureCredentialStore.putString(PvrCredentialKeys.RADARR_API_KEY, action.apiKey.ifBlank { null })
                 _state.value =
                     _state.value.copy(
                         radarrApiKey = action.apiKey,
