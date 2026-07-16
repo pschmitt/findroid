@@ -6,9 +6,16 @@ Repository instructions for AI coding agents working on Findroid.
 
 - `nix develop` provides the full toolchain (JDK 21, Android SDK, `just`, `ktfmt`) and
   installs the repo's pre-commit hooks (see `flake.nix`'s `git-hooks.nix` integration —
-  trailing whitespace, EOF fixer, merge-conflict/large-file checks, `nixfmt`, `statix`,
-  and `ktfmt` on staged Kotlin files). The generated `.pre-commit-config.yaml` is
-  gitignored — it's regenerated from `flake.nix` on every shell entry, don't hand-edit it.
+  trailing whitespace, EOF fixer, merge-conflict/large-file checks, `nixfmt`, `statix`).
+  The generated `.pre-commit-config.yaml` is gitignored — it's regenerated from
+  `flake.nix` on every shell entry, don't hand-edit it.
+  - Deliberately **no** `ktfmt` pre-commit hook: nixpkgs only ships a recent standalone
+    `ktfmt` (0.63+), but the project's Gradle plugin pins `ktfmt` 0.26.0 (see
+    `gradle/libs.versions.toml`), and the two format some constructs differently — a
+    hook running the wrong version could "fix" a file into a state that then fails
+    CI's real `ktfmtCheck`. This actually happened once: it inserted spurious blank
+    lines between every `include()` in `settings.gradle.kts`. Use `just lint` (runs
+    the pinned Gradle plugin remotely) as the authoritative formatting check.
 - Prefer the `justfile` recipes over raw `./gradlew`/`ssh`/`adb` invocations — run
   `just --list` for the full set. It wraps everything below (remote builds, fetching
   APKs, and Mi Pad 4 install/logcat/adb-enable) in composable recipes.
@@ -40,9 +47,11 @@ Repository instructions for AI coding agents working on Findroid.
   `:core:compileDebugKotlin` are ambiguous. Use the flavor-qualified task name (e.g.
   `compileLibreDebugKotlin`), or run `./gradlew tasks` in the target module first to confirm
   the exact name.
-- Formatting/linting a Kotlin file directly (not a full Gradle build) is fine to run
-  locally: `just format` runs the standalone `ktfmt` CLI over all tracked `.kt`/`.kts`
-  files, matching what the pre-commit hook and CI's `ktfmtCheck` enforce.
+- Formatting a Kotlin file directly (not a full Gradle build) is fine to run locally:
+  `just format` runs the standalone `ktfmt` CLI over all tracked `.kt`/`.kts` files.
+  Treat it as an advisory quick pass only — it's a newer `ktfmt` version than CI's
+  pinned one (see the pre-commit note above) — and confirm with `just lint` before
+  relying on it.
 
 ## Physical test device
 

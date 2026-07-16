@@ -47,13 +47,15 @@
           nixfmt.enable = true;
           statix.enable = true;
 
-          ktfmt = {
-            enable = true;
-            name = "ktfmt";
-            description = "Format Kotlin sources with ktfmt (kotlinlang style)";
-            entry = "${pkgs.ktfmt}/bin/ktfmt --kotlinlang-style";
-            files = "\\.(kt|kts)$";
-          };
+          # No ktfmt pre-commit hook: nixpkgs only ships a recent standalone ktfmt
+          # (0.63+), but the project's Gradle plugin pins ktfmt 0.26.0 (see
+          # gradle/libs.versions.toml), and the two format some constructs
+          # differently (e.g. blank-line handling between top-level statements in
+          # .kts files). A hook running the wrong version could "fix" a file into
+          # a state that then fails CI's real `./gradlew ktfmtCheck`. Use
+          # `just lint` (remote, runs the pinned Gradle plugin) as the
+          # authoritative check instead - `just format` is still available for
+          # a quick local pass, but treat its output as advisory, not final.
         };
       };
 

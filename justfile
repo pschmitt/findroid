@@ -127,7 +127,10 @@ deploy-phone-debug host=remote_host abi=mipad_abi: (build-and-fetch-phone-debug 
 # --- Formatting / hooks ----------------------------------------------------
 
 # Format Kotlin sources locally with ktfmt (lightweight - not a Gradle build,
-# safe to run on this machine). Mirrors the pre-commit hook and CI's ktfmtCheck.
+# safe to run on this machine). CAUTION: this is nixpkgs' standalone ktfmt,
+# which is a newer version than the one CI actually uses (see
+# gradle/libs.versions.toml) - the two format some constructs differently.
+# Treat this as an advisory quick pass, not a substitute for `just lint`.
 format:
     ktfmt --kotlinlang-style $(git ls-files '*.kt' '*.kts')
 
