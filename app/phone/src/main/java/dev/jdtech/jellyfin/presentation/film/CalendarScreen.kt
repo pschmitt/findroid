@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,6 +41,7 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.film.presentation.calendar.CalendarState
 import dev.jdtech.jellyfin.film.presentation.calendar.CalendarViewModel
@@ -153,11 +155,11 @@ private const val CALENDAR_TODAY_PLACEHOLDER = "Today"
 private const val CALENDAR_TOMORROW_PLACEHOLDER = "Tomorrow"
 
 /**
- * A single upcoming Sonarr/Radarr release. Unlike [dev.jdtech.jellyfin.presentation.film.components.ItemPoster],
- * this always renders a source-based placeholder icon rather than a real poster -
- * [CalendarEntry] only carries a resolved item id, not a loaded [dev.jdtech.jellyfin.models.FindroidItem],
- * so there's no poster image URL to load here. Not clickable when [CalendarEntry.itemId] is null
- * (unmatched entry - nothing to navigate to yet).
+ * A single upcoming Sonarr/Radarr release. Renders the matched item's real poster
+ * ([CalendarEntry.images], fetched by [dev.jdtech.jellyfin.repository.CalendarRepositoryImpl]
+ * once [CalendarEntry.itemId] resolves) when available, falling back to a source-based
+ * placeholder icon for unmatched entries or if the poster fetch failed. Not clickable when
+ * [CalendarEntry.itemId] is null (unmatched entry - nothing to navigate to yet).
  */
 @Composable
 private fun CalendarEntryRow(entry: CalendarEntry, onClick: () -> Unit) {
@@ -172,22 +174,35 @@ private fun CalendarEntryRow(entry: CalendarEntry, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.width(64.dp).clip(MaterialTheme.shapes.small)) {
-            Box(
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .aspectRatio(0.66f)
-                        .background(MaterialTheme.colorScheme.surfaceContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter =
-                        painterResource(
-                            if (entry.source == PvrSource.SONARR) CoreR.drawable.ic_tv
-                            else CoreR.drawable.ic_film
-                        ),
+            val posterUri = entry.images?.primary
+            if (posterUri != null) {
+                AsyncImage(
+                    model = posterUri,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentScale = ContentScale.Crop,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .aspectRatio(0.66f)
+                            .background(MaterialTheme.colorScheme.surfaceContainer),
                 )
+            } else {
+                Box(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .aspectRatio(0.66f)
+                            .background(MaterialTheme.colorScheme.surfaceContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter =
+                            painterResource(
+                                if (entry.source == PvrSource.SONARR) CoreR.drawable.ic_tv
+                                else CoreR.drawable.ic_film
+                            ),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.width(MaterialTheme.spacings.default))

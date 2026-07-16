@@ -13,6 +13,7 @@ import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -49,8 +50,27 @@ class CalendarRepositoryImpl(
             // in one must never blank out or crash the other's contribution to the merged list.
             val sonarrDeferred = async { fetchSonarrCalendar(start, end) }
             val radarrDeferred = async { fetchRadarrCalendar(start, end) }
-            (sonarrDeferred.await() + radarrDeferred.await()).sortedBy { it.date }
+            val merged = (sonarrDeferred.await() + radarrDeferred.await()).sortedBy { it.date }
+
+            // Poster art requires a full per-item fetch (the matching step above only resolves an
+            // id from the locally-cached, download-only-images DB entities - see toFindroidShow/
+            // toFindroidMovie(database, userId) above). Fetched concurrently and independently of
+            // each other, same as the Sonarr/Radarr calls: one slow/broken item's artwork must
+            // never block or blank out the rest of the calendar.
+            merged.map { entry -> async { entry.withImages() } }.awaitAll()
         }
+
+    private suspend fun CalendarEntry.withImages(): CalendarEntry {
+        val id = itemId ?: return this
+        return try {
+            copy(images = jellyfinRepository.getItem(id)?.images)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to load poster art for calendar entry $id")
+            this
+        }
+    }
 
     private suspend fun fetchSonarrCalendar(start: LocalDate, end: LocalDate): List<CalendarEntry> {
         if (!appPreferences.getValue(appPreferences.sonarrEnabled)) return emptyList()
