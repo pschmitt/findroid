@@ -70,34 +70,54 @@ mipad-ssh +cmd:
 mipad-shell:
     ssh -p {{mipad_ssh_port}} {{mipad_host}}
 
-# Ensure adbd is running and listening over TCP (uses root, since USB debugging
-# may be off and there's no cable attached) - then `adb connect` to it
-mipad-adb-enable:
-    ssh -p {{mipad_ssh_port}} {{mipad_host}} "su -c 'setprop service.adb.tcp.port {{mipad_adb_port}} && stop adbd && start adbd'"
-    sleep 1
-    adb connect {{mipad_host}}:{{mipad_adb_port}}
+# Find the port adbd is actually listening on (via `ss -ltnp` over root SSH),
+# starting it as a fallback if it isn't running at all, then `adb connect` to
+# it. Prints the resulting "host:port" adb target on stdout so other recipes
+# can capture it - status/progress goes to stderr.
+mipad-connect:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    port=$(ssh -p {{mipad_ssh_port}} {{mipad_host}} "su -c 'ss -ltnp'" 2>/dev/null \
+        | awk '/adbd/ { n = split($4, a, ":"); print a[n]; exit }')
+    if [ -z "$port" ]; then
+        echo "adbd not listening - starting it via root shell" >&2
+        ssh -p {{mipad_ssh_port}} {{mipad_host}} \
+            "su -c 'setprop service.adb.tcp.port {{mipad_adb_port}} && stop adbd && start adbd'" >&2
+        sleep 1
+        port={{mipad_adb_port}}
+    fi
+    target="{{mipad_host}}:$port"
+    adb connect "$target" >&2
+    echo "$target"
 
-# Install an APK on the Mi Pad 4 via root shell over SSH (doesn't depend on adb
-# pairing/authorization at all - just scp + `pm install -r`)
+# Install an APK on the Mi Pad 4 over adb (network, via mipad-connect).
+# Simpler and more reliable than scp + `pm install`: adb push/install runs as
+# adbd, which doesn't hit the SELinux/FUSE permission issues a plain scp into
+# /sdcard runs into when system_server tries to read the file back.
 mipad-install apk:
-    scp -P {{mipad_ssh_port}} {{apk}} {{mipad_host}}:/sdcard/findroid-install.apk
-    ssh -p {{mipad_ssh_port}} {{mipad_host}} "su -c 'pm install -r /sdcard/findroid-install.apk'"
-    ssh -p {{mipad_ssh_port}} {{mipad_host}} "rm -f /sdcard/findroid-install.apk"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target=$(just mipad-connect)
+    adb -s "$target" install -r {{apk}}
 
 # Uninstall a package from the Mi Pad 4 (e.g. after a signing-key mismatch -
 # see AGENTS.md). WARNING: wipes that app's local data (Room DB, playback
 # positions, downloads).
 mipad-uninstall pkg:
-    ssh -p {{mipad_ssh_port}} {{mipad_host}} "su -c 'pm uninstall {{pkg}}'"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target=$(just mipad-connect)
+    adb -s "$target" uninstall {{pkg}}
 
 # Tail logcat from the Mi Pad 4, optionally filtered by a grep pattern
 mipad-logcat filter="":
     #!/usr/bin/env bash
     set -euo pipefail
+    target=$(just mipad-connect)
     if [ -n "{{filter}}" ]; then
-        ssh -p {{mipad_ssh_port}} {{mipad_host}} "su -c 'logcat'" | grep -i --line-buffered "{{filter}}"
+        adb -s "$target" logcat | grep -i --line-buffered "{{filter}}"
     else
-        ssh -p {{mipad_ssh_port}} {{mipad_host}} "su -c 'logcat'"
+        adb -s "$target" logcat
     fi
 
 # Build the phone debug APK remotely, fetch it, and install it on the Mi Pad 4

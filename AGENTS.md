@@ -47,23 +47,29 @@ Repository instructions for AI coding agents working on Findroid.
 ## Physical test device
 
 - A **Mi Pad 4** (`arm64-v8a`) is available for installing and checking debug builds.
-  Reachable via SSH at `mi-pad-4.lan`, port `8022` (Termux). The `justfile` wraps the
-  common operations:
-  - `just mipad-adb-enable` — starts/restarts `adbd` in TCP mode via root (works even if
-    USB debugging was never toggled on), then `adb connect`s to it.
-  - `just mipad-install <apk>` — scp the APK to the device and `pm install -r` it via a
-    root shell over SSH. Doesn't depend on `adb` pairing/authorization at all.
+  Reachable via SSH at `mi-pad-4.lan`, port `8022` (Termux, rooted). The `justfile` wraps
+  the common operations, all built on real `adb` (not `scp`/`pm install`):
+  - `just mipad-connect` — the core primitive. Finds the port `adbd` is actually
+    listening on via `su -c 'ss -ltnp'` over SSH (adbd is usually already running — the
+    device doesn't rely on a fixed port), `adb connect`s to it, and prints the resulting
+    `host:port` on stdout (status goes to stderr) so other recipes can capture it with
+    `target=$(just mipad-connect)`. Only if nothing is listening does it fall back to
+    forcing `adbd` on via root (`setprop service.adb.tcp.port` + restart).
+  - `just mipad-install <apk>` — connects, then `adb install -r`. Deliberately avoids
+    `scp` into `/sdcard` + `pm install`: `system_server` can't read the FUSE-backed
+    `/sdcard` back (SELinux denies it — `avc: denied { read } ... tcontext=u:object_r:fuse:s0`),
+    and Termux's `sshd` has no `sftp-server` subsystem configured anyway (plain `scp`
+    fails with "Connection closed" unless you pass `-O` for the legacy protocol). `adb
+    install` sidesteps all of that.
   - `just deploy-phone-debug` — build the phone debug APK remotely, fetch it, and
     install it on the Mi Pad 4 in one step.
   - `just mipad-logcat [filter]` — tail `logcat` from the device, optionally grepped.
-  - `just mipad-uninstall <pkg>` — `pm uninstall` a package (see the signature-mismatch
+  - `just mipad-uninstall <pkg>` — `adb uninstall` a package (see the signature-mismatch
     gotcha below).
   - `just mipad-shell` — interactive SSH shell on the device.
-  - The device is **rooted**, so all of the above use `su -c '...'` over SSH rather than
-    depending on `adb`'s own authorization/pairing flow.
   - Signature mismatch gotcha: if the device already has a build signed with a different
     key than the one you're installing, install fails with
-    `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (or `pm install` reports an equivalent signature
-    error). Fix is `just mipad-uninstall <applicationId>` then install fresh — this wipes
-    local app data (Room DB, playback positions, download records). Confirm with the user
-    before doing this if it's not their own throwaway data.
+    `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Fix is `just mipad-uninstall <applicationId>`
+    then install fresh — this wipes local app data (Room DB, playback positions,
+    download records). Confirm with the user before doing this if it's not their own
+    throwaway data.

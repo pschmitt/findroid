@@ -97,8 +97,8 @@ jobs:
             Automated build of the latest main (${{ github.sha }}), built ${{ steps.date.outputs.date }}. Not a stable release.
 
             Two variants are provided, both signed with the same CI key so upgrades between them work:
-            - `*-debug.apk` — debuggable, uses the `dev.jdtech.jellyfin.debug` applicationId, installs side by side with a Play Store install.
-            - `*-release.apk` — minified/optimized like a real release build, but uses the same `dev.jdtech.jellyfin` applicationId as the Play Store app. Installing it over an existing Play Store install will fail with a signature mismatch — uninstall that first.
+            - `*-debug.apk` — debuggable, uses the `dev.pschmitt.findroidplus.debug` applicationId, installs side by side with a Play Store install.
+            - `*-release.apk` — minified/optimized like a real release build, but uses the same `dev.pschmitt.findroidplus` applicationId as the Play Store app. Installing it over an existing Play Store install will fail with a signature mismatch — uninstall that first.
           files: ${{ steps.apks.outputs.dir }}/*.apk
           prerelease: true
           make_latest: false
