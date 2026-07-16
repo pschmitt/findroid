@@ -245,4 +245,8 @@
     <string name="pvr_queue_status_importing">Importing…</string>
     <string name="pvr_queue_status_warning">Warning</string>
     <string name="pvr_queue_status_failed">Failed</string>
+    <string name="title_calendar">Calendar</string>
+    <string name="calendar_empty">Nothing upcoming</string>
+    <string name="calendar_today">Today</string>
+    <string name="calendar_tomorrow">Tomorrow</string>
 </resources>
