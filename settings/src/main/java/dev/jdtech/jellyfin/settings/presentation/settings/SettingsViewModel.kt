@@ -802,6 +802,15 @@ constructor(
                                                         appPreferences.socketTimeout,
                                                     suffixRes = R.string.ms,
                                                 ),
+                                                PreferenceLongInput(
+                                                    nameStringResource =
+                                                        R.string.settings_pvr_search_timeout,
+                                                    descriptionStringRes =
+                                                        R.string.settings_pvr_search_timeout_summary,
+                                                    backendPreference =
+                                                        appPreferences.pvrSearchTimeout,
+                                                    suffixRes = R.string.ms,
+                                                ),
                                             )
                                     )
                                 ),

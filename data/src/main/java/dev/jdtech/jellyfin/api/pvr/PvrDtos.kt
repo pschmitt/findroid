@@ -130,6 +130,62 @@ data class SonarrEpisodeDto(
 
 // endregion
 
+// region Sonarr - POST /api/v3/command, GET /api/v3/command/{id}
+// POST triggers an automatic search: Sonarr picks and grabs the best matching release itself, with
+// no release list surfaced to the caller (compare GET/POST /api/v3/release below, which is the
+// interactive/manual counterpart). Sonarr answers the POST as soon as the command is *queued*, not
+// once it finishes - GET /api/v3/command/{id} is polled afterwards to find out when/how it ended,
+// so the app can notify the user once the search actually completes.
+
+@Serializable data class SonarrCommandRequest(val name: String, val episodeIds: List<Int>)
+
+@Serializable data class SonarrCommandResponse(val id: Int, val status: String? = null)
+
+// endregion
+
+// region Sonarr - GET /api/v3/episode/{id}
+// Single-episode lookup, used only to build a human-readable notification once an automatic search
+// (triggered above) finishes - the command response/status carries no episode-identifying text.
+
+@Serializable data class SonarrEpisodeSeriesRef(val title: String? = null)
+
+@Serializable
+data class SonarrEpisodeDetail(
+    val seasonNumber: Int = 0,
+    val episodeNumber: Int = 0,
+    val title: String? = null,
+    val series: SonarrEpisodeSeriesRef? = null,
+)
+
+// endregion
+
+// region Sonarr - GET /api/v3/release?episodeId=X, POST /api/v3/release
+// GET lists candidate releases for an episode (interactive/manual search) without grabbing
+// anything; POSTing a release's guid+indexerId back grabs that specific one. Only the fields
+// Findroid's release picker needs are modeled - Sonarr's release resource has many more.
+
+@Serializable data class SonarrGrabReleaseRequest(val guid: String, val indexerId: Int)
+
+@Serializable data class SonarrQualityName(val name: String? = null)
+
+@Serializable data class SonarrReleaseQuality(val quality: SonarrQualityName? = null)
+
+@Serializable
+data class SonarrRelease(
+    val guid: String,
+    val indexerId: Int = 0,
+    val indexer: String? = null,
+    val title: String? = null,
+    val size: Long = 0L,
+    val seeders: Int? = null,
+    val ageHours: Double? = null,
+    val quality: SonarrReleaseQuality? = null,
+    val rejected: Boolean = false,
+    val rejections: List<String> = emptyList(),
+)
+
+// endregion
+
 // region Radarr - GET /api/v3/calendar
 // Radarr's calendar entries are full movie objects (same shape as /api/v3/movie), so tmdbId is
 // already present per entry - no separate getMovie() call/join needed. Also a flat JSON array,

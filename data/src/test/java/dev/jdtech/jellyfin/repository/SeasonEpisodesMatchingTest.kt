@@ -38,6 +38,7 @@ class SeasonEpisodesMatchingTest {
         assertEquals(1, result.size)
         assertEquals(2, result[0].episodeNumber)
         assertEquals("Episode Two", result[0].title)
+        assertEquals(2, result[0].episodeId)
     }
 
     @Test

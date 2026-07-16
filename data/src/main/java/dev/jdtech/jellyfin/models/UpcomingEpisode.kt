@@ -14,4 +14,8 @@ data class UpcomingEpisode(
     val airDate: LocalDate?,
     val hasFile: Boolean,
     val monitored: Boolean,
+    // Sonarr's own numeric episode id - already known here since it's fetched as part of matching
+    // this episode, so triggering a search doesn't need a separate
+    // SonarrSearchRepository.resolveEpisodeId round trip (see UpcomingEpisodeCard).
+    val episodeId: Int,
 )

@@ -55,4 +55,21 @@ class SecureCredentialStoreTest {
 
         assertTrue(store.contains("sonarr_api_key"))
     }
+
+    @Test
+    fun `putStringBlocking then getString round-trips the value`() {
+        store.putStringBlocking("sonarr_api_key", "abc123")
+
+        assertEquals("abc123", store.getString("sonarr_api_key"))
+    }
+
+    @Test
+    fun `putStringBlocking with a null value removes the key`() {
+        store.putStringBlocking("sonarr_api_key", "abc123")
+
+        store.putStringBlocking("sonarr_api_key", null)
+
+        assertNull(store.getString("sonarr_api_key"))
+        assertFalse(store.contains("sonarr_api_key"))
+    }
 }

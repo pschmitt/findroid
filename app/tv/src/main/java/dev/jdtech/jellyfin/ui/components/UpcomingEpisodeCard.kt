@@ -105,6 +105,7 @@ private fun UpcomingEpisodeCardPreview() {
                     airDate = LocalDate.now().plusDays(7),
                     hasFile = false,
                     monitored = true,
+                    episodeId = 123,
                 )
         )
     }

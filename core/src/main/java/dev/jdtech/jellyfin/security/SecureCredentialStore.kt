@@ -25,5 +25,17 @@ class SecureCredentialStore @Inject constructor(@EncryptedPrefs private val pref
 
     fun remove(key: String) = prefs.edit().remove(key).apply()
 
+    /**
+     * Same as [putString] but blocks until the write hits disk. Restoring a backup forces a full
+     * process restart right after writing these (see `RestoreBackupScreen.kt`), which races
+     * [putString]'s async `apply()` write and can silently lose the just-restored value - same
+     * rationale as `BackupManager.restorePreferences()`'s `editor.commit()`. Not the default for
+     * [putString] itself since that's called on every keystroke while editing an API key in
+     * Settings, where a synchronous encrypted write per keystroke would be janky.
+     */
+    fun putStringBlocking(key: String, value: String?) {
+        prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.commit()
+    }
+
     fun contains(key: String): Boolean = prefs.contains(key)
 }

@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.repository
 
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
+import dev.jdtech.jellyfin.api.pvr.SonarrCalendarEntry
 import dev.jdtech.jellyfin.models.CalendarEntry
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
@@ -9,6 +10,7 @@ import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import org.jellyfin.sdk.model.api.BaseItemKind
 import timber.log.Timber
@@ -66,7 +68,7 @@ class CalendarRepositoryImpl(
             val api = SonarrApi(baseUrl, apiKey)
             val entries = api.getCalendar(start, end)
             val shows = loadJellyfinShows()
-            matchSonarrCalendar(entries, shows)
+            matchSonarrCalendar(entries, attachSeasons(shows, entries))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -92,6 +94,28 @@ class CalendarRepositoryImpl(
             Timber.w(e, "Failed to fetch Radarr calendar")
             emptyList()
         }
+    }
+
+    /**
+     * [jellyfinRepository.getItems] never populates [FindroidShow.seasons] (it always defaults to
+     * empty - true of every mapping path, not just this one), so [matchSonarrCalendar]'s season
+     * lookup would silently never resolve, leaving every entry's `itemId` null and the calendar
+     * row permanently unclickable. Fetches seasons only for shows the calendar actually references
+     * (matched by tvdbId), not the whole library, since a full-library season fetch would be one
+     * request per show.
+     */
+    private suspend fun attachSeasons(
+        shows: List<FindroidShow>,
+        entries: List<SonarrCalendarEntry>,
+    ): List<FindroidShow> = coroutineScope {
+        val referencedTvdbIds =
+            entries.mapNotNull { it.series?.tvdbId?.takeIf { id -> id != 0 } }.map { it.toString() }.toSet()
+        val (referenced, rest) = shows.partition { it.tvdbId in referencedTvdbIds }
+        val withSeasons =
+            referenced
+                .map { show -> async { show.copy(seasons = jellyfinRepository.getSeasons(show.id)) } }
+                .awaitAll()
+        withSeasons + rest
     }
 
     private suspend fun loadJellyfinShows(): List<FindroidShow> =

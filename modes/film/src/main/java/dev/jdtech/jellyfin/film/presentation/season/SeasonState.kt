@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.film.presentation.season
 
+import dev.jdtech.jellyfin.core.presentation.search.ReleasePickerState
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.QueueStatus
@@ -21,5 +22,9 @@ data class SeasonState(
     val downloadsSizeBytes: Long = 0L,
     val downloadProgress: Map<UUID, DownloadProgress> = emptyMap(),
     val queueStatus: Map<UUID, QueueStatus> = emptyMap(),
+    // The show's tvdb id, fetched once per loadSeason() - reused both for upcomingEpisodes and to
+    // resolve a Sonarr episode id on demand when the user triggers a search on a real episode row.
+    val seriesTvdbId: String? = null,
+    val releasePicker: ReleasePickerState? = null,
     val error: Exception? = null,
 )

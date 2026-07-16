@@ -158,6 +158,30 @@ private fun IntegrationsSettingsScreenLayout(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+
+            Column {
+                Text(
+                    text = stringResource(CoreR.string.integrations_release_cache),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = stringResource(CoreR.string.integrations_release_cache_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedTextField(
+                    value = state.pvrReleaseCacheMinutes.toString(),
+                    onValueChange = { value ->
+                        val minutes = value.toIntOrNull()
+                        if (minutes != null) {
+                            onAction(IntegrationsSettingsAction.OnReleaseCacheChanged(minutes))
+                        }
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

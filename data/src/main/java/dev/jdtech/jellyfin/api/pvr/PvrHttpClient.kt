@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
+import timber.log.Timber
 
 /**
  * Shared holder for the [OkHttpClient] used to talk to a Sonarr/Radarr instance. The base client
@@ -21,6 +22,7 @@ internal object PvrHttpClient {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
+            .addInterceptor(LoggingInterceptor())
             .build()
     }
 
@@ -32,6 +34,34 @@ internal object PvrHttpClient {
         override fun intercept(chain: Interceptor.Chain): Response {
             val request = chain.request().newBuilder().header(API_KEY_HEADER, apiKey).build()
             return chain.proceed(request)
+        }
+    }
+
+    /**
+     * Method/URL/status/timing only - never headers or bodies, since the API key travels as a
+     * header (see [ApiKeyInterceptor]). The interactive release search in particular can run for
+     * a long time waiting on indexers, and otherwise leaves zero trace of having happened at all
+     * if it never returns - this is the only way to tell, from logcat, whether a request is still
+     * in flight, came back with an unexpected status, or never made it out at all.
+     *
+     * `BaseApplication` plants a [Timber.DebugTree] regardless of build type specifically so this
+     * (and other `Timber` diagnostics) aren't silent on the release builds users actually run.
+     */
+    private class LoggingInterceptor : Interceptor {
+        override fun intercept(chain: Interceptor.Chain): Response {
+            val request = chain.request()
+            val startNs = System.nanoTime()
+            Timber.d("PVR --> %s %s", request.method, request.url)
+            try {
+                val response = chain.proceed(request)
+                val tookMs = (System.nanoTime() - startNs) / 1_000_000
+                Timber.d("PVR <-- %s %s (%dms)", response.code, request.url, tookMs)
+                return response
+            } catch (e: IOException) {
+                val tookMs = (System.nanoTime() - startNs) / 1_000_000
+                Timber.w(e, "PVR <-- FAILED %s %s (%dms)", request.method, request.url, tookMs)
+                throw e
+            }
         }
     }
 }

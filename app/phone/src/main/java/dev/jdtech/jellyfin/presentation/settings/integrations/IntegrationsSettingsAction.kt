@@ -20,4 +20,6 @@ sealed interface IntegrationsSettingsAction {
     data object OnTestRadarrConnection : IntegrationsSettingsAction
 
     data class OnPollIntervalChanged(val minutes: Int) : IntegrationsSettingsAction
+
+    data class OnReleaseCacheChanged(val minutes: Int) : IntegrationsSettingsAction
 }

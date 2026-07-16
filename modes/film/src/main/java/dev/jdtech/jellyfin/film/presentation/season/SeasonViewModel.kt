@@ -3,7 +3,10 @@ package dev.jdtech.jellyfin.film.presentation.season
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.api.pvr.SonarrRelease
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
+import dev.jdtech.jellyfin.core.presentation.search.ReleasePickerState
+import dev.jdtech.jellyfin.core.presentation.search.SearchEvent
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.FindroidEpisode
@@ -17,6 +20,7 @@ import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.repository.SeasonEpisodesRepository
+import dev.jdtech.jellyfin.repository.SonarrSearchRepository
 import dev.jdtech.jellyfin.repository.toExistingScope
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.AutoDownloadRuleEvaluator
@@ -27,8 +31,10 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.model.api.ItemFields
@@ -45,9 +51,13 @@ constructor(
     private val appPreferences: AppPreferences,
     private val queueStatusRepository: QueueStatusRepository,
     private val seasonEpisodesRepository: SeasonEpisodesRepository,
+    private val sonarrSearchRepository: SonarrSearchRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SeasonState())
     val state = _state.asStateFlow()
+
+    private val searchEventsChannel = Channel<SearchEvent>()
+    val searchEvents = searchEventsChannel.receiveAsFlow()
 
     private val evaluator = AutoDownloadRuleEvaluator()
 
@@ -73,6 +83,7 @@ constructor(
                 val autoDownloadEnabled = isAutoDownloadEnabled(season.seriesId, seasonId)
                 val existingScope = getExistingScope(season.seriesId)
                 val downloadsSizeBytes = downloadsSizeBytes(seasonId)
+                val seriesTvdbId = repository.getShow(season.seriesId).tvdbId
                 _state.emit(
                     _state.value.copy(
                         season = season,
@@ -81,11 +92,12 @@ constructor(
                         existingScope = existingScope,
                         hasDownloads = downloadsSizeBytes > 0,
                         downloadsSizeBytes = downloadsSizeBytes,
+                        seriesTvdbId = seriesTvdbId,
                     )
                 )
                 reconcileDownloadProgress(episodes)
                 observeQueueStatus(episodes)
-                loadUpcomingEpisodes(season.seriesId, season.indexNumber, episodes)
+                loadUpcomingEpisodes(seriesTvdbId, season.indexNumber, episodes)
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
             }
@@ -93,31 +105,78 @@ constructor(
     }
 
     private suspend fun loadUpcomingEpisodes(
-        seriesId: UUID,
+        seriesTvdbId: String?,
         seasonNumber: Int,
         knownEpisodes: List<FindroidEpisode>,
     ) {
         val upcoming =
-            if (!appPreferences.getValue(appPreferences.sonarrEnabled)) {
+            if (!appPreferences.getValue(appPreferences.sonarrEnabled) || seriesTvdbId == null) {
                 emptyList()
             } else {
                 try {
-                    val tvdbId = repository.getShow(seriesId).tvdbId
-                    if (tvdbId == null) {
-                        emptyList()
-                    } else {
-                        seasonEpisodesRepository.getUpcomingEpisodes(
-                            seriesTvdbId = tvdbId,
-                            seasonNumber = seasonNumber,
-                            knownEpisodeNumbers = knownEpisodes.map { it.indexNumber }.toSet(),
-                        )
-                    }
+                    seasonEpisodesRepository.getUpcomingEpisodes(
+                        seriesTvdbId = seriesTvdbId,
+                        seasonNumber = seasonNumber,
+                        knownEpisodeNumbers = knownEpisodes.map { it.indexNumber }.toSet(),
+                    )
                 } catch (e: Exception) {
                     Timber.w(e, "Failed to load upcoming episodes for season $seasonNumber")
                     emptyList()
                 }
             }
         _state.emit(_state.value.copy(upcomingEpisodes = upcoming))
+    }
+
+    /** Resolves the Sonarr episode id to act on - already known for upcoming-episode rows
+     * ([knownEpisodeId]), otherwise resolved from [SeasonState.seriesTvdbId]. */
+    private suspend fun resolveTargetEpisodeId(episodeNumber: Int, knownEpisodeId: Int?): Int? {
+        if (knownEpisodeId != null) return knownEpisodeId
+        val seriesTvdbId = _state.value.seriesTvdbId ?: return null
+        val seasonNumber = _state.value.season?.indexNumber ?: return null
+        return sonarrSearchRepository.resolveEpisodeId(seriesTvdbId, seasonNumber, episodeNumber)
+    }
+
+    private fun searchEpisodeAutomatic(episodeNumber: Int, knownEpisodeId: Int?) {
+        viewModelScope.launch {
+            val episodeId = resolveTargetEpisodeId(episodeNumber, knownEpisodeId)
+            val event =
+                if (episodeId == null) {
+                    SearchEvent.Failed("Could not find this episode in Sonarr")
+                } else {
+                    sonarrSearchRepository
+                        .searchEpisode(episodeId)
+                        .fold({ SearchEvent.SearchTriggered }, { SearchEvent.Failed(it.message) })
+                }
+            searchEventsChannel.send(event)
+        }
+    }
+
+    private fun openReleasePicker(episodeNumber: Int, knownEpisodeId: Int?) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(releasePicker = ReleasePickerState())
+            val episodeId = resolveTargetEpisodeId(episodeNumber, knownEpisodeId)
+            if (episodeId == null) {
+                _state.value = _state.value.copy(releasePicker = null)
+                searchEventsChannel.send(SearchEvent.Failed("Could not find this episode in Sonarr"))
+                return@launch
+            }
+            val result = sonarrSearchRepository.getReleases(episodeId)
+            _state.value =
+                _state.value.copy(
+                    releasePicker = result.getOrNull()?.let { ReleasePickerState(isLoading = false, releases = it) }
+                )
+            result.onFailure { searchEventsChannel.send(SearchEvent.Failed(it.message)) }
+        }
+    }
+
+    private fun grabRelease(release: SonarrRelease) {
+        viewModelScope.launch {
+            val result = sonarrSearchRepository.grabRelease(release)
+            _state.value = _state.value.copy(releasePicker = null)
+            searchEventsChannel.send(
+                result.fold({ SearchEvent.ReleaseGrabbed }, { SearchEvent.Failed(it.message) })
+            )
+        }
     }
 
     private fun observeQueueStatus(episodes: List<FindroidEpisode>) {
@@ -281,6 +340,13 @@ constructor(
             is SeasonAction.DownloadWithScope ->
                 downloadWithScope(action.selection, action.alsoFollowNew, action.onlyUnwatched)
             is SeasonAction.DeleteSeasonDownloads -> deleteSeasonDownloads(action.alsoRemoveRules)
+            is SeasonAction.SearchEpisodeAutomatic ->
+                searchEpisodeAutomatic(action.episodeNumber, action.knownEpisodeId)
+            is SeasonAction.OpenReleasePicker ->
+                openReleasePicker(action.episodeNumber, action.knownEpisodeId)
+            is SeasonAction.GrabRelease -> grabRelease(action.release)
+            is SeasonAction.DismissReleasePicker ->
+                _state.value = _state.value.copy(releasePicker = null)
             else -> Unit
         }
     }

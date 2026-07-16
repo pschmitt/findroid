@@ -49,9 +49,10 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
     override fun onCreate() {
         super.onCreate()
 
-        if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
-        }
+        // Planted unconditionally, not just for BuildConfig.DEBUG - otherwise Timber is silent on
+        // the release builds users actually run, which leaves no trace in logcat when diagnosing
+        // e.g. a Sonarr search failure after the fact (see PvrHttpClient/SonarrSearchRepositoryImpl).
+        Timber.plant(Timber.DebugTree())
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             val mode =

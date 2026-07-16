@@ -35,6 +35,8 @@ constructor(
                 radarrApiKey = secureCredentialStore.getString(PvrCredentialKeys.RADARR_API_KEY).orEmpty(),
                 pvrPollIntervalMinutes =
                     appPreferences.getValue(appPreferences.pvrPollIntervalMinutes),
+                pvrReleaseCacheMinutes =
+                    appPreferences.getValue(appPreferences.pvrReleaseCacheMinutes),
             )
     }
 
@@ -92,6 +94,10 @@ constructor(
             is IntegrationsSettingsAction.OnPollIntervalChanged -> {
                 appPreferences.setValue(appPreferences.pvrPollIntervalMinutes, action.minutes)
                 _state.value = _state.value.copy(pvrPollIntervalMinutes = action.minutes)
+            }
+            is IntegrationsSettingsAction.OnReleaseCacheChanged -> {
+                appPreferences.setValue(appPreferences.pvrReleaseCacheMinutes, action.minutes)
+                _state.value = _state.value.copy(pvrReleaseCacheMinutes = action.minutes)
             }
         }
     }

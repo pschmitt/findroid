@@ -10,6 +10,7 @@ data class IntegrationsSettingsState(
     val radarrApiKey: String = "",
     val radarrTestState: PvrTestState = PvrTestState.Idle,
     val pvrPollIntervalMinutes: Int = 15,
+    val pvrReleaseCacheMinutes: Int = 15,
 )
 
 /** Result of a one-shot "Test connection" call - surfaced as inline status text, not a Snackbar. */

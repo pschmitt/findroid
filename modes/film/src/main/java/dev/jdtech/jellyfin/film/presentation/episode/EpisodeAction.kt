@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.film.presentation.episode
 
+import dev.jdtech.jellyfin.api.pvr.SonarrRelease
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import java.util.UUID
 
@@ -31,4 +32,12 @@ sealed interface EpisodeAction {
     data class NavigateToSeason(val seasonId: UUID) : EpisodeAction
 
     data class NavigateToShow(val showId: UUID) : EpisodeAction
+
+    data object SearchEpisodeAutomatic : EpisodeAction
+
+    data object OpenReleasePicker : EpisodeAction
+
+    data class GrabRelease(val release: SonarrRelease) : EpisodeAction
+
+    data object DismissReleasePicker : EpisodeAction
 }

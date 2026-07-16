@@ -612,7 +612,10 @@ fun NavigationRoot(
                 )
             }
             composable<BackupSettingsRoute> {
-                BackupSettingsScreen(navigateBack = { navController.safePopBackStack() })
+                BackupSettingsScreen(
+                    navigateBack = { navController.safePopBackStack() },
+                    navigateToRestore = { navController.safeNavigate(RestoreBackupRoute) },
+                )
             }
             composable<IntegrationsSettingsRoute> {
                 IntegrationsSettingsScreen(navigateBack = { navController.safePopBackStack() })

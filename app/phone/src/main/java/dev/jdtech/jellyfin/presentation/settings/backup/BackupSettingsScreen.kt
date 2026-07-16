@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +64,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun BackupSettingsScreen(
     navigateBack: () -> Unit,
+    navigateToRestore: () -> Unit,
     viewModel: BackupSettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -125,6 +127,7 @@ fun BackupSettingsScreen(
         },
         onChooseFolderClick = { chooseFolderLauncher.launch(null) },
         onBackupNowClick = { showPasswordDialog = true },
+        onRestoreClick = navigateToRestore,
     )
 
     if (showPasswordDialog) {
@@ -178,6 +181,7 @@ private fun BackupSettingsScreenLayout(
     onAction: (BackupSettingsAction) -> Unit,
     onChooseFolderClick: () -> Unit,
     onBackupNowClick: () -> Unit,
+    onRestoreClick: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -204,6 +208,11 @@ private fun BackupSettingsScreenLayout(
             modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Text(
+                text = stringResource(CoreR.string.backup_section_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -331,6 +340,22 @@ private fun BackupSettingsScreenLayout(
                 Icon(painter = painterResource(CoreR.drawable.ic_save), contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = stringResource(CoreR.string.backup_now))
+            }
+
+            HorizontalDivider()
+
+            Text(
+                text = stringResource(CoreR.string.restore_section_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(CoreR.string.restore_section_summary),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(onClick = onRestoreClick) {
+                Icon(painter = painterResource(CoreR.drawable.ic_rotate_ccw), contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(CoreR.string.restore_backup))
             }
         }
 

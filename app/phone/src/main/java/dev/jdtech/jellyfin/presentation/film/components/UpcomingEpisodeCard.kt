@@ -37,45 +37,59 @@ import java.time.LocalDate
  * explicit "Not yet available" label so it doesn't read as a broken/loading real episode.
  */
 @Composable
-fun UpcomingEpisodeCard(episode: UpcomingEpisode, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.height(84.dp).fillMaxWidth().alpha(0.5f)) {
-        Box(
-            modifier =
-                Modifier.fillMaxHeight()
-                    .aspectRatio(1.77f)
-                    .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.surfaceContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(CoreR.drawable.ic_calendar),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+fun UpcomingEpisodeCard(
+    episode: UpcomingEpisode,
+    modifier: Modifier = Modifier,
+    onSearchAutomatic: (() -> Unit)? = null,
+    onSearchManual: (() -> Unit)? = null,
+) {
+    Row(modifier = modifier.height(84.dp).fillMaxWidth()) {
+        Row(modifier = Modifier.weight(1f).fillMaxHeight().alpha(0.5f)) {
+            Box(
+                modifier =
+                    Modifier.fillMaxHeight()
+                        .aspectRatio(1.77f)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.surfaceContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_calendar),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(MaterialTheme.spacings.default / 2))
+            Column(
+                modifier = Modifier.fillMaxHeight(),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                val title = episode.title ?: stringResource(CoreR.string.episode_number, episode.episodeNumber)
+                Text(
+                    text = stringResource(CoreR.string.episode_name, episode.episodeNumber, title),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text =
+                        episode.airDate?.let {
+                            stringResource(CoreR.string.season_upcoming_episode_air_date, formatCalendarDate(it))
+                        } ?: stringResource(CoreR.string.season_upcoming_episode_tba),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    text = stringResource(CoreR.string.season_upcoming_episode_badge),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
-        Spacer(Modifier.width(MaterialTheme.spacings.default / 2))
-        Column(
-            modifier = Modifier.fillMaxHeight(),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            val title = episode.title ?: stringResource(CoreR.string.episode_number, episode.episodeNumber)
-            Text(
-                text = stringResource(CoreR.string.episode_name, episode.episodeNumber, title),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text =
-                    episode.airDate?.let {
-                        stringResource(CoreR.string.season_upcoming_episode_air_date, formatCalendarDate(it))
-                    } ?: stringResource(CoreR.string.season_upcoming_episode_tba),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(
-                text = stringResource(CoreR.string.season_upcoming_episode_badge),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
+        if (onSearchAutomatic != null && onSearchManual != null) {
+            EpisodeSearchButton(
+                onAutomaticSearch = onSearchAutomatic,
+                onManualSearch = onSearchManual,
+                modifier = Modifier.align(Alignment.CenterVertically),
             )
         }
     }
@@ -94,6 +108,7 @@ private fun UpcomingEpisodeCardPreview() {
                     airDate = LocalDate.now().plusDays(7),
                     hasFile = false,
                     monitored = true,
+                    episodeId = 123,
                 )
         )
     }

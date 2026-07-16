@@ -20,6 +20,8 @@
     <string name="settings_request_timeout">Request timeout</string>
     <string name="settings_connect_timeout">Connect timeout</string>
     <string name="settings_socket_timeout">Socket timeout</string>
+    <string name="settings_pvr_search_timeout">Sonarr/Radarr search timeout</string>
+    <string name="settings_pvr_search_timeout_summary">How long to wait for an interactive release search (e.g. via Prowlarr) before giving up.</string>
     <string name="pref_player_mpv_hwdec">Hardware decoding</string>
     <string name="pref_player_mpv_vo">Video output</string>
     <string name="pref_player_mpv_ao">Audio output</string>

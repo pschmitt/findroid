@@ -24,4 +24,9 @@ data class CalendarEntry(
     // matchSonarrCalendar/matchRadarrCalendar in CalendarMatching.kt) - null for unmatched
     // entries.
     val images: FindroidImages? = null,
+    // Sonarr's own numeric episode id (Sonarr's /calendar endpoint returns episode resources) -
+    // always null for Radarr entries, which have no per-episode search concept. Already known
+    // here, so triggering a search from the Calendar screen doesn't need a separate
+    // SonarrSearchRepository.resolveEpisodeId round trip.
+    val episodeId: Int? = null,
 )

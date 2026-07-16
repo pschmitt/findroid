@@ -104,6 +104,8 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
         Preference("pref_network_connect_timeout", Constants.NETWORK_DEFAULT_CONNECT_TIMEOUT)
     val socketTimeout =
         Preference("pref_network_socket_timeout", Constants.NETWORK_DEFAULT_SOCKET_TIMEOUT)
+    val pvrSearchTimeout =
+        Preference("pref_network_pvr_search_timeout", Constants.NETWORK_DEFAULT_PVR_SEARCH_TIMEOUT)
 
     // Cache
     val imageCache = Preference("pref_image_cache", true)
@@ -123,6 +125,7 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val radarrEnabled = Preference("pref_pvr_radarr_enabled", false)
     val radarrBaseUrl = Preference<String?>("pref_pvr_radarr_base_url", null)
     val pvrPollIntervalMinutes = Preference("pref_pvr_poll_interval_minutes", 15)
+    val pvrReleaseCacheMinutes = Preference("pref_pvr_release_cache_minutes", 15)
 
     inline fun <reified T> getValue(preference: Preference<T>): T {
         return try {

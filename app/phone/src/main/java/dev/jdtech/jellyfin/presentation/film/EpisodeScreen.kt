@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,6 +51,7 @@ import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderViewModel
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyVideoMetadata
+import dev.jdtech.jellyfin.core.presentation.search.SearchEvent
 import dev.jdtech.jellyfin.film.presentation.episode.EpisodeAction
 import dev.jdtech.jellyfin.film.presentation.episode.EpisodeState
 import dev.jdtech.jellyfin.film.presentation.episode.EpisodeViewModel
@@ -57,12 +59,14 @@ import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.film.components.ActorsRow
+import dev.jdtech.jellyfin.presentation.film.components.EpisodeSearchButton
 import dev.jdtech.jellyfin.presentation.film.components.InfoDialog
 import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
 import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
 import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
+import dev.jdtech.jellyfin.presentation.film.components.ReleasePickerSheet
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.LocalOfflineMode
@@ -111,6 +115,20 @@ fun EpisodeScreen(
         }
     }
 
+    ObserveAsEvents(viewModel.searchEvents) { event ->
+        val message =
+            when (event) {
+                is SearchEvent.SearchTriggered -> context.getString(CoreR.string.search_triggered_toast)
+                is SearchEvent.ReleaseGrabbed -> context.getString(CoreR.string.release_grabbed_toast)
+                is SearchEvent.Failed ->
+                    context.getString(
+                        CoreR.string.search_failed_toast,
+                        event.message ?: context.getString(CoreR.string.unknown_error),
+                    )
+            }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
+
     EpisodeScreenLayout(
         state = state,
         downloaderState = downloaderState,
@@ -139,6 +157,7 @@ fun EpisodeScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EpisodeScreenLayout(
     state: EpisodeState,
@@ -379,11 +398,26 @@ private fun EpisodeScreenLayout(
                             )
                         }
                 }
+                if (state.seriesTvdbId != null) {
+                    EpisodeSearchButton(
+                        onAutomaticSearch = { onAction(EpisodeAction.SearchEpisodeAutomatic) },
+                        onManualSearch = { onAction(EpisodeAction.OpenReleasePicker) },
+                    )
+                }
             }
         }
     }
+
+    state.releasePicker?.let { releasePicker ->
+        ReleasePickerSheet(
+            state = releasePicker,
+            onGrab = { release -> onAction(EpisodeAction.GrabRelease(release)) },
+            onDismissRequest = { onAction(EpisodeAction.DismissReleasePicker) },
+        )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @PreviewScreenSizes
 @Composable
 private fun EpisodeScreenLayoutPreview() {

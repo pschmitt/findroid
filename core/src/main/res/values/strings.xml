@@ -151,6 +151,9 @@
     <string name="auto_download_rule_multiple_seasons">%1$d seasons</string>
     <string name="auto_download_rule_future_seasons">Future seasons only</string>
     <string name="backup_and_restore">Backup &amp; Restore</string>
+    <string name="backup_section_title">Backup</string>
+    <string name="restore_section_title">Restore</string>
+    <string name="restore_section_summary">Restore servers, logins, auto-download rules, and settings from a backup file.</string>
     <string name="backup_auto_enable">Enable automatic backups</string>
     <string name="backup_auto_enable_summary">Periodically back up your servers, logins, auto-download rules, and settings to the chosen folder.</string>
     <string name="backup_auto_password">Backup password</string>
@@ -183,6 +186,8 @@
     <string name="integrations_test_connection_error">Connection failed: %1$s</string>
     <string name="integrations_poll_interval">Poll interval</string>
     <string name="integrations_poll_interval_summary">How often to check Sonarr/Radarr for queue updates. Between 5 and 1440 minutes.</string>
+    <string name="integrations_release_cache">Release search cache</string>
+    <string name="integrations_release_cache_summary">How long to reuse the results of a manual release search for the same episode, instead of re-querying Sonarr/indexers.</string>
     <string name="queue_status_queued">Queued</string>
     <string name="queue_status_importing">Importing</string>
     <string name="queue_status_warning">Warning</string>
@@ -256,4 +261,22 @@
     <string name="calendar_status_available">Already available</string>
     <string name="calendar_status_upcoming">Upcoming</string>
     <string name="calendar_status_unmonitored">Not monitored</string>
+    <string name="search_episode">Search episode</string>
+    <string name="search_episode_automatic">Search automatically</string>
+    <string name="search_episode_manual">Search manually…</string>
+    <string name="search_triggered_toast">Search started</string>
+    <string name="search_failed_toast">Search failed: %1$s</string>
+    <string name="automatic_search_channel_name">Automatic search</string>
+    <string name="automatic_search_notification_found">Release found and grabbed</string>
+    <string name="automatic_search_notification_not_found">No releases found</string>
+    <string name="release_grabbed_toast">Download started</string>
+    <string name="release_picker_title">Releases</string>
+    <string name="release_picker_empty">No releases found</string>
+    <string name="release_picker_rejected">Rejected: %1$s</string>
+    <string name="release_picker_grab">Grab release</string>
+    <string name="release_picker_seeders">%1$d seeders</string>
+    <string name="queue_status_detail_title">Download</string>
+    <string name="queue_status_detail_size">%1$s of %2$s</string>
+    <string name="queue_status_detail_eta">ETA %1$s</string>
+    <string name="queue_status_detail_speed">%1$s</string>
 </resources>

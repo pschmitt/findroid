@@ -40,6 +40,8 @@ fun EpisodeCard(
     modifier: Modifier = Modifier,
     downloadProgress: DownloadProgress? = null,
     queueStatus: QueueStatus? = null,
+    onSearchAutomatic: (() -> Unit)? = null,
+    onSearchManual: (() -> Unit)? = null,
 ) {
     val backgroundColor = MaterialTheme.colorScheme.background
 
@@ -107,6 +109,13 @@ fun EpisodeCard(
                         )
                 )
             }
+        }
+        if (onSearchAutomatic != null && onSearchManual != null) {
+            EpisodeSearchButton(
+                onAutomaticSearch = onSearchAutomatic,
+                onManualSearch = onSearchManual,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
         }
     }
 }

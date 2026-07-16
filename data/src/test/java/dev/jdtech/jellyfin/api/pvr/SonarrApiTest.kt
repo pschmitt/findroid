@@ -130,4 +130,98 @@ class SonarrApiTest {
         assertTrue(recordedRequest.path.orEmpty().contains("end=2024-08-20"))
         assertTrue(recordedRequest.path.orEmpty().contains("includeSeries=true"))
     }
+
+    @Test
+    fun `searchEpisode POSTs an EpisodeSearch command with the episode id and returns the command id`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"id": 42, "status": "queued"}"""))
+
+        val commandId = api.searchEpisode(episodeId = 10)
+
+        assertEquals(42, commandId)
+        val recordedRequest = server.takeRequest()
+        assertEquals("POST", recordedRequest.method)
+        assertTrue(recordedRequest.path.orEmpty().endsWith("/api/v3/command"))
+        val body = recordedRequest.body.readUtf8()
+        assertTrue(body.contains("\"name\":\"EpisodeSearch\""))
+        assertTrue(body.contains("\"episodeIds\":[10]"))
+    }
+
+    @Test
+    fun `getCommandStatus decodes the command's id and status`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"id": 42, "status": "completed"}"""))
+
+        val status = api.getCommandStatus(commandId = 42)
+
+        assertEquals(42, status.id)
+        assertEquals("completed", status.status)
+        val recordedRequest = server.takeRequest()
+        assertEquals("GET", recordedRequest.method)
+        assertTrue(recordedRequest.path.orEmpty().endsWith("/api/v3/command/42"))
+    }
+
+    @Test
+    fun `getEpisodeById decodes season, episode number, title and series title`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"seasonNumber": 3, "episodeNumber": 4, "title": "Tumbleton", "series": {"title": "House of the Dragon"}}"""
+            )
+        )
+
+        val episode = api.getEpisodeById(episodeId = 4531)
+
+        assertEquals(3, episode.seasonNumber)
+        assertEquals(4, episode.episodeNumber)
+        assertEquals("Tumbleton", episode.title)
+        assertEquals("House of the Dragon", episode.series?.title)
+        val recordedRequest = server.takeRequest()
+        assertEquals("GET", recordedRequest.method)
+        assertTrue(recordedRequest.path.orEmpty().endsWith("/api/v3/episode/4531"))
+    }
+
+    @Test
+    fun `getReleases decodes candidate releases and requests episodeId`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """
+                [
+                    {
+                        "guid": "abc123",
+                        "indexerId": 4,
+                        "indexer": "Some Indexer",
+                        "title": "Show.S01E01.1080p.WEB-DL",
+                        "size": 1500000000,
+                        "seeders": 42,
+                        "quality": {"quality": {"name": "WEBDL-1080p"}},
+                        "rejected": false
+                    }
+                ]
+                """
+                    .trimIndent()
+            )
+        )
+
+        val releases = api.getReleases(episodeId = 10, readTimeoutMs = 180_000L)
+
+        assertEquals(1, releases.size)
+        assertEquals("abc123", releases[0].guid)
+        assertEquals(4, releases[0].indexerId)
+        assertEquals("WEBDL-1080p", releases[0].quality?.quality?.name)
+
+        val recordedRequest = server.takeRequest()
+        assertTrue(recordedRequest.path.orEmpty().contains("episodeId=10"))
+    }
+
+    @Test
+    fun `grabRelease POSTs the release's guid and indexerId`() = runTest {
+        server.enqueue(MockResponse().setBody("{}"))
+
+        api.grabRelease(guid = "abc123", indexerId = 4)
+
+        val recordedRequest = server.takeRequest()
+        assertEquals("POST", recordedRequest.method)
+        assertTrue(recordedRequest.path.orEmpty().endsWith("/api/v3/release"))
+        val body = recordedRequest.body.readUtf8()
+        assertTrue(body.contains("\"guid\":\"abc123\""))
+        assertTrue(body.contains("\"indexerId\":4"))
+    }
 }

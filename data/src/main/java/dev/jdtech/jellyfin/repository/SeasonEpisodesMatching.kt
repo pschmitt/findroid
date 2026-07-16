@@ -22,6 +22,7 @@ fun matchUpcomingEpisodes(
                 airDate = episode.airDateUtc?.let(::parseFlexibleDate),
                 hasFile = episode.hasFile,
                 monitored = episode.monitored,
+                episodeId = episode.id,
             )
         }
         .sortedBy { it.episodeNumber }

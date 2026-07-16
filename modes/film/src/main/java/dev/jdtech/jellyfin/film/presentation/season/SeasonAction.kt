@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.film.presentation.season
 
+import dev.jdtech.jellyfin.api.pvr.SonarrRelease
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.models.FindroidItem
 import java.util.UUID
@@ -32,4 +33,14 @@ sealed interface SeasonAction {
     data class NavigateToItem(val item: FindroidItem) : SeasonAction
 
     data class NavigateToSeries(val seriesId: UUID) : SeasonAction
+
+    /** [knownEpisodeId] is Sonarr's numeric episode id when already known (upcoming episode rows),
+     * `null` for real episodes - resolved from [SeasonState.seriesTvdbId] instead. */
+    data class SearchEpisodeAutomatic(val episodeNumber: Int, val knownEpisodeId: Int?) : SeasonAction
+
+    data class OpenReleasePicker(val episodeNumber: Int, val knownEpisodeId: Int?) : SeasonAction
+
+    data class GrabRelease(val release: SonarrRelease) : SeasonAction
+
+    data object DismissReleasePicker : SeasonAction
 }

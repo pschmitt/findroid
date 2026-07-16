@@ -73,13 +73,17 @@ fun CalendarScreen(
     LaunchedEffect(true) { viewModel.refresh() }
 
     ObserveAsEvents(viewModel.searchEvents) { event ->
-        val messageRes =
+        val message =
             when (event) {
-                is SearchEvent.SearchTriggered -> CoreR.string.search_triggered_toast
-                is SearchEvent.ReleaseGrabbed -> CoreR.string.release_grabbed_toast
-                is SearchEvent.Failed -> CoreR.string.search_failed_toast
+                is SearchEvent.SearchTriggered -> context.getString(CoreR.string.search_triggered_toast)
+                is SearchEvent.ReleaseGrabbed -> context.getString(CoreR.string.release_grabbed_toast)
+                is SearchEvent.Failed ->
+                    context.getString(
+                        CoreR.string.search_failed_toast,
+                        event.message ?: context.getString(CoreR.string.unknown_error),
+                    )
             }
-        Toast.makeText(context, messageRes, Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 
     CalendarScreenLayout(

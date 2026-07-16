@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +55,7 @@ import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.season.SeasonViewModel
 import dev.jdtech.jellyfin.models.FindroidItem
+import dev.jdtech.jellyfin.core.presentation.search.SearchEvent
 import dev.jdtech.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.jdtech.jellyfin.presentation.film.components.Direction
 import dev.jdtech.jellyfin.presentation.film.components.EpisodeCard
@@ -62,9 +64,11 @@ import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemPoster
 import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
+import dev.jdtech.jellyfin.presentation.film.components.ReleasePickerSheet
 import dev.jdtech.jellyfin.presentation.film.components.UpcomingEpisodeCard
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.ObserveAsEvents
 import dev.jdtech.jellyfin.utils.displayNameWithContext
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
 import java.util.UUID
@@ -84,6 +88,20 @@ fun SeasonScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(true) { viewModel.loadSeason(seasonId = seasonId) }
+
+    ObserveAsEvents(viewModel.searchEvents) { event ->
+        val message =
+            when (event) {
+                is SearchEvent.SearchTriggered -> androidContext.getString(CoreR.string.search_triggered_toast)
+                is SearchEvent.ReleaseGrabbed -> androidContext.getString(CoreR.string.release_grabbed_toast)
+                is SearchEvent.Failed ->
+                    androidContext.getString(
+                        CoreR.string.search_failed_toast,
+                        event.message ?: androidContext.getString(CoreR.string.unknown_error),
+                    )
+            }
+        Toast.makeText(androidContext, message, Toast.LENGTH_SHORT).show()
+    }
 
     SeasonScreenLayout(
         state = state,
@@ -108,6 +126,7 @@ fun SeasonScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SeasonScreenLayout(
     state: SeasonState,
@@ -266,6 +285,22 @@ private fun SeasonScreenLayout(
                         modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
                         downloadProgress = state.downloadProgress[episode.id],
                         queueStatus = state.queueStatus[episode.id],
+                        onSearchAutomatic = {
+                            onAction(
+                                SeasonAction.SearchEpisodeAutomatic(
+                                    episodeNumber = episode.indexNumber,
+                                    knownEpisodeId = null,
+                                )
+                            )
+                        },
+                        onSearchManual = {
+                            onAction(
+                                SeasonAction.OpenReleasePicker(
+                                    episodeNumber = episode.indexNumber,
+                                    knownEpisodeId = null,
+                                )
+                            )
+                        },
                     )
                 }
                 items(
@@ -275,6 +310,22 @@ private fun SeasonScreenLayout(
                     UpcomingEpisodeCard(
                         episode = episode,
                         modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
+                        onSearchAutomatic = {
+                            onAction(
+                                SeasonAction.SearchEpisodeAutomatic(
+                                    episodeNumber = episode.episodeNumber,
+                                    knownEpisodeId = episode.episodeId,
+                                )
+                            )
+                        },
+                        onSearchManual = {
+                            onAction(
+                                SeasonAction.OpenReleasePicker(
+                                    episodeNumber = episode.episodeNumber,
+                                    knownEpisodeId = episode.episodeId,
+                                )
+                            )
+                        },
                     )
                 }
             }
@@ -323,8 +374,17 @@ private fun SeasonScreenLayout(
             onDismiss = { clearSeasonDownloadsDialogOpen = false },
         )
     }
+
+    state.releasePicker?.let { releasePicker ->
+        ReleasePickerSheet(
+            state = releasePicker,
+            onGrab = { release -> onAction(SeasonAction.GrabRelease(release)) },
+            onDismissRequest = { onAction(SeasonAction.DismissReleasePicker) },
+        )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @PreviewScreenSizes
 @Composable
 private fun SeasonScreenLayoutPreview() {

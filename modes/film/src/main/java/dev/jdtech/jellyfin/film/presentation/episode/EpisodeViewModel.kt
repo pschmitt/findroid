@@ -3,7 +3,10 @@ package dev.jdtech.jellyfin.film.presentation.episode
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.api.pvr.SonarrRelease
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
+import dev.jdtech.jellyfin.core.presentation.search.ReleasePickerState
+import dev.jdtech.jellyfin.core.presentation.search.SearchEvent
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.film.domain.VideoMetadataParser
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
@@ -13,6 +16,7 @@ import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 import dev.jdtech.jellyfin.repository.JellyfinRepository
+import dev.jdtech.jellyfin.repository.SonarrSearchRepository
 import dev.jdtech.jellyfin.repository.toExistingScope
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.AutoDownloadRuleEvaluator
@@ -20,8 +24,10 @@ import dev.jdtech.jellyfin.utils.Downloader
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.model.api.PersonKind
@@ -36,9 +42,13 @@ constructor(
     private val database: ServerDatabaseDao,
     private val downloader: Downloader,
     private val autoDownloadRuleRepository: AutoDownloadRuleRepository,
+    private val sonarrSearchRepository: SonarrSearchRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(EpisodeState())
     val state = _state.asStateFlow()
+
+    private val searchEventsChannel = Channel<SearchEvent>()
+    val searchEvents = searchEventsChannel.receiveAsFlow()
 
     private val evaluator = AutoDownloadRuleEvaluator()
 
@@ -53,6 +63,7 @@ constructor(
                 val actors = getActors(episode)
                 val dateFormat = appPreferences.getValue(appPreferences.dateFormat)
                 val existingScope = getExistingScope(episode.seriesId)
+                val seriesTvdbId = repository.getShow(episode.seriesId).tvdbId
                 _state.emit(
                     _state.value.copy(
                         episode = episode,
@@ -60,11 +71,65 @@ constructor(
                         actors = actors,
                         dateFormat = dateFormat,
                         existingScope = existingScope,
+                        seriesTvdbId = seriesTvdbId,
                     )
                 )
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
             }
+        }
+    }
+
+    private suspend fun resolveTargetEpisodeId(): Int? {
+        val episode = _state.value.episode ?: return null
+        val seriesTvdbId = _state.value.seriesTvdbId ?: return null
+        return sonarrSearchRepository.resolveEpisodeId(
+            seriesTvdbId,
+            episode.parentIndexNumber,
+            episode.indexNumber,
+        )
+    }
+
+    private fun searchEpisodeAutomatic() {
+        viewModelScope.launch {
+            val episodeId = resolveTargetEpisodeId()
+            val event =
+                if (episodeId == null) {
+                    SearchEvent.Failed("Could not find this episode in Sonarr")
+                } else {
+                    sonarrSearchRepository
+                        .searchEpisode(episodeId)
+                        .fold({ SearchEvent.SearchTriggered }, { SearchEvent.Failed(it.message) })
+                }
+            searchEventsChannel.send(event)
+        }
+    }
+
+    private fun openReleasePicker() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(releasePicker = ReleasePickerState())
+            val episodeId = resolveTargetEpisodeId()
+            if (episodeId == null) {
+                _state.value = _state.value.copy(releasePicker = null)
+                searchEventsChannel.send(SearchEvent.Failed("Could not find this episode in Sonarr"))
+                return@launch
+            }
+            val result = sonarrSearchRepository.getReleases(episodeId)
+            _state.value =
+                _state.value.copy(
+                    releasePicker = result.getOrNull()?.let { ReleasePickerState(isLoading = false, releases = it) }
+                )
+            result.onFailure { searchEventsChannel.send(SearchEvent.Failed(it.message)) }
+        }
+    }
+
+    private fun grabRelease(release: SonarrRelease) {
+        viewModelScope.launch {
+            val result = sonarrSearchRepository.grabRelease(release)
+            _state.value = _state.value.copy(releasePicker = null)
+            searchEventsChannel.send(
+                result.fold({ SearchEvent.ReleaseGrabbed }, { SearchEvent.Failed(it.message) })
+            )
         }
     }
 
@@ -152,6 +217,11 @@ constructor(
             }
             is EpisodeAction.DownloadWithScope ->
                 downloadWithScope(action.selection, action.alsoFollowNew, action.onlyUnwatched)
+            is EpisodeAction.SearchEpisodeAutomatic -> searchEpisodeAutomatic()
+            is EpisodeAction.OpenReleasePicker -> openReleasePicker()
+            is EpisodeAction.GrabRelease -> grabRelease(action.release)
+            is EpisodeAction.DismissReleasePicker ->
+                _state.value = _state.value.copy(releasePicker = null)
             else -> Unit
         }
     }
