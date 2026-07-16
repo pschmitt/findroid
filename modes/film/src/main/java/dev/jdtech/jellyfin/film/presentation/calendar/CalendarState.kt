@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.film.presentation.calendar
 
 import dev.jdtech.jellyfin.core.presentation.search.ReleasePickerState
 import dev.jdtech.jellyfin.models.CalendarEntry
+import dev.jdtech.jellyfin.models.PvrFetchError
 import java.time.LocalDate
 
 /**
@@ -14,6 +15,7 @@ data class CalendarState(
     val isLoading: Boolean = false,
     val error: Exception? = null,
     val groupedEntries: List<Pair<LocalDate, List<CalendarEntry>>> = emptyList(),
+    val serviceErrors: List<PvrFetchError> = emptyList(),
     val releasePicker: ReleasePickerState? = null,
 ) {
     val isEmpty: Boolean

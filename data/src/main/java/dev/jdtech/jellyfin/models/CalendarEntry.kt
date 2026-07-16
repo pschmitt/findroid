@@ -12,6 +12,12 @@ import java.util.UUID
  * included here (with [itemId] `null`) rather than dropped - the point of the calendar is to show
  * "something is coming" even before the show/movie has been added to the Jellyfin library.
  */
+/** See [dev.jdtech.jellyfin.repository.CalendarRepository.getUpcoming]. */
+data class CalendarResult(
+    val entries: List<CalendarEntry> = emptyList(),
+    val errors: List<PvrFetchError> = emptyList(),
+)
+
 data class CalendarEntry(
     val date: LocalDate,
     val source: PvrSource,

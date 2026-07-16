@@ -251,6 +251,8 @@
     <string name="delete_selected_downloads_message">This will delete %1$d selected episode(s) from this device.</string>
     <string name="delete_show_downloads_message">This will delete %1$d downloaded episode(s) of %2$s from this device.</string>
     <string name="pvr_queue_section_title">Downloading (Sonarr/Radarr)</string>
+    <string name="pvr_download_channel_name">PVR downloads</string>
+    <string name="pvr_download_finished_notification">Download finished</string>
     <string name="pvr_queue_status_importing">Importing…</string>
     <string name="pvr_queue_status_warning">Warning</string>
     <string name="pvr_queue_status_failed">Failed</string>

@@ -13,7 +13,26 @@ data class PvrQueueEntry(
     val item: FindroidItem?,
     val title: String,
     val status: QueueStatus,
+    // The PVR service's own id for this queue row - stable across polls, so snapshots can be
+    // diffed to detect a download leaving the queue (= finished importing, in the common case).
+    val queueItemId: Int = 0,
 )
+
+/**
+ * One full poll of both services' queues. [errors] carries per-service fetch failures instead of
+ * silently collapsing them into an empty queue - an unreachable Sonarr should read as "Sonarr is
+ * unreachable", not "nothing is downloading". [fetchedSources] lists the services that were
+ * enabled *and* answered this poll: only their entries' disappearance since the previous snapshot
+ * means anything (see `QueueStatusRepositoryImpl.notifyFinishedDownloads`).
+ */
+data class PvrQueueSnapshot(
+    val entries: List<PvrQueueEntry> = emptyList(),
+    val errors: List<PvrFetchError> = emptyList(),
+    val fetchedSources: Set<PvrSource> = emptySet(),
+)
+
+/** A user-presentable per-service fetch failure - [message] already names the service. */
+data class PvrFetchError(val source: PvrSource, val message: String)
 
 /**
  * The download-progress payload of a single Sonarr/Radarr queue entry (see [PvrQueueEntry] for

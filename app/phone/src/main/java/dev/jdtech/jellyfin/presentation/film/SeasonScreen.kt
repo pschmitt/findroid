@@ -285,22 +285,32 @@ private fun SeasonScreenLayout(
                         modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
                         downloadProgress = state.downloadProgress[episode.id],
                         queueStatus = state.queueStatus[episode.id],
-                        onSearchAutomatic = {
-                            onAction(
-                                SeasonAction.SearchEpisodeAutomatic(
-                                    episodeNumber = episode.indexNumber,
-                                    knownEpisodeId = null,
-                                )
-                            )
-                        },
-                        onSearchManual = {
-                            onAction(
-                                SeasonAction.OpenReleasePicker(
-                                    episodeNumber = episode.indexNumber,
-                                    knownEpisodeId = null,
-                                )
-                            )
-                        },
+                        onSearchAutomatic =
+                            if (state.sonarrConfigured) {
+                                {
+                                    onAction(
+                                        SeasonAction.SearchEpisodeAutomatic(
+                                            episodeNumber = episode.indexNumber,
+                                            knownEpisodeId = null,
+                                        )
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                        onSearchManual =
+                            if (state.sonarrConfigured) {
+                                {
+                                    onAction(
+                                        SeasonAction.OpenReleasePicker(
+                                            episodeNumber = episode.indexNumber,
+                                            knownEpisodeId = null,
+                                        )
+                                    )
+                                }
+                            } else {
+                                null
+                            },
                     )
                 }
                 items(

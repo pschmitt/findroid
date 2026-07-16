@@ -3,8 +3,8 @@ package dev.jdtech.jellyfin.film.presentation.media
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.JellyfinRepository
-import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,8 +13,10 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class MediaViewModel
 @Inject
-constructor(private val repository: JellyfinRepository, private val appPreferences: AppPreferences) :
-    ViewModel() {
+constructor(
+    private val repository: JellyfinRepository,
+    private val pvrConfiguration: PvrConfiguration,
+) : ViewModel() {
     private val _state = MutableStateFlow(MediaState())
     val state = _state.asStateFlow()
 
@@ -24,7 +26,7 @@ constructor(private val repository: JellyfinRepository, private val appPreferenc
                 _state.value.copy(
                     isLoading = true,
                     error = null,
-                    showCalendarTab = isPvrConfigured(),
+                    showCalendarTab = pvrConfiguration.isAnyConfigured(),
                 )
             )
             try {
@@ -35,16 +37,6 @@ constructor(private val repository: JellyfinRepository, private val appPreferenc
             }
             _state.emit(_state.value.copy(isLoading = false))
         }
-    }
-
-    private fun isPvrConfigured(): Boolean {
-        val sonarrConfigured =
-            appPreferences.getValue(appPreferences.sonarrEnabled) &&
-                !appPreferences.getValue(appPreferences.sonarrBaseUrl).isNullOrBlank()
-        val radarrConfigured =
-            appPreferences.getValue(appPreferences.radarrEnabled) &&
-                !appPreferences.getValue(appPreferences.radarrBaseUrl).isNullOrBlank()
-        return sonarrConfigured || radarrConfigured
     }
 
     fun onAction(action: MediaAction) {

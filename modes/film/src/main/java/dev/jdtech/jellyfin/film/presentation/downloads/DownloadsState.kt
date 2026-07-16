@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.film.presentation.downloads
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
+import dev.jdtech.jellyfin.models.PvrFetchError
 import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.QueueStatus
 import dev.jdtech.jellyfin.utils.DeleteProgress
@@ -18,6 +19,7 @@ data class DownloadsState(
     val downloadProgress: Map<UUID, DownloadProgress> = emptyMap(),
     val deleteProgress: DeleteProgress? = null,
     val pvrQueueGroups: List<PvrQueueGroup> = emptyList(),
+    val pvrErrors: List<PvrFetchError> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = movies.isEmpty() && showGroups.isEmpty()

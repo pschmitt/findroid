@@ -15,5 +15,8 @@ data class MovieState(
     val dateFormat: String = "system",
     val releasePicker: ReleasePickerState? = null,
     val queueStatus: QueueStatus? = null,
+    // Gates the search button - no point offering a Radarr search that can only fail with a
+    // toast when Radarr isn't (fully) configured.
+    val radarrConfigured: Boolean = false,
     val error: Exception? = null,
 )

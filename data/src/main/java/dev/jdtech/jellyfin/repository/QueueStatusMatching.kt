@@ -56,6 +56,7 @@ fun matchSonarr(
             item = episode,
             title = sonarrQueueTitle(sonarrSeries, item, episodeNumber),
             status = item.toQueueStatus(),
+            queueItemId = item.id,
         )
     }
 }
@@ -80,6 +81,7 @@ fun matchRadarr(
             item = movie,
             title = radarrMovie?.title?.takeIf { it.isNotBlank() } ?: item.title ?: UNKNOWN_TITLE,
             status = item.toQueueStatus(),
+            queueItemId = item.id,
         )
     }
 }

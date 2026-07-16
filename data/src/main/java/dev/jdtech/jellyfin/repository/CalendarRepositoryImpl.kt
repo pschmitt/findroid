@@ -3,9 +3,11 @@ package dev.jdtech.jellyfin.repository
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrCalendarEntry
-import dev.jdtech.jellyfin.models.CalendarEntry
+import dev.jdtech.jellyfin.models.CalendarResult
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
+import dev.jdtech.jellyfin.models.PvrFetchError
+import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
@@ -45,7 +47,7 @@ class CalendarRepositoryImpl(
     private val radarrApiKeyProvider: () -> String?,
 ) : CalendarRepository {
 
-    override suspend fun getUpcoming(daysBack: Int, daysForward: Int): List<CalendarEntry> =
+    override suspend fun getUpcoming(daysBack: Int, daysForward: Int): CalendarResult =
         coroutineScope {
             val today = LocalDate.now()
             val start = today.minusDays(daysBack.toLong())
@@ -55,46 +57,57 @@ class CalendarRepositoryImpl(
             // in one must never blank out or crash the other's contribution to the merged list.
             val sonarrDeferred = async { fetchSonarrCalendar(start, end) }
             val radarrDeferred = async { fetchRadarrCalendar(start, end) }
-            (sonarrDeferred.await() + radarrDeferred.await()).sortedBy { it.date }
+            val sonarr = sonarrDeferred.await()
+            val radarr = radarrDeferred.await()
+            CalendarResult(
+                entries = (sonarr.entries + radarr.entries).sortedBy { it.date },
+                errors = sonarr.errors + radarr.errors,
+            )
         }
 
-    private suspend fun fetchSonarrCalendar(start: LocalDate, end: LocalDate): List<CalendarEntry> {
-        if (!appPreferences.getValue(appPreferences.sonarrEnabled)) return emptyList()
+    private suspend fun fetchSonarrCalendar(start: LocalDate, end: LocalDate): CalendarResult {
+        if (!appPreferences.getValue(appPreferences.sonarrEnabled)) return CalendarResult()
         val baseUrl = appPreferences.getValue(appPreferences.sonarrBaseUrl)
         val apiKey = sonarrApiKeyProvider()
-        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return emptyList()
+        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return CalendarResult()
 
         return try {
             val api = SonarrApi(baseUrl, apiKey)
             val entries = api.getCalendar(start, end)
             val shows = loadJellyfinShows()
-            matchSonarrCalendar(entries, attachSeasons(shows, entries))
+            CalendarResult(entries = matchSonarrCalendar(entries, attachSeasons(shows, entries)))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Timber.w(e, "Failed to fetch Sonarr calendar")
-            emptyList()
+            CalendarResult(errors = listOf(fetchError(PvrSource.SONARR, "Sonarr", e)))
         }
     }
 
-    private suspend fun fetchRadarrCalendar(start: LocalDate, end: LocalDate): List<CalendarEntry> {
-        if (!appPreferences.getValue(appPreferences.radarrEnabled)) return emptyList()
+    private suspend fun fetchRadarrCalendar(start: LocalDate, end: LocalDate): CalendarResult {
+        if (!appPreferences.getValue(appPreferences.radarrEnabled)) return CalendarResult()
         val baseUrl = appPreferences.getValue(appPreferences.radarrBaseUrl)
         val apiKey = radarrApiKeyProvider()
-        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return emptyList()
+        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return CalendarResult()
 
         return try {
             val api = RadarrApi(baseUrl, apiKey)
             val entries = api.getCalendar(start, end)
             val movies = loadJellyfinMovies()
-            matchRadarrCalendar(entries, movies, start, end)
+            CalendarResult(entries = matchRadarrCalendar(entries, movies, start, end))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Timber.w(e, "Failed to fetch Radarr calendar")
-            emptyList()
+            CalendarResult(errors = listOf(fetchError(PvrSource.RADARR, "Radarr", e)))
         }
     }
+
+    private fun fetchError(source: PvrSource, serviceName: String, e: Exception): PvrFetchError =
+        PvrFetchError(
+            source = source,
+            message = mapPvrSearchError(serviceName, e).message ?: "$serviceName request failed",
+        )
 
     /**
      * [jellyfinRepository.getItems] never populates [FindroidShow.seasons] (it always defaults to

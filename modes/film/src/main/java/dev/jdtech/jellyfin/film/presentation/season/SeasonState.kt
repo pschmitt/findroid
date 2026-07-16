@@ -25,6 +25,9 @@ data class SeasonState(
     // The show's tvdb id, fetched once per loadSeason() - reused both for upcomingEpisodes and to
     // resolve a Sonarr episode id on demand when the user triggers a search on a real episode row.
     val seriesTvdbId: String? = null,
+    // Gates the per-episode search buttons - no point offering a Sonarr search that can only
+    // fail with a toast when Sonarr isn't (fully) configured.
+    val sonarrConfigured: Boolean = false,
     val releasePicker: ReleasePickerState? = null,
     val error: Exception? = null,
 )

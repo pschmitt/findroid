@@ -81,6 +81,7 @@ import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.jdtech.jellyfin.presentation.film.components.Direction
 import dev.jdtech.jellyfin.presentation.film.components.ItemPoster
+import dev.jdtech.jellyfin.presentation.film.components.PvrErrorBanner
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.DeleteProgress
@@ -465,7 +466,7 @@ private fun DownloadsScreenLayout(
                         )
                     }
                 }
-                if (state.pvrQueueGroups.isNotEmpty()) {
+                if (state.pvrQueueGroups.isNotEmpty() || state.pvrErrors.isNotEmpty()) {
                     stickyHeader {
                         SectionHeader(
                             text = stringResource(CoreR.string.pvr_queue_section_title),
@@ -474,6 +475,18 @@ private fun DownloadsScreenLayout(
                         )
                     }
                     if (!pvrQueueCollapsed) {
+                        if (state.pvrErrors.isNotEmpty()) {
+                            item {
+                                PvrErrorBanner(
+                                    errors = state.pvrErrors,
+                                    modifier =
+                                        Modifier.padding(
+                                            horizontal = MaterialTheme.spacings.default,
+                                            vertical = MaterialTheme.spacings.small,
+                                        ),
+                                )
+                            }
+                        }
                         state.pvrQueueGroups.forEach { group ->
                             items(items = group.items) { queueItem ->
                                 PvrQueueRow(

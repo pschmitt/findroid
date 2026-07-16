@@ -13,6 +13,9 @@ data class EpisodeState(
     val dateFormat: String = "system",
     val existingScope: ExistingAutoDownloadScope = ExistingAutoDownloadScope(),
     val seriesTvdbId: String? = null,
+    // Gates the search button - no point offering a Sonarr search that can only fail with a
+    // toast when Sonarr isn't (fully) configured.
+    val sonarrConfigured: Boolean = false,
     val releasePicker: ReleasePickerState? = null,
     val error: Exception? = null,
 )

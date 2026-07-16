@@ -51,6 +51,7 @@ import dev.jdtech.jellyfin.film.presentation.calendar.CalendarState
 import dev.jdtech.jellyfin.film.presentation.calendar.CalendarViewModel
 import dev.jdtech.jellyfin.models.CalendarEntry
 import dev.jdtech.jellyfin.models.PvrSource
+import dev.jdtech.jellyfin.presentation.film.components.PvrErrorBanner
 import dev.jdtech.jellyfin.presentation.film.components.PvrSearchButton
 import dev.jdtech.jellyfin.presentation.film.components.ReleasePickerSheet
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -139,6 +140,18 @@ private fun CalendarScreenLayout(
                 )
             }
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                if (state.serviceErrors.isNotEmpty()) {
+                    item {
+                        PvrErrorBanner(
+                            errors = state.serviceErrors,
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = MaterialTheme.spacings.default,
+                                    vertical = MaterialTheme.spacings.small,
+                                ),
+                        )
+                    }
+                }
                 state.groupedEntries.forEach { (date, entries) ->
                     stickyHeader { CalendarDateHeader(date = date) }
                     items(items = entries) { entry ->

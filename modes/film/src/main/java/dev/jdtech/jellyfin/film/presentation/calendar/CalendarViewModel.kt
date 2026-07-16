@@ -112,12 +112,13 @@ constructor(
                 _state.value = _state.value.copy(isLoading = true, error = null)
             }
             try {
-                val entries = calendarRepository.getUpcoming()
+                val result = calendarRepository.getUpcoming()
                 _state.value =
                     _state.value.copy(
                         isLoading = false,
                         error = null,
-                        groupedEntries = groupByDate(entries),
+                        groupedEntries = groupByDate(result.entries),
+                        serviceErrors = result.errors,
                     )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(isLoading = false, error = e)

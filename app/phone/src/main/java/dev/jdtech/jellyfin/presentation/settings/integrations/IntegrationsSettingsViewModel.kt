@@ -10,6 +10,8 @@ import dev.jdtech.jellyfin.security.SecureCredentialStore
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -23,6 +25,13 @@ constructor(
 ) : ViewModel() {
     private val _state = MutableStateFlow(IntegrationsSettingsState())
     val state = _state.asStateFlow()
+
+    // API keys are debounced instead of persisted per keystroke - every putString on
+    // EncryptedSharedPreferences runs keystore crypto, which is pointless churn while the user is
+    // still typing/pasting. Dirty flags let onCleared flush a pending write when the screen is
+    // closed before the debounce fires.
+    private val apiKeyPersistJobs = mutableMapOf<String, Job>()
+    private val dirtyApiKeys = mutableSetOf<String>()
 
     fun load() {
         _state.value =
@@ -59,7 +68,7 @@ constructor(
                     )
             }
             is IntegrationsSettingsAction.OnSonarrApiKeyChanged -> {
-                secureCredentialStore.putString(PvrCredentialKeys.SONARR_API_KEY, action.apiKey.ifBlank { null })
+                persistApiKeyDebounced(PvrCredentialKeys.SONARR_API_KEY, action.apiKey)
                 _state.value =
                     _state.value.copy(
                         sonarrApiKey = action.apiKey,
@@ -83,7 +92,7 @@ constructor(
                     )
             }
             is IntegrationsSettingsAction.OnRadarrApiKeyChanged -> {
-                secureCredentialStore.putString(PvrCredentialKeys.RADARR_API_KEY, action.apiKey.ifBlank { null })
+                persistApiKeyDebounced(PvrCredentialKeys.RADARR_API_KEY, action.apiKey)
                 _state.value =
                     _state.value.copy(
                         radarrApiKey = action.apiKey,
@@ -99,6 +108,35 @@ constructor(
                 appPreferences.setValue(appPreferences.pvrReleaseCacheMinutes, action.minutes)
                 _state.value = _state.value.copy(pvrReleaseCacheMinutes = action.minutes)
             }
+        }
+    }
+
+    private fun persistApiKeyDebounced(credentialKey: String, value: String) {
+        dirtyApiKeys.add(credentialKey)
+        apiKeyPersistJobs[credentialKey]?.cancel()
+        apiKeyPersistJobs[credentialKey] =
+            viewModelScope.launch {
+                delay(API_KEY_PERSIST_DEBOUNCE_MS)
+                secureCredentialStore.putString(credentialKey, value.ifBlank { null })
+                dirtyApiKeys.remove(credentialKey)
+            }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        apiKeyPersistJobs.values.forEach { it.cancel() }
+        // Flush anything still pending so closing the screen right after typing doesn't lose it.
+        if (PvrCredentialKeys.SONARR_API_KEY in dirtyApiKeys) {
+            secureCredentialStore.putString(
+                PvrCredentialKeys.SONARR_API_KEY,
+                _state.value.sonarrApiKey.ifBlank { null },
+            )
+        }
+        if (PvrCredentialKeys.RADARR_API_KEY in dirtyApiKeys) {
+            secureCredentialStore.putString(
+                PvrCredentialKeys.RADARR_API_KEY,
+                _state.value.radarrApiKey.ifBlank { null },
+            )
         }
     }
 
@@ -136,5 +174,9 @@ constructor(
                 }
             _state.value = _state.value.copy(radarrTestState = result)
         }
+    }
+
+    private companion object {
+        const val API_KEY_PERSIST_DEBOUNCE_MS = 750L
     }
 }

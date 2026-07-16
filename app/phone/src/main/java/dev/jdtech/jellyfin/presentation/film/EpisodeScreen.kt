@@ -398,7 +398,7 @@ private fun EpisodeScreenLayout(
                             )
                         }
                 }
-                if (state.seriesTvdbId != null) {
+                if (state.seriesTvdbId != null && state.sonarrConfigured) {
                     PvrSearchButton(
                         onAutomaticSearch = { onAction(EpisodeAction.SearchEpisodeAutomatic) },
                         onManualSearch = { onAction(EpisodeAction.OpenReleasePicker) },

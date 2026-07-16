@@ -64,8 +64,12 @@ constructor(
             }
         }
         viewModelScope.launch {
-            queueStatusRepository.getQueueEntriesFlow().collect { entries ->
-                _state.value = _state.value.copy(pvrQueueGroups = buildPvrQueueGroups(entries))
+            queueStatusRepository.getQueueSnapshotFlow().collect { snapshot ->
+                _state.value =
+                    _state.value.copy(
+                        pvrQueueGroups = buildPvrQueueGroups(snapshot.entries),
+                        pvrErrors = snapshot.errors,
+                    )
             }
         }
     }

@@ -15,6 +15,7 @@ import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.UpcomingEpisode
 import dev.jdtech.jellyfin.models.isDownloading
 import dev.jdtech.jellyfin.models.toFindroidEpisode
+import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 import dev.jdtech.jellyfin.repository.JellyfinRepository
@@ -52,6 +53,7 @@ constructor(
     private val queueStatusRepository: QueueStatusRepository,
     private val seasonEpisodesRepository: SeasonEpisodesRepository,
     private val sonarrSearchRepository: SonarrSearchRepository,
+    private val pvrConfiguration: PvrConfiguration,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SeasonState())
     val state = _state.asStateFlow()
@@ -93,6 +95,7 @@ constructor(
                         hasDownloads = downloadsSizeBytes > 0,
                         downloadsSizeBytes = downloadsSizeBytes,
                         seriesTvdbId = seriesTvdbId,
+                        sonarrConfigured = pvrConfiguration.isSonarrConfigured(),
                     )
                 )
                 reconcileDownloadProgress(episodes)

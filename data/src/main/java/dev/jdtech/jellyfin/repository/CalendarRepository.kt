@@ -1,6 +1,6 @@
 package dev.jdtech.jellyfin.repository
 
-import dev.jdtech.jellyfin.models.CalendarEntry
+import dev.jdtech.jellyfin.models.CalendarResult
 
 /**
  * Exposes upcoming Sonarr/Radarr releases (future air dates/release dates), merged and sorted by
@@ -12,8 +12,9 @@ import dev.jdtech.jellyfin.models.CalendarEntry
 interface CalendarRepository {
     /**
      * Returns upcoming calendar entries from [daysBack] days ago through [daysForward] days from
-     * now, sorted by date ascending. Entries Findroid couldn't match to a local Jellyfin item are
-     * still included (with a `null` item id) rather than dropped.
+     * now, sorted by date ascending, plus per-service fetch errors (an unreachable Sonarr should
+     * read as "Sonarr is unreachable", not as an empty calendar). Entries Findroid couldn't match
+     * to a local Jellyfin item are still included (with a `null` item id) rather than dropped.
      */
-    suspend fun getUpcoming(daysBack: Int = 3, daysForward: Int = 30): List<CalendarEntry>
+    suspend fun getUpcoming(daysBack: Int = 3, daysForward: Int = 30): CalendarResult
 }

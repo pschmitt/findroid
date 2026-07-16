@@ -13,6 +13,7 @@ import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItemPerson
 import dev.jdtech.jellyfin.models.FindroidSeason
+import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 import dev.jdtech.jellyfin.repository.JellyfinRepository
@@ -43,6 +44,7 @@ constructor(
     private val downloader: Downloader,
     private val autoDownloadRuleRepository: AutoDownloadRuleRepository,
     private val sonarrSearchRepository: SonarrSearchRepository,
+    private val pvrConfiguration: PvrConfiguration,
 ) : ViewModel() {
     private val _state = MutableStateFlow(EpisodeState())
     val state = _state.asStateFlow()
@@ -72,6 +74,7 @@ constructor(
                         dateFormat = dateFormat,
                         existingScope = existingScope,
                         seriesTvdbId = seriesTvdbId,
+                        sonarrConfigured = pvrConfiguration.isSonarrConfigured(),
                     )
                 )
             } catch (e: Exception) {

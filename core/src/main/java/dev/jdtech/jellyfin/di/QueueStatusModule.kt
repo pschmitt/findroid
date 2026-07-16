@@ -10,6 +10,7 @@ import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepositoryImpl
 import dev.jdtech.jellyfin.security.SecureCredentialStore
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
+import dev.jdtech.jellyfin.work.PvrDownloadFinishedNotifier
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +25,7 @@ object QueueStatusModule {
         appPreferences: AppPreferences,
         jellyfinRepository: JellyfinRepository,
         secureCredentialStore: SecureCredentialStore,
+        downloadFinishedNotifier: PvrDownloadFinishedNotifier,
     ): QueueStatusRepository {
         // Not tied to any Android component's lifecycle - the repository's poll loop should keep
         // running for as long as the process is alive, same rationale as WorkManagerModule
@@ -34,6 +36,7 @@ object QueueStatusModule {
             jellyfinRepository = jellyfinRepository,
             sonarrApiKeyProvider = { secureCredentialStore.getString(PvrCredentialKeys.SONARR_API_KEY) },
             radarrApiKeyProvider = { secureCredentialStore.getString(PvrCredentialKeys.RADARR_API_KEY) },
+            onDownloadFinished = downloadFinishedNotifier::notifyFinished,
             scope = scope,
         )
     }

@@ -7,7 +7,10 @@ import dev.jdtech.jellyfin.api.pvr.SonarrSeries
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
-import dev.jdtech.jellyfin.models.PvrQueueEntry
+import dev.jdtech.jellyfin.models.PvrFetchError
+import dev.jdtech.jellyfin.models.PvrQueueSnapshot
+import dev.jdtech.jellyfin.models.PvrSource
+import dev.jdtech.jellyfin.models.QueueItemStatus
 import dev.jdtech.jellyfin.models.QueueStatus
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import java.util.UUID
@@ -34,8 +37,8 @@ import timber.log.Timber
  * [sonarrApiKeyProvider]/[radarrApiKeyProvider] resolve the current secret from
  * `SecureCredentialStore` - passed in as plain lambdas (rather than depending on
  * `SecureCredentialStore` directly) because that type lives in `core`, which depends on `data`,
- * not the other way around. Everything else this needs (`AppPreferences`, the PVR API clients,
- * `JellyfinRepository`) is already reachable from `data`.
+ * not the other way around. [onDownloadFinished] posts the "download finished" notification -
+ * also a lambda, since notifications are a `core`-layer concern.
  *
  * Constructed via [dev.jdtech.jellyfin.di.QueueStatusModule] (a Hilt `@Provides`, mirroring
  * `AutoDownloadRuleModule`) rather than an `@Inject` constructor, since `data` has no Hilt plugin.
@@ -51,18 +54,23 @@ class QueueStatusRepositoryImpl(
     private val jellyfinRepository: JellyfinRepository,
     private val sonarrApiKeyProvider: () -> String?,
     private val radarrApiKeyProvider: () -> String?,
+    private val onDownloadFinished: (title: String) -> Unit,
     private val scope: CoroutineScope,
 ) : QueueStatusRepository {
 
-    private val _queueEntries = MutableStateFlow<List<PvrQueueEntry>>(emptyList())
+    private val _queueSnapshot = MutableStateFlow(PvrQueueSnapshot())
     private val refreshMutex = Mutex()
     private val pollingStarted = AtomicBoolean(false)
 
-    override fun getQueueEntriesFlow(): Flow<List<PvrQueueEntry>> =
-        _queueEntries.onStart { ensurePollingStarted() }
+    // Whether _queueSnapshot holds a real poll result yet - the initial empty snapshot must not
+    // be diffed against (nothing has "disappeared" before the first fetch).
+    private var hasPolledOnce = false
+
+    override fun getQueueSnapshotFlow(): Flow<PvrQueueSnapshot> =
+        _queueSnapshot.onStart { ensurePollingStarted() }
 
     override fun getQueueStatusFlow(): Flow<Map<UUID, QueueStatus>> =
-        getQueueEntriesFlow().map { it.toQueueStatusMap() }.distinctUntilChanged()
+        getQueueSnapshotFlow().map { it.entries.toQueueStatusMap() }.distinctUntilChanged()
 
     override fun getQueueStatusFlow(itemId: UUID): Flow<QueueStatus?> =
         getQueueStatusFlow().map { it[itemId] }.distinctUntilChanged()
@@ -70,7 +78,32 @@ class QueueStatusRepositoryImpl(
     override suspend fun refreshNow() {
         // Serializes concurrent callers (poll loop, WorkManager backstop, a manual pull-to-refresh)
         // so two overlapping fetches can't race to publish a stale result after a fresher one.
-        refreshMutex.withLock { _queueEntries.value = fetchQueueEntries() }
+        refreshMutex.withLock {
+            val snapshot = fetchQueueSnapshot()
+            if (hasPolledOnce) notifyFinishedDownloads(_queueSnapshot.value, snapshot)
+            hasPolledOnce = true
+            _queueSnapshot.value = snapshot
+        }
+    }
+
+    /**
+     * A queue entry that was queued/downloading/importing in the [previous] snapshot and is gone
+     * from the [new] one has (in the overwhelmingly common case) finished importing - Sonarr/Radarr
+     * remove entries from the queue once the file is in place. Disappearance means nothing when the
+     * service wasn't successfully fetched this poll (disabled, or the fetch errored), so those
+     * sources are skipped. Failed/warning entries are also skipped - those get removed by the user,
+     * not by a successful import.
+     */
+    private fun notifyFinishedDownloads(previous: PvrQueueSnapshot, new: PvrQueueSnapshot) {
+        val newKeys = new.entries.map { it.status.source to it.queueItemId }.toSet()
+        previous.entries
+            .filter { it.status.source in new.fetchedSources }
+            .filter { (it.status.source to it.queueItemId) !in newKeys }
+            .filter { it.status.status in ACTIVE_STATUSES }
+            .forEach { entry ->
+                Timber.d("PVR queue entry finished: ${entry.title}")
+                onDownloadFinished(entry.title)
+            }
     }
 
     private fun ensurePollingStarted() {
@@ -93,52 +126,67 @@ class QueueStatusRepositoryImpl(
         }
     }
 
-    private suspend fun fetchQueueEntries(): List<PvrQueueEntry> = coroutineScope {
+    private suspend fun fetchQueueSnapshot(): PvrQueueSnapshot = coroutineScope {
         // Each service is independently try/caught inside its own fetch function - a failure in
-        // one must never blank out or crash the other's contribution to the merged list.
-        val sonarrDeferred = async { fetchSonarrEntries() }
-        val radarrDeferred = async { fetchRadarrEntries() }
-        sonarrDeferred.await() + radarrDeferred.await()
+        // one must never blank out or crash the other's contribution to the merged snapshot.
+        val sonarrDeferred = async { fetchSonarrSnapshot() }
+        val radarrDeferred = async { fetchRadarrSnapshot() }
+        val sonarr = sonarrDeferred.await()
+        val radarr = radarrDeferred.await()
+        PvrQueueSnapshot(
+            entries = sonarr.entries + radarr.entries,
+            errors = sonarr.errors + radarr.errors,
+            fetchedSources = sonarr.fetchedSources + radarr.fetchedSources,
+        )
     }
 
-    private suspend fun fetchSonarrEntries(): List<PvrQueueEntry> {
-        if (!appPreferences.getValue(appPreferences.sonarrEnabled)) return emptyList()
+    private suspend fun fetchSonarrSnapshot(): PvrQueueSnapshot {
+        if (!appPreferences.getValue(appPreferences.sonarrEnabled)) return PvrQueueSnapshot()
         val baseUrl = appPreferences.getValue(appPreferences.sonarrBaseUrl)
         val apiKey = sonarrApiKeyProvider()
-        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return emptyList()
+        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return PvrQueueSnapshot()
 
         return try {
             val api = SonarrApi(baseUrl, apiKey)
             val queue = api.getQueue()
-            if (queue.isEmpty()) return emptyList()
-            val series = api.getSeries()
-            val (shows, episodesByShowId) = loadQueueReferencedShowsAndEpisodes(series, queue)
-            matchSonarr(series, queue, shows, episodesByShowId)
+            val entries =
+                if (queue.isEmpty()) {
+                    emptyList()
+                } else {
+                    val series = api.getSeries()
+                    val (shows, episodesByShowId) = loadQueueReferencedShowsAndEpisodes(series, queue)
+                    matchSonarr(series, queue, shows, episodesByShowId)
+                }
+            PvrQueueSnapshot(entries = entries, fetchedSources = setOf(PvrSource.SONARR))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Timber.w(e, "Failed to refresh Sonarr queue status")
-            emptyList()
+            PvrQueueSnapshot(errors = listOf(fetchError(PvrSource.SONARR, "Sonarr", e)))
         }
     }
 
-    private suspend fun fetchRadarrEntries(): List<PvrQueueEntry> {
-        if (!appPreferences.getValue(appPreferences.radarrEnabled)) return emptyList()
+    private suspend fun fetchRadarrSnapshot(): PvrQueueSnapshot {
+        if (!appPreferences.getValue(appPreferences.radarrEnabled)) return PvrQueueSnapshot()
         val baseUrl = appPreferences.getValue(appPreferences.radarrBaseUrl)
         val apiKey = radarrApiKeyProvider()
-        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return emptyList()
+        if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return PvrQueueSnapshot()
 
         return try {
             val api = RadarrApi(baseUrl, apiKey)
             val queue = api.getQueue()
-            if (queue.isEmpty()) return emptyList()
-            val movies = api.getMovie()
-            matchRadarr(movies, queue, loadJellyfinMovies())
+            val entries =
+                if (queue.isEmpty()) {
+                    emptyList()
+                } else {
+                    matchRadarr(api.getMovie(), queue, loadJellyfinMovies())
+                }
+            PvrQueueSnapshot(entries = entries, fetchedSources = setOf(PvrSource.RADARR))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Timber.w(e, "Failed to refresh Radarr queue status")
-            emptyList()
+            PvrQueueSnapshot(errors = listOf(fetchError(PvrSource.RADARR, "Radarr", e)))
         }
     }
 
@@ -201,10 +249,19 @@ class QueueStatusRepositoryImpl(
             .getItems(includeTypes = listOf(BaseItemKind.MOVIE), recursive = true)
             .filterIsInstance<FindroidMovie>()
 
+    private fun fetchError(source: PvrSource, serviceName: String, e: Exception): PvrFetchError =
+        PvrFetchError(
+            source = source,
+            message = mapPvrSearchError(serviceName, e).message ?: "$serviceName request failed",
+        )
+
     private companion object {
         // Guards against a misconfigured 0 (or negative) pvrPollIntervalMinutes hammering
         // Sonarr/Radarr - the WorkManager backstop has its own, coarser floor (see
         // QueueStatusScheduler), since WorkManager itself enforces a 15-minute minimum.
         const val MIN_POLL_INTERVAL_MINUTES = 1
+
+        val ACTIVE_STATUSES =
+            setOf(QueueItemStatus.QUEUED, QueueItemStatus.DOWNLOADING, QueueItemStatus.IMPORTING)
     }
 }

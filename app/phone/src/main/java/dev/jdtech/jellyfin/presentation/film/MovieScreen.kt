@@ -248,7 +248,7 @@ private fun MovieScreenLayout(
                         state.queueStatus?.let { queueStatus ->
                             QueueBadge(status = queueStatus)
                         }
-                        if (movie.tmdbId != null) {
+                        if (movie.tmdbId != null && state.radarrConfigured) {
                             PvrSearchButton(
                                 onAutomaticSearch = { onAction(MovieAction.SearchMovieAutomatic) },
                                 onManualSearch = { onAction(MovieAction.OpenReleasePicker) },

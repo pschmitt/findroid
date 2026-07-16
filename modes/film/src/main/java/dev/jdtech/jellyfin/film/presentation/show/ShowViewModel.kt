@@ -175,6 +175,7 @@ constructor(
         return try {
             calendarRepository
                 .getUpcoming()
+                .entries
                 .filter { it.itemId == showId }
                 .minByOrNull { it.date }
         } catch (e: Exception) {

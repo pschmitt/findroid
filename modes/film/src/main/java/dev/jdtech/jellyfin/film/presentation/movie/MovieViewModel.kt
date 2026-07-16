@@ -9,6 +9,7 @@ import dev.jdtech.jellyfin.core.presentation.search.SearchEvent
 import dev.jdtech.jellyfin.film.domain.VideoMetadataParser
 import dev.jdtech.jellyfin.models.FindroidItemPerson
 import dev.jdtech.jellyfin.models.FindroidMovie
+import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.repository.RadarrSearchRepository
@@ -34,6 +35,7 @@ constructor(
     private val appPreferences: AppPreferences,
     private val radarrSearchRepository: RadarrSearchRepository,
     private val queueStatusRepository: QueueStatusRepository,
+    private val pvrConfiguration: PvrConfiguration,
 ) : ViewModel() {
     private val _state = MutableStateFlow(MovieState())
     val state = _state.asStateFlow()
@@ -64,6 +66,7 @@ constructor(
                         director = director,
                         writers = writers,
                         dateFormat = dateFormat,
+                        radarrConfigured = pvrConfiguration.isRadarrConfigured(),
                     )
                 )
             } catch (e: Exception) {
