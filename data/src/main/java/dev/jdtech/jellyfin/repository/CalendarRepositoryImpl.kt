@@ -2,20 +2,15 @@ package dev.jdtech.jellyfin.repository
 
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
-import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.CalendarEntry
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
-import dev.jdtech.jellyfin.models.toFindroidMovie
-import dev.jdtech.jellyfin.models.toFindroidShow
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
+import org.jellyfin.sdk.model.api.BaseItemKind
 import timber.log.Timber
 
 /**
@@ -31,10 +26,18 @@ import timber.log.Timber
  * provider id per entry (`includeSeries=true` for Sonarr, full movie object for Radarr), so there's
  * no separate series/movie-list fetch+join needed, and there's no polling loop - see
  * `CalendarRepository`'s doc for why.
+ *
+ * [loadJellyfinShows]/[loadJellyfinMovies] fetch the *live* library via
+ * [JellyfinRepository.getItems] rather than the local Room cache: that cache only holds items the
+ * user has actually downloaded, which is a poor match candidate set for "what's coming up" - most
+ * upcoming episodes/movies won't be downloaded yet, so matching against it would leave nearly
+ * every entry's [CalendarEntry.itemId] (and thus poster/click-through) unresolved. Confirmed this
+ * was really happening on a fresh install (empty local `shows`/`movies` tables). Note
+ * [QueueStatusRepositoryImpl] still has this bug - it wasn't in scope to fix here, but shares the
+ * exact same local-cache pattern and should get the same treatment.
  */
 class CalendarRepositoryImpl(
     private val appPreferences: AppPreferences,
-    private val serverDatabase: ServerDatabaseDao,
     private val jellyfinRepository: JellyfinRepository,
     private val sonarrApiKeyProvider: () -> String?,
     private val radarrApiKeyProvider: () -> String?,
@@ -50,27 +53,8 @@ class CalendarRepositoryImpl(
             // in one must never blank out or crash the other's contribution to the merged list.
             val sonarrDeferred = async { fetchSonarrCalendar(start, end) }
             val radarrDeferred = async { fetchRadarrCalendar(start, end) }
-            val merged = (sonarrDeferred.await() + radarrDeferred.await()).sortedBy { it.date }
-
-            // Poster art requires a full per-item fetch (the matching step above only resolves an
-            // id from the locally-cached, download-only-images DB entities - see toFindroidShow/
-            // toFindroidMovie(database, userId) above). Fetched concurrently and independently of
-            // each other, same as the Sonarr/Radarr calls: one slow/broken item's artwork must
-            // never block or blank out the rest of the calendar.
-            merged.map { entry -> async { entry.withImages() } }.awaitAll()
+            (sonarrDeferred.await() + radarrDeferred.await()).sortedBy { it.date }
         }
-
-    private suspend fun CalendarEntry.withImages(): CalendarEntry {
-        val id = itemId ?: return this
-        return try {
-            copy(images = jellyfinRepository.getItem(id)?.images)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Timber.w(e, "Failed to load poster art for calendar entry $id")
-            this
-        }
-    }
 
     private suspend fun fetchSonarrCalendar(start: LocalDate, end: LocalDate): List<CalendarEntry> {
         if (!appPreferences.getValue(appPreferences.sonarrEnabled)) return emptyList()
@@ -111,18 +95,12 @@ class CalendarRepositoryImpl(
     }
 
     private suspend fun loadJellyfinShows(): List<FindroidShow> =
-        withContext(Dispatchers.IO) {
-            val serverId =
-                appPreferences.getValue(appPreferences.currentServer) ?: return@withContext emptyList()
-            val userId = jellyfinRepository.getUserId()
-            serverDatabase.getShowsByServerId(serverId).map { it.toFindroidShow(serverDatabase, userId) }
-        }
+        jellyfinRepository
+            .getItems(includeTypes = listOf(BaseItemKind.SERIES), recursive = true)
+            .filterIsInstance<FindroidShow>()
 
     private suspend fun loadJellyfinMovies(): List<FindroidMovie> =
-        withContext(Dispatchers.IO) {
-            val serverId =
-                appPreferences.getValue(appPreferences.currentServer) ?: return@withContext emptyList()
-            val userId = jellyfinRepository.getUserId()
-            serverDatabase.getMoviesByServerId(serverId).map { it.toFindroidMovie(serverDatabase, userId) }
-        }
+        jellyfinRepository
+            .getItems(includeTypes = listOf(BaseItemKind.MOVIE), recursive = true)
+            .filterIsInstance<FindroidMovie>()
 }

@@ -20,8 +20,8 @@ data class CalendarEntry(
     val itemId: UUID?,
     val hasFile: Boolean,
     val monitored: Boolean,
-    // Populated by CalendarRepositoryImpl in a follow-up per-item fetch once itemId is resolved -
-    // null for unmatched entries, or if that fetch fails (poster art is non-critical, not worth
-    // failing the whole entry over).
+    // Carried over from the matched FindroidShow/FindroidMovie at match time (see
+    // matchSonarrCalendar/matchRadarrCalendar in CalendarMatching.kt) - null for unmatched
+    // entries.
     val images: FindroidImages? = null,
 )

@@ -50,6 +50,7 @@ fun matchSonarrCalendar(
             itemId = show?.id,
             hasFile = entry.hasFile,
             monitored = entry.monitored,
+            images = show?.images,
         )
     }
 }
@@ -76,6 +77,7 @@ fun matchRadarrCalendar(
             itemId = movie?.id,
             hasFile = entry.hasFile,
             monitored = entry.monitored,
+            images = movie?.images,
         )
     }
 }
