@@ -37,7 +37,10 @@ fun matchSonarrCalendar(
         val date = entry.airDateUtc?.let(::parseFlexibleDate) ?: return@mapNotNull null
         val tvdbId = entry.series?.tvdbId?.takeIf { it != UNSET_PROVIDER_ID }
         val show = tvdbId?.let { showByTvdbId[it.toString()] }
-        val title = show?.name ?: entry.series?.title?.takeIf { it.isNotBlank() } ?: entry.title.orEmpty()
+        // Falls back to the series name from Sonarr's payload when there's no Jellyfin match,
+        // but never to entry.title (the episode's own title) - that belongs in the subtitle
+        // (see buildEpisodeSubtitle below), not the show-title slot.
+        val title = show?.name ?: entry.series?.title?.takeIf { it.isNotBlank() } ?: ""
 
         CalendarEntry(
             date = date,
