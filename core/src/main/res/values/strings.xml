@@ -287,6 +287,7 @@
     <string name="discover_filter_requested">Requested</string>
     <string name="discover_requested_empty">No Seerr requests yet</string>
     <string name="discover_request">Request</string>
+    <string name="discover_request_season">Request season</string>
     <string name="discover_requested_toast">Requested “%1$s”</string>
     <string name="discover_request_failed_toast">Request failed: %1$s</string>
     <string name="discover_recent_requests">Recent requests</string>

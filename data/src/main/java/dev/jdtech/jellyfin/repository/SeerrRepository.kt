@@ -32,8 +32,15 @@ interface SeerrRepository {
         episodeNumber: Int? = null,
     ): Result<SeerrMediaDetail>
 
-    /** Requests the item; series requests cover all seasons. */
-    suspend fun request(tmdbId: Int, mediaType: SeerrMediaType): Result<Unit>
+    /**
+     * Requests the item. When [seasonNumber] is `null`, a series request covers all seasons;
+     * when set, only that season is requested. Ignored for movies.
+     */
+    suspend fun request(
+        tmdbId: Int,
+        mediaType: SeerrMediaType,
+        seasonNumber: Int? = null,
+    ): Result<Unit>
 
     /** Most recent requests first, titles/posters already resolved. */
     suspend fun getRecentRequests(limit: Int = 20): Result<List<SeerrRequestItem>>

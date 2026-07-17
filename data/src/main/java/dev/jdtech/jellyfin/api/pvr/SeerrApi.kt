@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -53,17 +54,27 @@ class SeerrApi(private val baseUrl: String, private val apiKey: String) {
 
     /**
      * Files a request; Seerr routes it to Sonarr/Radarr with the server-side defaults
-     * (quality profile, root folder). Series requests ask for all seasons - Seerr's
-     * "seasons": "all" shorthand - since Findroid doesn't offer per-season picking (yet).
+     * (quality profile, root folder). When [seasonNumber] is `null`, series requests ask for
+     * all seasons - Seerr's "seasons": "all" shorthand. When it's set, only that season is
+     * requested - Seerr expects an array of season numbers for that case.
      */
-    suspend fun createRequest(mediaType: String, tmdbId: Int) {
+    suspend fun createRequest(mediaType: String, tmdbId: Int, seasonNumber: Int? = null) {
         withContext(Dispatchers.IO) {
             val url = buildUrl("api", "v1", "request")
             val body =
                 SeerrCreateRequestBody(
                     mediaType = mediaType,
                     mediaId = tmdbId,
-                    seasons = if (mediaType == MEDIA_TYPE_TV) JsonPrimitive("all") else null,
+                    seasons =
+                        if (mediaType == MEDIA_TYPE_TV) {
+                            if (seasonNumber != null) {
+                                JsonArray(listOf(JsonPrimitive(seasonNumber)))
+                            } else {
+                                JsonPrimitive("all")
+                            }
+                        } else {
+                            null
+                        },
                 )
             execute(url, json.encodeToString(body))
         }
