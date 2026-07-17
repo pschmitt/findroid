@@ -220,13 +220,24 @@ data class PvrRelease(
 // endregion
 
 // region Sonarr/Radarr - GET /api/v3/rootfolder
-// One entry per *configured* TV-shows/movies storage location - unlike /diskspace (which also
-// reports every other mount point the service's host can see, not just the ones actually used
-// for the library), this only lists folders the user explicitly set up as a root folder, complete
-// with free/total space already embedded. Both APIs return the same shape; a flat JSON array.
+// One entry per *configured* TV-shows/movies storage location - only the folder(s) the user
+// explicitly set up as a root folder, unlike /diskspace below (which also reports every other
+// mount point the service's host can see). Only exposes freeSpace, not totalSpace - paired with
+// /diskspace (matched by path) to get both numbers for the folder that's actually the media
+// library, not just an arbitrary/largest visible mount. Both APIs return the same shape; a flat
+// JSON array.
+
+@Serializable data class PvrRootFolderDto(val path: String = "")
+
+// endregion
+
+// region Sonarr/Radarr - GET /api/v3/diskspace
+// Free/total space for every mount point the service's host can see - broader than /rootfolder
+// above, which is why the repository matches entries here against a configured root folder's
+// path rather than trusting this list on its own. A flat JSON array.
 
 @Serializable
-data class PvrRootFolderDto(
+data class PvrDiskSpaceDto(
     val path: String = "",
     val freeSpace: Long = 0L,
     val totalSpace: Long = 0L,

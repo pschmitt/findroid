@@ -493,10 +493,12 @@ class DownloaderImpl(
     }
 
     override fun getStorageStats(storageIndex: Int): DeviceStorageStats? {
+        // No Environment.getExternalStorageState() gate here, unlike downloadItem()'s pre-write
+        // check above - that API is meant for the classic public external storage root, and is
+        // unreliable for an app-specific getExternalFilesDirs() subdirectory (spuriously reports
+        // not-mounted here on some devices). ItemButtonsBar's storage-picker calls StatFs the same
+        // direct way for the same reason.
         val storageLocation = context.getExternalFilesDirs(null).getOrNull(storageIndex) ?: return null
-        if (Environment.getExternalStorageState(storageLocation) != Environment.MEDIA_MOUNTED) {
-            return null
-        }
         val stats = StatFs(storageLocation.path)
         return DeviceStorageStats(
             totalBytes = stats.blockCountLong * stats.blockSizeLong,

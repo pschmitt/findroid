@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.repository
 
+import dev.jdtech.jellyfin.api.pvr.PvrDiskSpaceDto
 import dev.jdtech.jellyfin.api.pvr.PvrRootFolderDto
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
@@ -40,11 +41,16 @@ class PvrDiskSpaceRepositoryImpl(
         if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return null
 
         return try {
-            SonarrApi(baseUrl, apiKey).getRootFolders().toServiceDiskSpace()
+            val api = SonarrApi(baseUrl, apiKey)
+            coroutineScope {
+                val rootFoldersDeferred = async { api.getRootFolders() }
+                val diskSpacesDeferred = async { api.getDiskSpace() }
+                resolveStorage(rootFoldersDeferred.await(), diskSpacesDeferred.await())
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Timber.w(e, "Failed to fetch Sonarr root folder disk space")
+            Timber.w(e, "Failed to fetch Sonarr disk space")
             null
         }
     }
@@ -56,20 +62,39 @@ class PvrDiskSpaceRepositoryImpl(
         if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return null
 
         return try {
-            RadarrApi(baseUrl, apiKey).getRootFolders().toServiceDiskSpace()
+            val api = RadarrApi(baseUrl, apiKey)
+            coroutineScope {
+                val rootFoldersDeferred = async { api.getRootFolders() }
+                val diskSpacesDeferred = async { api.getDiskSpace() }
+                resolveStorage(rootFoldersDeferred.await(), diskSpacesDeferred.await())
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Timber.w(e, "Failed to fetch Radarr root folder disk space")
+            Timber.w(e, "Failed to fetch Radarr disk space")
             null
         }
     }
 
-    // The largest configured root folder, not a sum across all of them - a service can have more
-    // than one root folder sharing the same underlying volume (see PvrServiceDiskSpace), which
-    // summing would double-count. The largest one is taken as "the" root folder rather than the
-    // first, since load order isn't guaranteed to put the main library first.
-    private fun List<PvrRootFolderDto>.toServiceDiskSpace(): PvrServiceDiskSpace? =
-        maxByOrNull { it.totalSpace }
-            ?.let { PvrServiceDiskSpace(freeBytes = it.freeSpace, totalBytes = it.totalSpace) }
+    /**
+     * /rootfolder only exposes the configured TV-shows/movies location(s) but no total space;
+     * /diskspace has both numbers but for every mount point the host can see, not just the media
+     * library. Match each root folder to the /diskspace entry whose path is its longest matching
+     * prefix (the most specific mount actually containing it), then take the largest of those
+     * matches as "the" root folder - a service can have more than one, commonly sharing the same
+     * underlying volume, which summing would double-count. Falls back to the largest /diskspace
+     * entry outright if no root folder matched anything (should not normally happen).
+     */
+    private fun resolveStorage(
+        rootFolders: List<PvrRootFolderDto>,
+        diskSpaces: List<PvrDiskSpaceDto>,
+    ): PvrServiceDiskSpace? {
+        if (diskSpaces.isEmpty()) return null
+        val matched =
+            rootFolders.mapNotNull { root ->
+                diskSpaces.filter { root.path.startsWith(it.path) }.maxByOrNull { it.path.length }
+            }
+        val chosen = matched.maxByOrNull { it.totalSpace } ?: diskSpaces.maxByOrNull { it.totalSpace }
+        return chosen?.let { PvrServiceDiskSpace(freeBytes = it.freeSpace, totalBytes = it.totalSpace) }
+    }
 }

@@ -647,7 +647,7 @@ private fun DownloadsStorageSummaryCard(
             pvrStorage?.let { pvr ->
                 StorageUsageBar(
                     iconRes = CoreR.drawable.ic_server,
-                    label = stringResource(CoreR.string.storage_summary_pvr),
+                    label = stringResource(CoreR.string.storage_summary_server),
                     usedBytes = (pvr.totalBytes - pvr.freeBytes).coerceAtLeast(0L),
                     totalBytes = pvr.totalBytes,
                 )
