@@ -1,6 +1,13 @@
 package dev.jdtech.jellyfin.presentation.settings.integrations
 
+import dev.jdtech.jellyfin.models.ServerWithAddresses
+import dev.jdtech.jellyfin.models.User
+
 data class IntegrationsSettingsState(
+    val jellyfinServers: List<ServerWithAddresses> = emptyList(),
+    val jellyfinUsers: List<User> = emptyList(),
+    val currentServerId: String? = null,
+    val currentUserId: String? = null,
     val sonarrEnabled: Boolean = false,
     val sonarrBaseUrl: String = "",
     val sonarrApiKey: String = "",

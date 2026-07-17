@@ -1,9 +1,14 @@
 package dev.jdtech.jellyfin.presentation.settings.integrations
 
 import dev.jdtech.jellyfin.api.pvr.PvrService
+import java.util.UUID
 
 sealed interface IntegrationsSettingsAction {
     data object OnBackClick : IntegrationsSettingsAction
+
+    data class OnJellyfinServerSelected(val serverId: String) : IntegrationsSettingsAction
+
+    data class OnJellyfinUserSelected(val userId: UUID) : IntegrationsSettingsAction
 
     data class OnSonarrEnabledChanged(val enabled: Boolean) : IntegrationsSettingsAction
 

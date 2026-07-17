@@ -182,6 +182,10 @@
     <string name="backup_now_success">Backup created</string>
     <string name="backup_now_error">Backup failed: %1$s</string>
     <string name="integrations_title">Integrations</string>
+    <string name="integrations_jellyfin">Jellyfin</string>
+    <string name="integrations_no_jellyfin_server">No Jellyfin server is configured.</string>
+    <string name="integrations_manage_servers">Manage servers</string>
+    <string name="integrations_manage_users">Manage users</string>
     <string name="integrations_sonarr">Sonarr</string>
     <string name="integrations_radarr">Radarr</string>
     <string name="integrations_seerr">Seerr</string>

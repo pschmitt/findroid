@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -103,14 +102,15 @@ private fun IntegrationsSettingsScreenLayout(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = navigateToServers, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(SettingsR.string.settings_category_servers))
-                }
-                OutlinedButton(onClick = navigateToUsers, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(SettingsR.string.users))
-                }
-            }
+            JellyfinConnectionSection(
+                state = state,
+                onServerSelected = {
+                    onAction(IntegrationsSettingsAction.OnJellyfinServerSelected(it))
+                },
+                onUserSelected = { onAction(IntegrationsSettingsAction.OnJellyfinUserSelected(it)) },
+                onManageServers = navigateToServers,
+                onManageUsers = navigateToUsers,
+            )
 
             HorizontalDivider()
 
@@ -271,6 +271,87 @@ private fun IntegrationsSettingsScreenLayout(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun JellyfinConnectionSection(
+    state: IntegrationsSettingsState,
+    onServerSelected: (String) -> Unit,
+    onUserSelected: (java.util.UUID) -> Unit,
+    onManageServers: () -> Unit,
+    onManageUsers: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                painter = painterResource(CoreR.drawable.ic_server),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = stringResource(CoreR.string.integrations_jellyfin),
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        if (state.jellyfinServers.isEmpty()) {
+            Text(
+                text = stringResource(CoreR.string.integrations_no_jellyfin_server),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        } else {
+            state.jellyfinServers.forEach { server ->
+                Button(
+                    onClick = { onServerSelected(server.server.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = state.currentServerId != server.server.id,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(server.server.name)
+                        server.addresses.firstOrNull()?.let { address ->
+                            Text(address.address, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    if (state.currentServerId == server.server.id) {
+                        Icon(
+                            painter = painterResource(CoreR.drawable.ic_check),
+                            contentDescription = null,
+                        )
+                    }
+                }
+            }
+            if (state.jellyfinUsers.isNotEmpty()) {
+                Text(
+                    text = stringResource(SettingsR.string.users),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                state.jellyfinUsers.forEach { user ->
+                    TextButton(onClick = { onUserSelected(user.id) }) {
+                        Icon(
+                            painter = painterResource(CoreR.drawable.ic_user),
+                            contentDescription = null,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(user.name, modifier = Modifier.weight(1f))
+                        if (state.currentUserId == user.id.toString()) {
+                            Icon(
+                                painter = painterResource(CoreR.drawable.ic_check),
+                                contentDescription = null,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onManageServers) {
+                Text(stringResource(CoreR.string.integrations_manage_servers))
+            }
+            TextButton(onClick = onManageUsers, enabled = state.currentServerId != null) {
+                Text(stringResource(CoreR.string.integrations_manage_users))
             }
         }
     }

@@ -10,6 +10,7 @@ import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
 import dev.jdtech.jellyfin.security.SecureCredentialStore
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
+import dev.jdtech.jellyfin.setup.domain.SetupRepository
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -24,6 +25,7 @@ class IntegrationsSettingsViewModel
 constructor(
     private val appPreferences: AppPreferences,
     private val secureCredentialStore: SecureCredentialStore,
+    private val setupRepository: SetupRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(IntegrationsSettingsState())
     val state = _state.asStateFlow()
@@ -36,8 +38,16 @@ constructor(
     private val dirtyApiKeys = mutableSetOf<String>()
 
     fun load() {
-        _state.value =
-            IntegrationsSettingsState(
+        viewModelScope.launch {
+            val servers = setupRepository.getServers()
+            val currentServer = setupRepository.getCurrentServer()
+            val currentUser = setupRepository.getCurrentUser()
+            _state.value =
+                IntegrationsSettingsState(
+                jellyfinServers = servers,
+                jellyfinUsers = currentServer?.let { setupRepository.getUsers(it.id) }.orEmpty(),
+                currentServerId = currentServer?.id,
+                currentUserId = currentUser?.id?.toString(),
                 sonarrEnabled = appPreferences.getValue(appPreferences.sonarrEnabled),
                 sonarrBaseUrl = appPreferences.getValue(appPreferences.sonarrBaseUrl).orEmpty(),
                 sonarrApiKey = secureCredentialStore.getString(PvrCredentialKeys.SONARR_API_KEY).orEmpty(),
@@ -59,14 +69,17 @@ constructor(
                 seerrBasicAuthPassword = secureCredentialStore.getString(PvrCredentialKeys.SEERR_BASIC_AUTH_PASSWORD).orEmpty(),
                 pvrPollIntervalMinutes =
                     appPreferences.getValue(appPreferences.pvrPollIntervalMinutes),
-                pvrReleaseCacheMinutes =
-                    appPreferences.getValue(appPreferences.pvrReleaseCacheMinutes),
-            )
+                    pvrReleaseCacheMinutes =
+                        appPreferences.getValue(appPreferences.pvrReleaseCacheMinutes),
+                )
+        }
     }
 
     fun onAction(action: IntegrationsSettingsAction) {
         when (action) {
             is IntegrationsSettingsAction.OnBackClick -> Unit
+            is IntegrationsSettingsAction.OnJellyfinServerSelected -> selectJellyfinServer(action.serverId)
+            is IntegrationsSettingsAction.OnJellyfinUserSelected -> selectJellyfinUser(action.userId)
             is IntegrationsSettingsAction.OnSonarrEnabledChanged -> {
                 appPreferences.setValue(appPreferences.sonarrEnabled, action.enabled)
                 _state.value = _state.value.copy(sonarrEnabled = action.enabled)
@@ -148,6 +161,21 @@ constructor(
                 appPreferences.setValue(appPreferences.pvrReleaseCacheMinutes, action.minutes)
                 _state.value = _state.value.copy(pvrReleaseCacheMinutes = action.minutes)
             }
+        }
+    }
+
+    private fun selectJellyfinServer(serverId: String) {
+        viewModelScope.launch {
+            setupRepository.setCurrentServer(serverId)
+            appPreferences.setValue(appPreferences.currentServer, serverId)
+            load()
+        }
+    }
+
+    private fun selectJellyfinUser(userId: java.util.UUID) {
+        viewModelScope.launch {
+            setupRepository.setCurrentUser(userId)
+            load()
         }
     }
 
