@@ -133,4 +133,6 @@ compilation for the phone and TV apps on rofl-13.
 - [x] Graceful degradation everywhere: Sonarr/Radarr/Seerr down → clear non-blocking
       errors; Jellyfin down → offer enabling Offline mode; no crashes or silent spinners
 
-Status: **in progress** (started 2026-07-17).
+Status: **done** (2026-07-17). Verified with remote `ktfmtCheck` and Libre release
+builds for phone and TV on rofl-14; the signed phone APK was installed on the ASUS
+phone and Mi Pad 4.
