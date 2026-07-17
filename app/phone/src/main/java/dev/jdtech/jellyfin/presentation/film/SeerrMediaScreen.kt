@@ -260,7 +260,19 @@ private fun SeerrMediaScreenLayout(
                                     onClick = { onAction(SeerrMediaAction.OnRequest) },
                                     enabled = !state.isSubmitting,
                                 ) {
-                                    Text(text = stringResource(CoreR.string.discover_request))
+                                    // Seerr has no per-episode requesting, so a season or episode
+                                    // view always ends up requesting the season - make that
+                                    // explicit rather than implying the whole show is requested.
+                                    Text(
+                                        text =
+                                            stringResource(
+                                                if (detail.season != null) {
+                                                    CoreR.string.discover_request_season
+                                                } else {
+                                                    CoreR.string.discover_request
+                                                }
+                                            )
+                                    )
                                 }
                             }
                             if (detail.cancellableRequestIds.isNotEmpty()) {

@@ -127,7 +127,11 @@ class SeerrRepositoryImpl(
         }
     }
 
-    override suspend fun request(tmdbId: Int, mediaType: SeerrMediaType): Result<Unit> =
+    override suspend fun request(
+        tmdbId: Int,
+        mediaType: SeerrMediaType,
+        seasonNumber: Int?,
+    ): Result<Unit> =
         runAction { api ->
             api.createRequest(
                 mediaType =
@@ -136,6 +140,7 @@ class SeerrRepositoryImpl(
                         SeerrMediaType.TV -> SeerrApi.MEDIA_TYPE_TV
                     },
                 tmdbId = tmdbId,
+                seasonNumber = seasonNumber,
             )
         }
 

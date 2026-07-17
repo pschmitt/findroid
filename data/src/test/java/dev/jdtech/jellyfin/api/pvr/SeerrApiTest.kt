@@ -61,4 +61,44 @@ class SeerrApiTest {
         assertEquals("test-api-key", request.getHeader("X-Api-Key"))
         assertTrue(request.path.orEmpty().endsWith("/api/v1/tv/123/season/2"))
     }
+
+    @Test
+    fun `createRequest without a season number requests all seasons`() = runTest {
+        server.enqueue(MockResponse().setBody("{}"))
+
+        api.createRequest(mediaType = SeerrApi.MEDIA_TYPE_TV, tmdbId = 123)
+
+        val request = server.takeRequest()
+        assertTrue(request.path.orEmpty().endsWith("/api/v1/request"))
+        assertEquals(
+            """{"mediaType":"tv","mediaId":123,"seasons":"all"}""",
+            request.body.readUtf8(),
+        )
+    }
+
+    @Test
+    fun `createRequest with a season number requests only that season`() = runTest {
+        server.enqueue(MockResponse().setBody("{}"))
+
+        api.createRequest(mediaType = SeerrApi.MEDIA_TYPE_TV, tmdbId = 123, seasonNumber = 2)
+
+        val request = server.takeRequest()
+        assertEquals(
+            """{"mediaType":"tv","mediaId":123,"seasons":[2]}""",
+            request.body.readUtf8(),
+        )
+    }
+
+    @Test
+    fun `createRequest for a movie ignores season number`() = runTest {
+        server.enqueue(MockResponse().setBody("{}"))
+
+        api.createRequest(mediaType = SeerrApi.MEDIA_TYPE_MOVIE, tmdbId = 456, seasonNumber = 2)
+
+        val request = server.takeRequest()
+        assertEquals(
+            """{"mediaType":"movie","mediaId":456}""",
+            request.body.readUtf8(),
+        )
+    }
 }

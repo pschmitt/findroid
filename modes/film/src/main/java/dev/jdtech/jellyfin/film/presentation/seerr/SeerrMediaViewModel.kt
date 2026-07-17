@@ -260,7 +260,7 @@ constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isSubmitting = true)
             seerrRepository
-                .request(detail.tmdbId, detail.mediaType)
+                .request(detail.tmdbId, detail.mediaType, seasonNumber = seasonNumber)
                 .fold(
                     onSuccess = {
                         eventsChannel.send(SeerrMediaEvent.Requested(detail.title))
