@@ -7,6 +7,9 @@ object Constants {
         const val PIP = "pip"
     }
 
+    // Cache
+    const val DEFAULT_IMAGE_CACHE_SIZE_MB = 50
+
     // Network
     const val NETWORK_DEFAULT_REQUEST_TIMEOUT = 30_000L
     const val NETWORK_DEFAULT_CONNECT_TIMEOUT = 6_000L

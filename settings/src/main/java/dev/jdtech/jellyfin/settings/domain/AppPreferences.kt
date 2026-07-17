@@ -110,7 +110,7 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
 
     // Cache
     val imageCache = Preference("pref_image_cache", true)
-    val imageCacheSize = Preference("pref_image_cache_size", 20)
+    val imageCacheSize = Preference("pref_image_cache_size", Constants.DEFAULT_IMAGE_CACHE_SIZE_MB)
 
     // Sorting
     val sortBy = Preference("pref_sort_by", "SortName")
