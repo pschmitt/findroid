@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.presentation.settings.integrations
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -518,13 +519,6 @@ private fun PvrServiceSection(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            PvrAdvancedHttpFields(
-                headers = httpHeaders,
-                basicAuthUsername = basicAuthUsername,
-                basicAuthPassword = basicAuthPassword,
-                onChanged = onAdvancedSettingsChanged,
-            )
-
             OutlinedTextField(
                 value = apiKey,
                 onValueChange = onApiKeyChanged,
@@ -548,6 +542,13 @@ private fun PvrServiceSection(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
+            )
+
+            PvrAdvancedHttpFields(
+                headers = httpHeaders,
+                basicAuthUsername = basicAuthUsername,
+                basicAuthPassword = basicAuthPassword,
+                onChanged = onAdvancedSettingsChanged,
             )
 
             Row(
@@ -616,34 +617,53 @@ private fun PvrAdvancedHttpFields(
     basicAuthPassword: String,
     onChanged: (headers: String, username: String, password: String) -> Unit,
 ) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(CoreR.string.integrations_advanced_http),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        OutlinedTextField(
-            value = headers,
-            onValueChange = { onChanged(it, basicAuthUsername, basicAuthPassword) },
-            label = { Text(stringResource(CoreR.string.integrations_custom_headers)) },
-            placeholder = { Text(stringResource(CoreR.string.integrations_custom_headers_hint)) },
-            minLines = 2,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = basicAuthUsername,
-            onValueChange = { onChanged(headers, it, basicAuthPassword) },
-            label = { Text(stringResource(CoreR.string.integrations_basic_auth_username)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = basicAuthPassword,
-            onValueChange = { onChanged(headers, basicAuthUsername, it) },
-            label = { Text(stringResource(CoreR.string.integrations_basic_auth_password)) },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(CoreR.string.integrations_advanced_http),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                painter =
+                    painterResource(
+                        if (expanded) CoreR.drawable.ic_chevron_up
+                        else CoreR.drawable.ic_chevron_down
+                    ),
+                contentDescription =
+                    stringResource(if (expanded) CoreR.string.collapse else CoreR.string.expand),
+            )
+        }
+        if (expanded) {
+            OutlinedTextField(
+                value = headers,
+                onValueChange = { onChanged(it, basicAuthUsername, basicAuthPassword) },
+                label = { Text(stringResource(CoreR.string.integrations_custom_headers)) },
+                placeholder = { Text(stringResource(CoreR.string.integrations_custom_headers_hint)) },
+                minLines = 2,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = basicAuthUsername,
+                onValueChange = { onChanged(headers, it, basicAuthPassword) },
+                label = { Text(stringResource(CoreR.string.integrations_basic_auth_username)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = basicAuthPassword,
+                onValueChange = { onChanged(headers, basicAuthUsername, it) },
+                label = { Text(stringResource(CoreR.string.integrations_basic_auth_password)) },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
