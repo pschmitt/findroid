@@ -77,7 +77,7 @@ build *flags:
         echo 'release build did not refresh its APK artifact' >&2
         rc=1
       fi
-      if [[ \$rc -eq 0 ]] && ! (cd {{remote_path}} && nix develop --command sh -c 'unzip -p "\$1" "classes*.dex" | strings | grep -Fxq "\$2"' sh "\$artifact" "\$GIT_REVISION")
+      if [[ \$rc -eq 0 ]] && ! (cd {{remote_path}} && nix develop --command sh -c 'unzip -p "\$1" "classes*.dex" | strings | grep -Fx "\$2" >/dev/null' sh "\$artifact" "\$GIT_REVISION")
       then
         echo "release APK does not contain expected revision: \$GIT_REVISION" >&2
         rc=1
@@ -98,7 +98,7 @@ fetch *flags:
     then
       apk={{local_dist}}/${variant}-libre-${abi}-${flavor}.apk
       git_revision=$(git describe --always --abbrev=12 --dirty)
-      if ! unzip -p "$apk" 'classes*.dex' | strings | grep -Fxq "$git_revision"
+      if ! unzip -p "$apk" 'classes*.dex' | strings | grep -Fx "$git_revision" >/dev/null
       then
         rm -f "$apk"
         echo "fetched release APK does not contain expected revision: $git_revision" >&2
