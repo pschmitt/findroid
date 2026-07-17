@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -66,6 +67,7 @@ import java.util.UUID
 fun CalendarScreen(
     onSeasonClick: (UUID) -> Unit = {},
     onMovieClick: (UUID) -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -102,6 +104,7 @@ fun CalendarScreen(
         onSearchManual = viewModel::openReleasePicker,
         onGrabRelease = viewModel::grabRelease,
         onDismissReleasePicker = viewModel::dismissReleasePicker,
+        onSettingsClick = onSettingsClick,
     )
 }
 
@@ -114,6 +117,7 @@ private fun CalendarScreenLayout(
     onSearchManual: (CalendarEntry) -> Unit = {},
     onGrabRelease: (PvrRelease) -> Unit = {},
     onDismissReleasePicker: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -125,6 +129,14 @@ private fun CalendarScreenLayout(
         topBar = {
             TopAppBar(
                 title = { Text(text = stringResource(CoreR.string.title_calendar)) },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            painter = painterResource(CoreR.drawable.ic_settings),
+                            contentDescription = stringResource(CoreR.string.title_settings),
+                        )
+                    }
+                },
                 windowInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout),
                 scrollBehavior = scrollBehavior,
             )
@@ -293,6 +305,19 @@ private fun CalendarEntryRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // Exact air time in the device's time zone - only known for Sonarr entries, whose
+            // airDateUtc is a full instant (Radarr release dates are date-only).
+            entry.airTime?.let { airTime ->
+                Text(
+                    text =
+                        stringResource(
+                            CoreR.string.calendar_air_time,
+                            airTime.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)),
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

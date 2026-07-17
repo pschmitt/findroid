@@ -8,6 +8,7 @@ import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.PvrSource
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeParseException
 
@@ -48,6 +49,7 @@ fun matchSonarrCalendar(
 
         CalendarEntry(
             date = date,
+            airTime = entry.airDateUtc?.let(::parseLocalTime),
             source = PvrSource.SONARR,
             title = title,
             subtitle = buildEpisodeSubtitle(entry.seasonNumber, entry.episodeNumber, entry.title),
@@ -135,4 +137,16 @@ internal fun parseFlexibleDate(value: String): LocalDate? =
         } catch (e2: DateTimeParseException) {
             null
         }
+    }
+
+/**
+ * Local-time counterpart of [parseFlexibleDate]: the exact air time in the device's time zone,
+ * but only when the value is a full instant - a date-only value carries no real time, so it
+ * yields `null` rather than a misleading midnight.
+ */
+internal fun parseLocalTime(value: String): LocalTime? =
+    try {
+        Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalTime()
+    } catch (e: DateTimeParseException) {
+        null
     }

@@ -93,6 +93,7 @@ fun LibraryScreen(
     libraryType: CollectionType,
     onItemClick: (item: FindroidItem) -> Unit,
     navigateBack: () -> Unit,
+    onSettingsClick: () -> Unit = {},
     showBackButton: Boolean = true,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -128,6 +129,7 @@ fun LibraryScreen(
         state = state,
         isMergedMedia = libraryId == null,
         showBackButton = showBackButton,
+        onSettingsClick = onSettingsClick,
         onAction = { action ->
             when (action) {
                 is LibraryAction.OnItemClick -> onItemClick(action.item)
@@ -146,6 +148,7 @@ private fun LibraryScreenLayout(
     state: LibraryState,
     isMergedMedia: Boolean = false,
     showBackButton: Boolean = true,
+    onSettingsClick: () -> Unit = {},
     onAction: (LibraryAction) -> Unit,
 ) {
     val contentPadding = PaddingValues(all = MaterialTheme.spacings.default)
@@ -239,6 +242,12 @@ private fun LibraryScreenLayout(
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_arrow_down_up),
                                 contentDescription = null,
+                            )
+                        }
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(
+                                painter = painterResource(CoreR.drawable.ic_settings),
+                                contentDescription = stringResource(CoreR.string.title_settings),
                             )
                         }
                     }

@@ -464,6 +464,7 @@ fun NavigationRoot(
                     onMovieClick = { movieId ->
                         navController.safeNavigate(MovieRoute(movieId = movieId.toString()))
                     },
+                    onSettingsClick = { navController.safeNavigate(settingsRootRoute()) },
                 )
             }
             composable<MediaRoute> {
@@ -476,6 +477,7 @@ fun NavigationRoot(
                         navigateToItem(navController = navController, item = item)
                     },
                     navigateBack = { navController.safePopBackStack() },
+                    onSettingsClick = { navController.safeNavigate(settingsRootRoute()) },
                 )
             }
             composable<AutoDownloadRulesRoute> {
@@ -505,6 +507,7 @@ fun NavigationRoot(
                         navigateToItem(navController = navController, item = item)
                     },
                     navigateBack = { navController.safePopBackStack() },
+                    onSettingsClick = { navController.safeNavigate(settingsRootRoute()) },
                 )
             }
             composable<CollectionRoute> { backStackEntry ->

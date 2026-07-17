@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.models
 
 import java.time.LocalDate
+import java.time.LocalTime
 import java.util.UUID
 
 /**
@@ -20,6 +21,9 @@ data class CalendarResult(
 
 data class CalendarEntry(
     val date: LocalDate,
+    // Exact air time in the device's local time zone - only known when the PVR side supplied a
+    // full instant (Sonarr's airDateUtc); null for date-only values (Radarr release dates).
+    val airTime: LocalTime? = null,
     val source: PvrSource,
     val title: String,
     val subtitle: String?,
