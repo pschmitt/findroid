@@ -110,24 +110,24 @@ compilation for the phone and TV apps on rofl-13.
 
 ## FINDROID-5: Detail-page ergonomics, branding, settings & resilience round
 
-- [ ] Episode/movie detail pages: rework the action row so all buttons (incl. the PVR
+- [x] Episode/movie detail pages: rework the action row so all buttons (incl. the PVR
       search button) look consistent, with labels (vertical space is available); the
       info button floats to the right of the title; mark watched/unwatched and favorite
       move up onto the meta line (runtime etc.); extra whitespace above the synopsis;
       restyle the context text (show name / season / episode number) and put the episode
       name above it — ergonomic, thought-about
-- [ ] Tablets only: drop the "Home" button next to "Back" (Home is already a menu entry)
-- [ ] Branding: app icon and about-page icons/banners must clearly read Findroid+, not
+- [x] Tablets only: drop the "Home" button next to "Back" (Home is already a menu entry)
+- [x] Branding: app icon and about-page icons/banners must clearly read Findroid+, not
       upstream "Findroid"
-- [ ] Media view: icons for the All / Movies / Shows / Requested filter items (Seerr
+- [x] Media view: icons for the All / Movies / Shows / Requested filter items (Seerr
       logo for Requested)
 - [ ] Connections settings: fold the dedicated Jellyfin "Servers" and "Users" screens
       into the Connections view itself, configured inline just like Sonarr/Radarr/Seerr
 - [ ] Sonarr/Radarr/Seerr configs: optional "advanced" settings — extra HTTP request
       header(s), HTTP basic auth, etc.
-- [ ] Settings: every entry gets an icon (Theme, Gestures, …)
-- [ ] Default image/media cache size: 50 MB
-- [ ] Downloads view: friendly empty state when nothing is downloaded yet — short hint
+- [x] Settings: every entry gets an icon (Theme, Gestures, …)
+- [x] Default image/media cache size: 50 MB
+- [x] Downloads view: friendly empty state when nothing is downloaded yet — short hint
       text plus a link to Home ("To download media, open an episode/movie and press the
       download button")
 - [ ] Graceful degradation everywhere: Sonarr/Radarr/Seerr down → clear non-blocking
