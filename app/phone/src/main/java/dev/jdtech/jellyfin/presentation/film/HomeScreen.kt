@@ -5,18 +5,14 @@ import android.app.Activity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,7 +57,7 @@ import dev.jdtech.jellyfin.presentation.film.components.HomeDiscoverSection
 import dev.jdtech.jellyfin.presentation.film.components.HomeHeader
 import dev.jdtech.jellyfin.presentation.film.components.HomeSection
 import dev.jdtech.jellyfin.presentation.film.components.HomeView
-import dev.jdtech.jellyfin.presentation.film.components.QueueBadge
+import dev.jdtech.jellyfin.presentation.film.components.PvrQueueDownloadCard
 import dev.jdtech.jellyfin.presentation.film.components.ServerSelectionBottomSheet
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
@@ -274,27 +270,16 @@ private fun HomeScreenLayout(
 
 @Composable
 private fun HomeDownloadProgress(entries: List<PvrQueueEntry>, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(MaterialTheme.spacings.default),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
-        ) {
-            Text(
-                text = stringResource(CoreR.string.pvr_queue_section_title),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            entries.take(2).forEach { entry ->
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    QueueBadge(status = entry.status)
-                    Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                    Text(
-                        text = entry.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                }
-            }
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+    ) {
+        Text(
+            text = stringResource(CoreR.string.pvr_queue_section_title),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        entries.take(2).forEach { entry ->
+            PvrQueueDownloadCard(status = entry.status, title = entry.title)
         }
     }
 }

@@ -44,6 +44,7 @@ fun DownloaderCard(
     state: DownloaderState,
     onCancelClick: () -> Unit,
     onRetryClick: () -> Unit,
+    title: String? = null,
     modifier: Modifier = Modifier,
     onForceClick: () -> Unit = {},
     onPauseClick: () -> Unit = {},
@@ -95,6 +96,10 @@ fun DownloaderCard(
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium),
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                title?.let {
+                    Text(text = it, style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(MaterialTheme.spacings.small))
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -226,7 +231,11 @@ fun DownloaderCard(
 
 /** Reuses the local-download progress card for a Sonarr/Radarr queue item. */
 @Composable
-fun PvrQueueDownloadCard(status: QueueStatus, modifier: Modifier = Modifier) {
+fun PvrQueueDownloadCard(
+    status: QueueStatus,
+    title: String? = null,
+    modifier: Modifier = Modifier,
+) {
     val statusText =
         when (status.status) {
             QueueItemStatus.QUEUED -> stringResource(CoreR.string.download_queued)
@@ -255,6 +264,7 @@ fun PvrQueueDownloadCard(status: QueueStatus, modifier: Modifier = Modifier) {
             ),
         onCancelClick = {},
         onRetryClick = {},
+        title = title,
         statusTextOverride = statusText,
         showControls = false,
         modifier = modifier,

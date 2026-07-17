@@ -368,7 +368,7 @@ private fun CalendarEntryRow(
 private fun CalendarEntryBadge(entry: CalendarEntry) {
     val (icon, description) =
         when {
-            entry.hasFile -> CoreR.drawable.ic_download to CoreR.string.calendar_status_available
+            entry.hasFile -> CoreR.drawable.ic_check to CoreR.string.calendar_status_available
             entry.monitored -> CoreR.drawable.ic_calendar to CoreR.string.calendar_status_upcoming
             else -> CoreR.drawable.ic_x to CoreR.string.calendar_status_unmonitored
         }
