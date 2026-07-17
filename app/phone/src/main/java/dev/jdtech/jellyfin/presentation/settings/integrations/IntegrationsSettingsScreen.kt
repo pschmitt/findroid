@@ -1,5 +1,7 @@
 package dev.jdtech.jellyfin.presentation.settings.integrations
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -91,7 +96,9 @@ private fun IntegrationsSettingsScreenLayout(
         ) {
             PvrServiceSection(
                 nameRes = CoreR.string.integrations_sonarr,
+                logoRes = CoreR.drawable.ic_sonarr,
                 enableLabelRes = CoreR.string.integrations_enable_sonarr,
+                apiKeySettingsPath = "/settings/general",
                 enabled = state.sonarrEnabled,
                 baseUrl = state.sonarrBaseUrl,
                 apiKey = state.sonarrApiKey,
@@ -114,7 +121,9 @@ private fun IntegrationsSettingsScreenLayout(
 
             PvrServiceSection(
                 nameRes = CoreR.string.integrations_radarr,
+                logoRes = CoreR.drawable.ic_radarr,
                 enableLabelRes = CoreR.string.integrations_enable_radarr,
+                apiKeySettingsPath = "/settings/general",
                 enabled = state.radarrEnabled,
                 baseUrl = state.radarrBaseUrl,
                 apiKey = state.radarrApiKey,
@@ -137,7 +146,9 @@ private fun IntegrationsSettingsScreenLayout(
 
             PvrServiceSection(
                 nameRes = CoreR.string.integrations_seerr,
+                logoRes = CoreR.drawable.ic_seerr,
                 enableLabelRes = CoreR.string.integrations_enable_seerr,
+                apiKeySettingsPath = "/settings",
                 enabled = state.seerrEnabled,
                 baseUrl = state.seerrBaseUrl,
                 apiKey = state.seerrApiKey,
@@ -212,7 +223,11 @@ private fun IntegrationsSettingsScreenLayout(
 @Composable
 private fun PvrServiceSection(
     nameRes: Int,
+    @DrawableRes logoRes: Int,
     enableLabelRes: Int,
+    // Path under the service's base URL where its web UI shows the API key, e.g.
+    // "/settings/general" for Sonarr/Radarr - linked from the section for easier setup.
+    apiKeySettingsPath: String,
     enabled: Boolean,
     baseUrl: String,
     apiKey: String,
@@ -223,9 +238,20 @@ private fun PvrServiceSection(
     onTestConnectionClick: () -> Unit,
 ) {
     val clipboardManager = LocalClipboardManager.current
+    val uriHandler = LocalUriHandler.current
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = stringResource(nameRes), style = MaterialTheme.typography.titleMedium)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Image(
+                painter = painterResource(logoRes),
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+            )
+            Text(text = stringResource(nameRes), style = MaterialTheme.typography.titleMedium)
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -274,11 +300,34 @@ private fun PvrServiceSection(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Button(
-                onClick = onTestConnectionClick,
-                enabled = testState !is PvrTestState.Testing && baseUrl.isNotBlank() && apiKey.isNotBlank(),
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(text = stringResource(CoreR.string.integrations_test_connection))
+                Button(
+                    onClick = onTestConnectionClick,
+                    enabled =
+                        testState !is PvrTestState.Testing &&
+                            baseUrl.isNotBlank() &&
+                            apiKey.isNotBlank(),
+                ) {
+                    Text(text = stringResource(CoreR.string.integrations_test_connection))
+                }
+                TextButton(
+                    onClick = {
+                        val url = baseUrl.trim().trimEnd('/')
+                        uriHandler.openUri(url + apiKeySettingsPath)
+                    },
+                    enabled = baseUrl.isNotBlank(),
+                ) {
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_globe),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = stringResource(CoreR.string.integrations_get_api_key))
+                }
             }
 
             when (testState) {
