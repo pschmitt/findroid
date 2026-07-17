@@ -469,6 +469,11 @@ fun NavigationRoot(
                             )
                         )
                     },
+                    onGoToHomeClick = {
+                        // Home is the graph's start destination, so it's always on the bottom of
+                        // the back stack - pop back to it, same as tapping the Home tab.
+                        navController.popBackStack(route = HomeRoute, inclusive = false)
+                    },
                 )
             }
             composable<CalendarRoute> {

@@ -29,7 +29,9 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,6 +60,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.IntOffset
@@ -103,6 +106,7 @@ fun DownloadsScreen(
     onSettingsClick: () -> Unit,
     onShowClick: (UUID) -> Unit = {},
     onMoviesClick: () -> Unit = {},
+    onGoToHomeClick: () -> Unit = {},
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val androidContext = LocalContext.current
@@ -163,6 +167,7 @@ fun DownloadsScreen(
         onResumeAllClick = viewModel::resumeAll,
         onShowClick = onShowClick,
         onMoviesClick = onMoviesClick,
+        onGoToHomeClick = onGoToHomeClick,
         onForceGroup = viewModel::forceGroup,
         onPvrRemoveRequest = { item, source -> pendingPvrRemove = item to source },
     )
@@ -267,6 +272,7 @@ private fun DownloadsScreenLayout(
     onResumeAllClick: () -> Unit = {},
     onShowClick: (UUID) -> Unit = {},
     onMoviesClick: () -> Unit = {},
+    onGoToHomeClick: () -> Unit = {},
     onForceGroup: (List<UUID>) -> Unit = {},
     onPvrRemoveRequest: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
 ) {
@@ -373,11 +379,18 @@ private fun DownloadsScreenLayout(
         contentWindowInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout),
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            if (state.isEmpty && !state.isLoading) {
-                Text(
-                    text = stringResource(CoreR.string.no_downloads),
+            // Only show the empty state when there is truly nothing to display - no local
+            // downloads, no PVR queue entries/errors (which render in the list below), and
+            // not while the initial load is still in flight.
+            if (
+                state.isEmpty &&
+                    !state.isLoading &&
+                    state.pvrQueueGroups.isEmpty() &&
+                    state.pvrErrors.isEmpty()
+            ) {
+                DownloadsEmptyState(
+                    onGoToHomeClick = onGoToHomeClick,
                     modifier = Modifier.align(Alignment.Center),
-                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
@@ -537,6 +550,38 @@ private fun DownloadsScreenLayout(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DownloadsEmptyState(onGoToHomeClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(horizontal = MaterialTheme.spacings.large),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painter = painterResource(CoreR.drawable.ic_download),
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(MaterialTheme.spacings.medium))
+        Text(
+            text = stringResource(CoreR.string.downloads_empty_title),
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
+        Text(
+            text = stringResource(CoreR.string.downloads_empty_message),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(MaterialTheme.spacings.medium))
+        Button(onClick = onGoToHomeClick) {
+            Text(text = stringResource(CoreR.string.downloads_empty_go_home))
         }
     }
 }
@@ -1287,4 +1332,10 @@ private fun DownloadsScreenLayoutPreview() {
                 )
         )
     }
+}
+
+@PreviewScreenSizes
+@Composable
+private fun DownloadsScreenLayoutEmptyPreview() {
+    FindroidTheme { DownloadsScreenLayout(state = DownloadsState()) }
 }
