@@ -16,6 +16,8 @@ data class PvrQueueEntry(
     // Provider ids keep progress visible for Seerr-only media before Jellyfin imports the file.
     val tmdbId: Int? = null,
     val sonarrEpisodeId: Int? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
     val posterUrl: String? = null,
     // The PVR service's own id for this queue row - stable across polls, so snapshots can be
     // diffed to detect a download leaving the queue (= finished importing, in the common case).

@@ -35,15 +35,18 @@ data class DownloadShowGroup(
 /**
  * A single Sonarr/Radarr queue entry as shown on the Downloads screen. [itemId]/[item] are only
  * non-null when [QueueStatusRepository][dev.jdtech.jellyfin.repository.QueueStatusRepository]
- * resolved this queue entry to an item in the Jellyfin server library - otherwise (e.g. a torrent
- * added manually on the PVR side for something Jellyfin hasn't imported yet) this is a title-only
- * row (no poster, not clickable).
+ * resolved this queue entry to an item in the Jellyfin server library. PVR-only rows retain
+ * provider ids so they can open their Seerr detail when the PVR response identifies the item.
  */
 data class PvrQueueUiItem(
     val itemId: UUID?,
     val title: String,
     val item: FindroidItem? = null,
     val posterUrl: String? = null,
+    val tmdbId: Int? = null,
+    val sonarrEpisodeId: Int? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
     val status: QueueStatus,
     // The PVR service's own queue-row id, needed to remove the entry (see
     // QueueStatusRepository.removeQueueItem).

@@ -54,6 +54,7 @@ constructor(
     private val downloadIdsByItem = mutableMapOf<UUID, Long>()
     private val progressJobs = mutableMapOf<UUID, Job>()
     private var refreshJob: Job? = null
+    private var pvrRefreshJob: Job? = null
 
     fun startObserving() {
         if (refreshJob != null) return
@@ -62,6 +63,16 @@ constructor(
                 while (isActive) {
                     refreshDownloads()
                     delay(REFRESH_INTERVAL_MS)
+                }
+            }
+        pvrRefreshJob =
+            viewModelScope.launch {
+                while (isActive) {
+                    // PVR ETA/speed comes from Sonarr/Radarr, not DownloadManager. Refreshing
+                    // while this screen is visible keeps those values useful without tightening
+                    // the app-wide background polling interval.
+                    queueStatusRepository.refreshNow()
+                    delay(PVR_REFRESH_INTERVAL_MS)
                 }
             }
         viewModelScope.launch {
@@ -291,11 +302,13 @@ constructor(
     override fun onCleared() {
         super.onCleared()
         refreshJob?.cancel()
+        pvrRefreshJob?.cancel()
         progressJobs.values.forEach { it.cancel() }
     }
 
     companion object {
         private const val REFRESH_INTERVAL_MS = 3000L
+        private const val PVR_REFRESH_INTERVAL_MS = 10_000L
     }
 }
 
@@ -322,6 +335,10 @@ internal fun buildPvrQueueGroups(entries: List<PvrQueueEntry>): List<PvrQueueGro
                             title = entry.item.toQueueTitle(fallback = entry.title),
                             item = entry.item,
                             posterUrl = entry.posterUrl,
+                            tmdbId = entry.tmdbId,
+                            sonarrEpisodeId = entry.sonarrEpisodeId,
+                            seasonNumber = entry.seasonNumber,
+                            episodeNumber = entry.episodeNumber,
                             status = entry.status,
                             queueItemId = entry.queueItemId,
                         )

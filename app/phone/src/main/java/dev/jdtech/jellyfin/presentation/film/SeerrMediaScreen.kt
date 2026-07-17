@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -44,6 +45,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -66,6 +68,7 @@ import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
 import dev.jdtech.jellyfin.utils.ObserveAsEvents
+import java.util.UUID
 
 /**
  * Detail view for a Seerr search result that is not (fully) in the library yet - metadata plus
@@ -78,8 +81,8 @@ fun SeerrMediaScreen(
     seasonNumber: Int? = null,
     episodeNumber: Int? = null,
     sonarrEpisodeId: Int? = null,
-    navigateToShow: () -> Unit = {},
-    navigateToSeason: (Int) -> Unit = {},
+    navigateToShow: (UUID?) -> Unit = {},
+    navigateToSeason: (Int, UUID?) -> Unit = { _, _ -> },
     navigateBack: () -> Unit,
     viewModel: SeerrMediaViewModel = hiltViewModel(),
 ) {
@@ -154,8 +157,8 @@ fun SeerrMediaScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun SeerrMediaScreenLayout(
     state: SeerrMediaState,
-    navigateToShow: () -> Unit,
-    navigateToSeason: (Int) -> Unit,
+    navigateToShow: (UUID?) -> Unit,
+    navigateToSeason: (Int, UUID?) -> Unit,
     onAction: (SeerrMediaAction) -> Unit,
 ) {
     val safePadding = rememberSafePadding()
@@ -192,14 +195,22 @@ private fun SeerrMediaScreenLayout(
                         detail.episode?.let { episode ->
                             Spacer(Modifier.height(MaterialTheme.spacings.small))
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
-                                TextButton(onClick = navigateToShow) { Text(detail.title) }
-                                TextButton(onClick = { navigateToSeason(episode.seasonNumber) }) {
+                                TextButton(onClick = { navigateToShow(state.jellyfinShowId) }) {
+                                    Text(detail.title)
+                                }
+                                TextButton(
+                                    onClick = {
+                                        navigateToSeason(episode.seasonNumber, state.jellyfinSeasonId)
+                                    }
+                                ) {
                                     Text(detail.season?.title ?: "Season ${episode.seasonNumber}")
                                 }
                             }
                         } ?: detail.season?.let {
                             Spacer(Modifier.height(MaterialTheme.spacings.small))
-                            TextButton(onClick = navigateToShow) { Text(detail.title) }
+                            TextButton(onClick = { navigateToShow(state.jellyfinShowId) }) {
+                                Text(detail.title)
+                            }
                         }
                         // The chip renders NOT_REQUESTED as "Requested" (its just-requested
                         // marker), so only show it once there actually is a request or status.
@@ -251,38 +262,14 @@ private fun SeerrMediaScreenLayout(
                                 onClick = { onAction(SeerrMediaAction.OnAutomaticSearchInPvr) },
                                 enabled = !state.isSubmitting,
                             ) {
-                                Text(
-                                    text =
-                                        stringResource(
-                                            when (detail.mediaType) {
-                                                SeerrMediaType.MOVIE ->
-                                                    CoreR.string.search_movie_in_radarr_automatic
-                                                SeerrMediaType.TV ->
-                                                    if (detail.episode != null) {
-                                                        CoreR.string.search_episode_in_sonarr_automatic
-                                                    } else {
-                                                        CoreR.string.search_episodes_in_sonarr
-                                                    }
-                                            }
-                                        )
-                                )
+                                PvrSearchButtonLabel(mediaType = detail.mediaType, manual = false)
                             }
                         }
                         if (state.manualPvrSearchAvailable) {
                             TextButton(
                                 onClick = { onAction(SeerrMediaAction.OnOpenReleasePicker) },
                             ) {
-                                Text(
-                                    text =
-                                        stringResource(
-                                            when (detail.mediaType) {
-                                                SeerrMediaType.MOVIE ->
-                                                    CoreR.string.search_movie_in_radarr_manual
-                                                SeerrMediaType.TV ->
-                                                    CoreR.string.search_episode_in_sonarr_manual
-                                            }
-                                        )
-                                )
+                                PvrSearchButtonLabel(mediaType = detail.mediaType, manual = true)
                             }
                         }
                     }
@@ -364,6 +351,35 @@ private fun SeerrMediaScreenLayout(
             state = releasePicker,
             onGrab = { onAction(SeerrMediaAction.GrabRelease(it)) },
             onDismissRequest = { onAction(SeerrMediaAction.DismissReleasePicker) },
+        )
+    }
+}
+
+@Composable
+private fun PvrSearchButtonLabel(mediaType: SeerrMediaType, manual: Boolean) {
+    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
+        Icon(
+            painter =
+                painterResource(
+                    if (mediaType == SeerrMediaType.TV) CoreR.drawable.ic_sonarr
+                    else CoreR.drawable.ic_radarr
+                ),
+            contentDescription = null,
+            tint = Color.Unspecified,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text =
+                stringResource(
+                    when (mediaType) {
+                        SeerrMediaType.MOVIE ->
+                            if (manual) CoreR.string.search_movie_in_radarr_manual
+                            else CoreR.string.search_movie_in_radarr_automatic
+                        SeerrMediaType.TV ->
+                            if (manual) CoreR.string.search_episode_in_sonarr_manual
+                            else CoreR.string.search_episode_in_sonarr_automatic
+                    }
+                )
         )
     }
 }
@@ -463,7 +479,7 @@ private fun SeerrMediaScreenLayoutPreview() {
                         )
                 ),
             navigateToShow = {},
-            navigateToSeason = {},
+            navigateToSeason = { _, _ -> },
             onAction = {},
         )
     }

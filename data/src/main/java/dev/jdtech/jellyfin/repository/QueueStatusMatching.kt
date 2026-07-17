@@ -59,6 +59,8 @@ fun matchSonarr(
             status = item.toQueueStatus(),
             tmdbId = sonarrSeries?.tmdbId?.takeIf { it != UNSET_PROVIDER_ID },
             sonarrEpisodeId = item.episodeId.takeIf { it != UNSET_PROVIDER_ID },
+            seasonNumber = item.seasonNumber.takeIf { it != UNSET_PROVIDER_ID },
+            episodeNumber = episodeNumber,
             posterUrl = sonarrSeries?.images?.posterUrl(),
             queueItemId = item.id,
         )

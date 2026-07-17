@@ -462,6 +462,24 @@ fun NavigationRoot(
                     onItemClick = { item ->
                         navigateToItem(navController = navController, item = item)
                     },
+                    onPvrItemClick = { item, source ->
+                        item.tmdbId?.let { tmdbId ->
+                            navController.safeNavigate(
+                                SeerrMediaRoute(
+                                    tmdbId = tmdbId,
+                                    mediaType =
+                                        if (source == PvrSource.SONARR) {
+                                            SeerrMediaType.TV.name
+                                        } else {
+                                            SeerrMediaType.MOVIE.name
+                                        },
+                                    seasonNumber = item.seasonNumber,
+                                    episodeNumber = item.episodeNumber,
+                                    sonarrEpisodeId = item.sonarrEpisodeId,
+                                )
+                            )
+                        }
+                    },
                     onShowClick = { showId ->
                         navController.safeNavigate(ShowRoute(showId = showId.toString()))
                     },
@@ -574,22 +592,30 @@ fun NavigationRoot(
                     seasonNumber = route.seasonNumber,
                     episodeNumber = route.episodeNumber,
                     sonarrEpisodeId = route.sonarrEpisodeId,
-                    navigateToShow = {
-                        navController.safeNavigate(
-                            SeerrMediaRoute(
-                                tmdbId = route.tmdbId,
-                                mediaType = SeerrMediaType.TV.name,
+                    navigateToShow = { showId ->
+                        if (showId != null) {
+                            navController.safeNavigate(ShowRoute(showId = showId.toString()))
+                        } else {
+                            navController.safeNavigate(
+                                SeerrMediaRoute(
+                                    tmdbId = route.tmdbId,
+                                    mediaType = SeerrMediaType.TV.name,
+                                )
                             )
-                        )
+                        }
                     },
-                    navigateToSeason = { seasonNumber ->
-                        navController.safeNavigate(
-                            SeerrMediaRoute(
-                                tmdbId = route.tmdbId,
-                                mediaType = SeerrMediaType.TV.name,
-                                seasonNumber = seasonNumber,
+                    navigateToSeason = { seasonNumber, seasonId ->
+                        if (seasonId != null) {
+                            navController.safeNavigate(SeasonRoute(seasonId = seasonId.toString()))
+                        } else {
+                            navController.safeNavigate(
+                                SeerrMediaRoute(
+                                    tmdbId = route.tmdbId,
+                                    mediaType = SeerrMediaType.TV.name,
+                                    seasonNumber = seasonNumber,
+                                )
                             )
-                        )
+                        }
                     },
                     navigateBack = { navController.safePopBackStack() },
                 )

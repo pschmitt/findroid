@@ -10,6 +10,7 @@ import dev.jdtech.jellyfin.core.presentation.search.ReleasePickerState
 import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.RadarrSearchRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
+import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.SeerrRepository
 import dev.jdtech.jellyfin.repository.SonarrSearchRepository
 import javax.inject.Inject
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import org.jellyfin.sdk.model.api.BaseItemKind
 
 /** One-shot feedback for the request/cancel actions, shown as a toast. */
 sealed interface SeerrMediaEvent {
@@ -44,6 +46,7 @@ constructor(
     private val radarrSearchRepository: RadarrSearchRepository,
     private val queueStatusRepository: QueueStatusRepository,
     private val pvrConfiguration: PvrConfiguration,
+    private val jellyfinRepository: JellyfinRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SeerrMediaState())
     val state = _state.asStateFlow()
@@ -93,7 +96,14 @@ constructor(
                 .getDetails(tmdbId, mediaType, seasonNumber, episodeNumber)
                 .fold(
                     onSuccess = { detail ->
-                        _state.value = _state.value.copy(isLoading = false, detail = detail)
+                        val (showId, seasonId) = findJellyfinDestination(detail)
+                        _state.value =
+                            _state.value.copy(
+                                isLoading = false,
+                                detail = detail,
+                                jellyfinShowId = showId,
+                                jellyfinSeasonId = seasonId,
+                            )
                     },
                     onFailure = { e ->
                         _state.value =
@@ -101,6 +111,29 @@ constructor(
                     },
                 )
         }
+    }
+
+    private suspend fun findJellyfinDestination(
+        detail: dev.jdtech.jellyfin.models.SeerrMediaDetail
+    ): Pair<java.util.UUID?, java.util.UUID?> {
+        if (detail.mediaType != SeerrMediaType.TV) return null to null
+        return runCatching {
+                val show =
+                    jellyfinRepository
+                        .getItems(includeTypes = listOf(BaseItemKind.SERIES), recursive = true)
+                        .filterIsInstance<dev.jdtech.jellyfin.models.FindroidShow>()
+                        .firstOrNull { it.tmdbId == detail.tmdbId.toString() }
+                        ?: return@runCatching null to null
+                val seasonNumber = detail.episode?.seasonNumber ?: detail.season?.seasonNumber
+                val seasonId =
+                    seasonNumber?.let {
+                        jellyfinRepository.getSeasons(show.id).firstOrNull { season ->
+                            season.indexNumber == it
+                        }?.id
+                    }
+                show.id to seasonId
+            }
+            .getOrDefault(null to null)
     }
 
     private fun observeQueueStatus(

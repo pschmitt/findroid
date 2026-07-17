@@ -56,7 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -111,6 +110,7 @@ fun DownloadsScreen(
     onShowClick: (UUID) -> Unit = {},
     onMoviesClick: () -> Unit = {},
     onGoToHomeClick: () -> Unit = {},
+    onPvrItemClick: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val androidContext = LocalContext.current
@@ -174,6 +174,7 @@ fun DownloadsScreen(
         onGoToHomeClick = onGoToHomeClick,
         onForceGroup = viewModel::forceGroup,
         onPvrRemoveRequest = { item, source -> pendingPvrRemove = item to source },
+        onPvrItemClick = onPvrItemClick,
         onRefresh = viewModel::refresh,
     )
 
@@ -280,6 +281,7 @@ private fun DownloadsScreenLayout(
     onGoToHomeClick: () -> Unit = {},
     onForceGroup: (List<UUID>) -> Unit = {},
     onPvrRemoveRequest: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
+    onPvrItemClick: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
     onRefresh: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -549,7 +551,12 @@ private fun DownloadsScreenLayout(
                             items(items = group.items) { queueItem ->
                                 PvrQueueRow(
                                     queueItem = queueItem,
-                                    onClick = { queueItem.item?.let(onItemClick) },
+                                    onClick =
+                                        if (queueItem.item != null || queueItem.tmdbId != null) {
+                                            { queueItem.item?.let(onItemClick) ?: onPvrItemClick(queueItem, group.source) }
+                                        } else {
+                                            null
+                                        },
                                     onRemove = { onPvrRemoveRequest(queueItem, group.source) },
                                 )
                             }
@@ -914,7 +921,11 @@ private fun DownloadRow(
  * non-clickable until Jellyfin supplies a matching item.
  */
 @Composable
-private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit, onRemove: () -> Unit) {
+private fun PvrQueueRow(
+    queueItem: PvrQueueUiItem,
+    onClick: (() -> Unit)?,
+    onRemove: () -> Unit,
+) {
     val context = LocalContext.current
     val status = queueItem.status
     val isProblem = status.status == QueueItemStatus.WARNING || status.status == QueueItemStatus.FAILED
@@ -942,7 +953,7 @@ private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit, onRemove
     Row(
         modifier =
             Modifier.fillMaxWidth()
-                .let { if (queueItem.item != null) it.clickable(onClick = onClick) else it }
+                .let { modifier -> onClick?.let { modifier.clickable(onClick = it) } ?: modifier }
                 .padding(
                     horizontal = MaterialTheme.spacings.default,
                     vertical = MaterialTheme.spacings.small,
@@ -993,10 +1004,7 @@ private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit, onRemove
                 modifier =
                     Modifier.align(Alignment.TopEnd)
                         .padding(MaterialTheme.spacings.extraSmall)
-                        .size(20.dp)
-                        .clip(MaterialTheme.shapes.extraSmall)
-                        .background(MaterialTheme.colorScheme.surface),
-                tint = Color.Unspecified,
+                        .size(20.dp),
             )
         }
         Spacer(modifier = Modifier.width(MaterialTheme.spacings.default))

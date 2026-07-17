@@ -318,11 +318,11 @@
     <string name="search_episode">Search episode</string>
     <string name="search_episodes">Search episodes</string>
     <string name="search_episodes_in_sonarr">Search missing episodes in Sonarr</string>
-    <string name="search_episode_in_sonarr_automatic">Search episode automatically in Sonarr</string>
-    <string name="search_episode_in_sonarr_manual">Search episode manually in Sonarr…</string>
+    <string name="search_episode_in_sonarr_automatic">Search (auto)</string>
+    <string name="search_episode_in_sonarr_manual">Search (manual)</string>
     <string name="search_movie">Search movie</string>
-    <string name="search_movie_in_radarr_automatic">Search movie automatically in Radarr</string>
-    <string name="search_movie_in_radarr_manual">Search movie manually in Radarr…</string>
+    <string name="search_movie_in_radarr_automatic">Search (auto)</string>
+    <string name="search_movie_in_radarr_manual">Search (manual)</string>
     <string name="search_episode_automatic">Search automatically</string>
     <string name="search_episode_manual">Search manually…</string>
     <string name="search_triggered_toast">Search started</string>
