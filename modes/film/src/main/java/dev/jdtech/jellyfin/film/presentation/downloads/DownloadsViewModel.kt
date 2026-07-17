@@ -11,8 +11,8 @@ import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.PvrQueueEntry
 import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.isDownloading
-import dev.jdtech.jellyfin.models.toFindroidEpisode
-import dev.jdtech.jellyfin.models.toFindroidMovie
+import dev.jdtech.jellyfin.models.toFindroidEpisodes
+import dev.jdtech.jellyfin.models.toFindroidMovies
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.PvrDiskSpaceRepository
@@ -28,6 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,47 +85,70 @@ constructor(
             }
         viewModelScope.launch {
             downloader.getDeleteProgressFlow().collect { progress ->
-                _state.value = _state.value.copy(deleteProgress = progress)
+                _state.update { it.copy(deleteProgress = progress) }
             }
         }
         viewModelScope.launch {
             queueStatusRepository.getQueueSnapshotFlow().collect { snapshot ->
-                _state.value =
-                    _state.value.copy(
+                _state.update {
+                    it.copy(
                         pvrQueueGroups = buildPvrQueueGroups(snapshot.entries),
                         pvrErrors = snapshot.errors,
                     )
+                }
             }
         }
     }
 
     // Storage numbers don't change minute to minute, so this is a one-shot fetch on entering the
     // screen and on pull-to-refresh, not part of the polling loops above.
+    //
+    // These two fetches deliberately run as independent launches rather than sequentially, since
+    // the PVR disk-space call is a network round trip (Sonarr/Radarr HTTP APIs, see
+    // PvrDiskSpaceRepositoryImpl) while the device storage stats are a local StatFs call - no
+    // reason to make the fast local one wait on the slow network one. This is also the root cause
+    // of the previously-observed flaky on-device storage bar: with the old
+    // `_state.value = _state.value.copy(...)` pattern, `_state.value` (the receiver of `.copy`) is
+    // read/snapshotted *before* the suspending call on the same line, not after it resumes -
+    // Kotlin evaluates a call's receiver before its arguments. So if this coroutine snapshots state
+    // S0, then suspends on the network call, and the *other* launch below finishes first and writes
+    // S1 = S0.copy(deviceStorage = ...), this coroutine resumes still holding stale S0 and does
+    // `_state.value = S0.copy(diskSpace = ...)`, silently overwriting S1 and dropping the
+    // deviceStorage update entirely. That race is timing-sensitive (depends on which of the two
+    // calls happens to resolve first), which explains why it appeared/disappeared across
+    // otherwise-identical runs. `_state.update { it.copy(...) }` fixes this: it always applies the
+    // transform to the *current* value at the moment of the atomic update, never a pre-suspend
+    // snapshot, so neither launch can clobber the other's write regardless of ordering.
     private fun refreshStorage() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(diskSpace = pvrDiskSpaceRepository.getDiskSpace())
+            val diskSpace = pvrDiskSpaceRepository.getDiskSpace()
+            _state.update { it.copy(diskSpace = diskSpace) }
         }
         viewModelScope.launch {
             val deviceStorage = withContext(Dispatchers.IO) { downloader.getStorageStats() }
-            _state.value = _state.value.copy(deviceStorage = deviceStorage)
+            _state.update { it.copy(deviceStorage = deviceStorage) }
         }
     }
 
     private suspend fun refreshDownloads() {
         if (_state.value.isEmpty) {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            _state.update { it.copy(isLoading = true, error = null) }
         }
         try {
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return
             val userId = repository.getUserId()
 
+            // toFindroidMovies/toFindroidEpisodes batch-fetch user data, sources, media streams
+            // and trickplay info for the whole list up front (a handful of queries total) instead
+            // of the per-row N+1 query pattern the singular toFindroidMovie/toFindroidEpisode do -
+            // see their kdoc in FindroidMovie.kt/FindroidEpisode.kt for why that mattered here.
             val movies =
                 withContext(Dispatchers.Default) {
-                    database.getMoviesByServerId(serverId).map { it.toFindroidMovie(database, userId) }
+                    database.getMoviesByServerId(serverId).toFindroidMovies(database, userId)
                 }
             val episodes =
                 withContext(Dispatchers.Default) {
-                    database.getEpisodesByServerId(serverId).map { it.toFindroidEpisode(database, userId) }
+                    database.getEpisodesByServerId(serverId).toFindroidEpisodes(database, userId)
                 }
             val showGroups =
                 withContext(Dispatchers.Default) {
@@ -144,23 +168,24 @@ constructor(
                 }
 
             val allIds = (movies.map { it.id } + episodes.map { it.id }).toSet()
-            _state.value =
-                _state.value.copy(
+            _state.update {
+                it.copy(
                     isLoading = false,
                     isRefreshing = false,
                     movies = movies,
                     showGroups = showGroups,
-                    selectedIds = _state.value.selectedIds.intersect(allIds),
+                    selectedIds = it.selectedIds.intersect(allIds),
                 )
+            }
             reconcileDownloadProgress(movies, episodes)
         } catch (e: Exception) {
-            _state.value = _state.value.copy(isLoading = false, isRefreshing = false, error = e)
+            _state.update { it.copy(isLoading = false, isRefreshing = false, error = e) }
         }
     }
 
     fun refresh() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isRefreshing = true)
+            _state.update { it.copy(isRefreshing = true) }
             queueStatusRepository.refreshNow()
             refreshDownloads()
         }
@@ -176,7 +201,7 @@ constructor(
         (progressJobs.keys - desiredIds).forEach { id ->
             progressJobs.remove(id)?.cancel()
             downloadIdsByItem.remove(id)
-            _state.value = _state.value.copy(downloadProgress = _state.value.downloadProgress - id)
+            _state.update { it.copy(downloadProgress = it.downloadProgress - id) }
         }
 
         trackedItems.forEach { (id, item) ->
@@ -188,36 +213,35 @@ constructor(
             progressJobs[id] =
                 viewModelScope.launch {
                     downloader.getProgressFlow(downloadId).collect { progress ->
-                        _state.value =
-                            _state.value.copy(
-                                downloadProgress = _state.value.downloadProgress + (id to progress)
-                            )
+                        _state.update {
+                            it.copy(downloadProgress = it.downloadProgress + (id to progress))
+                        }
                     }
                 }
         }
     }
 
     fun toggleSelection(id: UUID) {
-        val selectedIds = _state.value.selectedIds
-        _state.value =
-            _state.value.copy(
-                selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
-            )
+        _state.update {
+            val selectedIds = it.selectedIds
+            it.copy(selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id)
+        }
     }
 
     fun toggleSelectAll(selectAll: Boolean) {
-        val allIds =
-            (_state.value.movies.map { it.id } + _state.value.showGroups.flatMap { it.episodes }.map { it.id })
-                .toSet()
-        _state.value = _state.value.copy(selectedIds = if (selectAll) allIds else emptySet())
+        _state.update { state ->
+            val allIds =
+                (state.movies.map { it.id } + state.showGroups.flatMap { it.episodes }.map { it.id })
+                    .toSet()
+            state.copy(selectedIds = if (selectAll) allIds else emptySet())
+        }
     }
 
     fun setGroupSelected(ids: Set<UUID>, selected: Boolean) {
-        val selectedIds = _state.value.selectedIds
-        _state.value =
-            _state.value.copy(
-                selectedIds = if (selected) selectedIds + ids else selectedIds - ids
-            )
+        _state.update {
+            val selectedIds = it.selectedIds
+            it.copy(selectedIds = if (selected) selectedIds + ids else selectedIds - ids)
+        }
     }
 
     fun deleteSelected() {
@@ -231,7 +255,7 @@ constructor(
     fun deleteItems(ids: List<UUID>) {
         viewModelScope.launch {
             downloader.deleteItems(ids)
-            _state.value = _state.value.copy(selectedIds = _state.value.selectedIds - ids.toSet())
+            _state.update { it.copy(selectedIds = it.selectedIds - ids.toSet()) }
             refreshDownloads()
         }
     }

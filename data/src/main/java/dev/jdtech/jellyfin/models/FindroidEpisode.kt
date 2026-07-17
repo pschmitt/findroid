@@ -121,3 +121,79 @@ fun FindroidEpisodeDto.toFindroidEpisode(
         trickplayInfo = trickplayInfos,
     )
 }
+
+/**
+ * Batch equivalent of [toFindroidEpisode] for mapping a whole list of DB rows at once - see the
+ * kdoc on [toFindroidMovies][dev.jdtech.jellyfin.models.toFindroidMovies] for why this exists (the
+ * same N+1 query pattern applies here, one userdata/sources/mediaStreams/trickplay round trip per
+ * episode instead of once for the whole batch).
+ */
+fun List<FindroidEpisodeDto>.toFindroidEpisodes(
+    database: ServerDatabaseDao,
+    userId: UUID,
+): List<FindroidEpisode> {
+    if (isEmpty()) return emptyList()
+    val itemIds = map { it.id }
+
+    val userDataByItemId = database.getUserDataForItems(itemIds, userId).associateBy { it.itemId }.toMutableMap()
+    for (itemId in itemIds) {
+        if (itemId !in userDataByItemId) {
+            val created =
+                FindroidUserDataDto(
+                    userId = userId,
+                    itemId = itemId,
+                    played = false,
+                    favorite = false,
+                    playbackPositionTicks = 0L,
+                )
+            database.insertUserData(created)
+            userDataByItemId[itemId] = created
+        }
+    }
+
+    val sourcesByItemId = database.getSourcesForItems(itemIds).groupBy { it.itemId }
+    val sourceIds = sourcesByItemId.values.flatten().map { it.id }
+    val mediaStreamsBySourceId = database.getMediaStreamsForSources(sourceIds).groupBy { it.sourceId }
+    val trickplayBySourceId = database.getTrickplayInfoForSources(sourceIds).associateBy { it.sourceId }
+
+    return map { dto ->
+        val userData = userDataByItemId.getValue(dto.id)
+        val sources =
+            (sourcesByItemId[dto.id] ?: emptyList()).map { sourceDto ->
+                sourceDto.toFindroidSource(mediaStreamsBySourceId[sourceDto.id] ?: emptyList())
+            }
+        val trickplayInfo =
+            sources
+                .mapNotNull { source ->
+                    trickplayBySourceId[source.id]?.toFindroidTrickplayInfo()?.let { source.id to it }
+                }
+                .toMap()
+
+        FindroidEpisode(
+            id = dto.id,
+            name = dto.name,
+            originalTitle = "",
+            overview = dto.overview,
+            indexNumber = dto.indexNumber,
+            indexNumberEnd = dto.indexNumberEnd,
+            parentIndexNumber = dto.parentIndexNumber,
+            sources = sources,
+            played = userData.played,
+            favorite = userData.favorite,
+            canPlay = true,
+            canDownload = false,
+            runtimeTicks = dto.runtimeTicks,
+            playbackPositionTicks = userData.playbackPositionTicks,
+            premiereDate = dto.premiereDate,
+            seriesId = dto.seriesId,
+            seriesName = dto.seriesName,
+            seasonId = dto.seasonId,
+            seasonName = null,
+            communityRating = dto.communityRating,
+            people = emptyList(),
+            images = dto.toLocalFindroidImages(itemId = dto.id),
+            chapters = dto.chapters ?: emptyList(),
+            trickplayInfo = trickplayInfo,
+        )
+    }
+}
