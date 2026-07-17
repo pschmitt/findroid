@@ -4,13 +4,13 @@ import dev.jdtech.jellyfin.models.SeerrRequestItem
 import dev.jdtech.jellyfin.models.SeerrSearchItem
 
 /**
- * Discover/request flows backed by a Jellyseerr/Seerr instance - the "add new content" side of
- * the PVR integration. Jellyseerr owns the Sonarr/Radarr routing (quality profiles, root
+ * Discover/request flows backed by a Seerr/Seerr instance - the "add new content" side of
+ * the PVR integration. Seerr owns the Sonarr/Radarr routing (quality profiles, root
  * folders), so Findroid only ever searches and files requests. All calls are user-initiated, so
  * failures are surfaced via [Result] rather than swallowed, same as the search repositories.
  */
-interface JellyseerrRepository {
-    /** TMDB-backed movie/series search, with each result's current availability in Jellyseerr. */
+interface SeerrRepository {
+    /** TMDB-backed movie/series search, with each result's current availability in Seerr. */
     suspend fun search(query: String): Result<List<SeerrSearchItem>>
 
     /** Requests the item; series requests cover all seasons. */

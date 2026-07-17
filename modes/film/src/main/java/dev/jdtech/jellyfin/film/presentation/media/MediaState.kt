@@ -10,6 +10,6 @@ data class MediaState(
     // nothing useful to show otherwise, so NavigationRoot uses this to hide it entirely rather
     // than showing an always-empty screen.
     val showCalendarTab: Boolean = false,
-    // Same idea for the Jellyseerr-backed Discover tab.
+    // Same idea for the Seerr-backed Discover tab.
     val showDiscoverTab: Boolean = false,
 )

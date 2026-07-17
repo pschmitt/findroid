@@ -177,8 +177,8 @@
     <string name="integrations_radarr">Radarr</string>
     <string name="integrations_enable_sonarr">Enable Sonarr</string>
     <string name="integrations_enable_radarr">Enable Radarr</string>
-    <string name="integrations_jellyseerr">Jellyseerr</string>
-    <string name="integrations_enable_jellyseerr">Enable Jellyseerr</string>
+    <string name="integrations_seerr">Seerr</string>
+    <string name="integrations_enable_seerr">Enable Seerr</string>
     <string name="integrations_server_url">Server URL</string>
     <string name="integrations_server_url_hint">http://192.168.1.10:8989</string>
     <string name="integrations_api_key">API key</string>
@@ -269,7 +269,7 @@
     <string name="discover_requested_toast">Requested “%1$s”</string>
     <string name="discover_request_failed_toast">Request failed: %1$s</string>
     <string name="discover_recent_requests">Recent requests</string>
-    <string name="discover_empty_hint">Search for a movie or show to request it via Jellyseerr</string>
+    <string name="discover_empty_hint">Search for a movie or show to request it via Seerr</string>
     <string name="discover_no_results">No results</string>
     <string name="discover_status_available">Available</string>
     <string name="discover_status_partially_available">Partially available</string>

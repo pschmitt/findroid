@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.models.SeerrSearchItem
-import dev.jdtech.jellyfin.repository.JellyseerrRepository
+import dev.jdtech.jellyfin.repository.SeerrRepository
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class DiscoverViewModel
 @Inject
-constructor(private val jellyseerrRepository: JellyseerrRepository) : ViewModel() {
+constructor(private val seerrRepository: SeerrRepository) : ViewModel() {
     private val _state = MutableStateFlow(DiscoverState())
     val state = _state.asStateFlow()
 
@@ -42,7 +42,7 @@ constructor(private val jellyseerrRepository: JellyseerrRepository) : ViewModel(
             viewModelScope.launch {
                 delay(SEARCH_DEBOUNCE_MS)
                 _state.value = _state.value.copy(isSearching = true, error = null)
-                val result = jellyseerrRepository.search(query)
+                val result = seerrRepository.search(query)
                 result.fold(
                     onSuccess = { items ->
                         _state.value = _state.value.copy(isSearching = false, results = items)
@@ -61,7 +61,7 @@ constructor(private val jellyseerrRepository: JellyseerrRepository) : ViewModel(
 
     fun request(item: SeerrSearchItem) {
         viewModelScope.launch {
-            jellyseerrRepository
+            seerrRepository
                 .request(item)
                 .fold(
                     onSuccess = {
@@ -83,7 +83,7 @@ constructor(private val jellyseerrRepository: JellyseerrRepository) : ViewModel(
 
     private fun loadRecentRequests() {
         viewModelScope.launch {
-            jellyseerrRepository
+            seerrRepository
                 .getRecentRequests()
                 .fold(
                     onSuccess = { requests ->

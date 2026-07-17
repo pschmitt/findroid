@@ -67,9 +67,9 @@ import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.ObserveAsEvents
 
 /**
- * Jellyseerr-backed "add new content" screen: search TMDB, file a request (Jellyseerr routes it
+ * Seerr-backed "add new content" screen: search TMDB, file a request (Seerr routes it
  * to Sonarr/Radarr server-side), and see recent requests with their availability. Only reachable
- * when Jellyseerr is configured (see `MediaState.showDiscoverTab`).
+ * when Seerr is configured (see `MediaState.showDiscoverTab`).
  */
 @Composable
 fun DiscoverScreen(viewModel: DiscoverViewModel = hiltViewModel()) {

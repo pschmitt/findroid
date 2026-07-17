@@ -29,10 +29,10 @@ constructor(
             !appPreferences.getValue(appPreferences.radarrBaseUrl).isNullOrBlank() &&
             !secureCredentialStore.getString(PvrCredentialKeys.RADARR_API_KEY).isNullOrBlank()
 
-    fun isJellyseerrConfigured(): Boolean =
-        appPreferences.getValue(appPreferences.jellyseerrEnabled) &&
-            !appPreferences.getValue(appPreferences.jellyseerrBaseUrl).isNullOrBlank() &&
-            !secureCredentialStore.getString(PvrCredentialKeys.JELLYSEERR_API_KEY).isNullOrBlank()
+    fun isSeerrConfigured(): Boolean =
+        appPreferences.getValue(appPreferences.seerrEnabled) &&
+            !appPreferences.getValue(appPreferences.seerrBaseUrl).isNullOrBlank() &&
+            !secureCredentialStore.getString(PvrCredentialKeys.SEERR_API_KEY).isNullOrBlank()
 
     fun isAnyConfigured(): Boolean = isSonarrConfigured() || isRadarrConfigured()
 }

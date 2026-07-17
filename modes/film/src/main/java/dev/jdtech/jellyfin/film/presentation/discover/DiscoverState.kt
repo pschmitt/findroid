@@ -12,7 +12,7 @@ data class DiscoverState(
     // status carried by the search results, so a just-requested item immediately reads as
     // "Requested" instead of still offering the button.
     val requestedTmdbIds: Set<Int> = emptySet(),
-    // Search or requests-list failure, already user-presentable (names Jellyseerr).
+    // Search or requests-list failure, already user-presentable (names Seerr).
     val error: String? = null,
 )
 

@@ -180,7 +180,7 @@ class BackupManager(
             listOf(
                 PvrCredentialKeys.SONARR_API_KEY,
                 PvrCredentialKeys.RADARR_API_KEY,
-                PvrCredentialKeys.JELLYSEERR_API_KEY,
+                PvrCredentialKeys.SEERR_API_KEY,
             )
     }
 }

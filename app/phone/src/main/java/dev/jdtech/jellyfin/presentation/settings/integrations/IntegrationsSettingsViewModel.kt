@@ -3,7 +3,7 @@ package dev.jdtech.jellyfin.presentation.settings.integrations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.jdtech.jellyfin.api.pvr.JellyseerrApi
+import dev.jdtech.jellyfin.api.pvr.SeerrApi
 import dev.jdtech.jellyfin.api.pvr.PvrCredentialKeys
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
@@ -43,10 +43,10 @@ constructor(
                 radarrEnabled = appPreferences.getValue(appPreferences.radarrEnabled),
                 radarrBaseUrl = appPreferences.getValue(appPreferences.radarrBaseUrl).orEmpty(),
                 radarrApiKey = secureCredentialStore.getString(PvrCredentialKeys.RADARR_API_KEY).orEmpty(),
-                jellyseerrEnabled = appPreferences.getValue(appPreferences.jellyseerrEnabled),
-                jellyseerrBaseUrl = appPreferences.getValue(appPreferences.jellyseerrBaseUrl).orEmpty(),
-                jellyseerrApiKey =
-                    secureCredentialStore.getString(PvrCredentialKeys.JELLYSEERR_API_KEY).orEmpty(),
+                seerrEnabled = appPreferences.getValue(appPreferences.seerrEnabled),
+                seerrBaseUrl = appPreferences.getValue(appPreferences.seerrBaseUrl).orEmpty(),
+                seerrApiKey =
+                    secureCredentialStore.getString(PvrCredentialKeys.SEERR_API_KEY).orEmpty(),
                 pvrPollIntervalMinutes =
                     appPreferences.getValue(appPreferences.pvrPollIntervalMinutes),
                 pvrReleaseCacheMinutes =
@@ -105,30 +105,30 @@ constructor(
                     )
             }
             is IntegrationsSettingsAction.OnTestRadarrConnection -> testRadarrConnection()
-            is IntegrationsSettingsAction.OnJellyseerrEnabledChanged -> {
-                appPreferences.setValue(appPreferences.jellyseerrEnabled, action.enabled)
-                _state.value = _state.value.copy(jellyseerrEnabled = action.enabled)
+            is IntegrationsSettingsAction.OnSeerrEnabledChanged -> {
+                appPreferences.setValue(appPreferences.seerrEnabled, action.enabled)
+                _state.value = _state.value.copy(seerrEnabled = action.enabled)
             }
-            is IntegrationsSettingsAction.OnJellyseerrBaseUrlChanged -> {
+            is IntegrationsSettingsAction.OnSeerrBaseUrlChanged -> {
                 appPreferences.setValue(
-                    appPreferences.jellyseerrBaseUrl,
+                    appPreferences.seerrBaseUrl,
                     action.baseUrl.ifBlank { null },
                 )
                 _state.value =
                     _state.value.copy(
-                        jellyseerrBaseUrl = action.baseUrl,
-                        jellyseerrTestState = PvrTestState.Idle,
+                        seerrBaseUrl = action.baseUrl,
+                        seerrTestState = PvrTestState.Idle,
                     )
             }
-            is IntegrationsSettingsAction.OnJellyseerrApiKeyChanged -> {
-                persistApiKeyDebounced(PvrCredentialKeys.JELLYSEERR_API_KEY, action.apiKey)
+            is IntegrationsSettingsAction.OnSeerrApiKeyChanged -> {
+                persistApiKeyDebounced(PvrCredentialKeys.SEERR_API_KEY, action.apiKey)
                 _state.value =
                     _state.value.copy(
-                        jellyseerrApiKey = action.apiKey,
-                        jellyseerrTestState = PvrTestState.Idle,
+                        seerrApiKey = action.apiKey,
+                        seerrTestState = PvrTestState.Idle,
                     )
             }
-            is IntegrationsSettingsAction.OnTestJellyseerrConnection -> testJellyseerrConnection()
+            is IntegrationsSettingsAction.OnTestSeerrConnection -> testSeerrConnection()
             is IntegrationsSettingsAction.OnPollIntervalChanged -> {
                 appPreferences.setValue(appPreferences.pvrPollIntervalMinutes, action.minutes)
                 _state.value = _state.value.copy(pvrPollIntervalMinutes = action.minutes)
@@ -167,10 +167,10 @@ constructor(
                 _state.value.radarrApiKey.ifBlank { null },
             )
         }
-        if (PvrCredentialKeys.JELLYSEERR_API_KEY in dirtyApiKeys) {
+        if (PvrCredentialKeys.SEERR_API_KEY in dirtyApiKeys) {
             secureCredentialStore.putString(
-                PvrCredentialKeys.JELLYSEERR_API_KEY,
-                _state.value.jellyseerrApiKey.ifBlank { null },
+                PvrCredentialKeys.SEERR_API_KEY,
+                _state.value.seerrApiKey.ifBlank { null },
             )
         }
     }
@@ -211,14 +211,14 @@ constructor(
         }
     }
 
-    private fun testJellyseerrConnection() {
-        val baseUrl = _state.value.jellyseerrBaseUrl
-        val apiKey = _state.value.jellyseerrApiKey
-        _state.value = _state.value.copy(jellyseerrTestState = PvrTestState.Testing)
+    private fun testSeerrConnection() {
+        val baseUrl = _state.value.seerrBaseUrl
+        val apiKey = _state.value.seerrApiKey
+        _state.value = _state.value.copy(seerrTestState = PvrTestState.Testing)
         viewModelScope.launch {
             val result =
                 try {
-                    val api = JellyseerrApi(baseUrl, apiKey)
+                    val api = SeerrApi(baseUrl, apiKey)
                     // auth/me validates the key; the request count doubles as the "N items" the
                     // shared success message expects.
                     api.getCurrentUser()
@@ -228,7 +228,7 @@ constructor(
                 } catch (e: Exception) {
                     PvrTestState.Error(e.message ?: e.toString())
                 }
-            _state.value = _state.value.copy(jellyseerrTestState = result)
+            _state.value = _state.value.copy(seerrTestState = result)
         }
     }
 

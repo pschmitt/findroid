@@ -27,7 +27,7 @@ constructor(
                     isLoading = true,
                     error = null,
                     showCalendarTab = pvrConfiguration.isAnyConfigured(),
-                    showDiscoverTab = pvrConfiguration.isJellyseerrConfigured(),
+                    showDiscoverTab = pvrConfiguration.isSeerrConfigured(),
                 )
             )
             try {

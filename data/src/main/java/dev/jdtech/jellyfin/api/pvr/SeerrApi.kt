@@ -11,13 +11,13 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
- * Thin client for a single Jellyseerr/Seerr instance, authenticated via `X-Api-Key` like the
+ * Thin client for a single Seerr/Seerr instance, authenticated via `X-Api-Key` like the
  * Sonarr/Radarr clients (shared [PvrHttpClient]). Cheap to construct per-call - [baseUrl] and
  * [apiKey] are resolved by the caller (typically from
- * [dev.jdtech.jellyfin.security.SecureCredentialStore] and the Jellyseerr settings) rather than
+ * [dev.jdtech.jellyfin.security.SecureCredentialStore] and the Seerr settings) rather than
  * injected as a Hilt singleton, since the user can reconfigure either at runtime.
  */
-class JellyseerrApi(private val baseUrl: String, private val apiKey: String) {
+class SeerrApi(private val baseUrl: String, private val apiKey: String) {
     private val client by lazy { PvrHttpClient.create(apiKey) }
 
     /** Combined TMDB-backed movie/series/person search. */
@@ -34,8 +34,8 @@ class JellyseerrApi(private val baseUrl: String, private val apiKey: String) {
         }
 
     /**
-     * Files a request; Jellyseerr routes it to Sonarr/Radarr with the server-side defaults
-     * (quality profile, root folder). Series requests ask for all seasons - Jellyseerr's
+     * Files a request; Seerr routes it to Sonarr/Radarr with the server-side defaults
+     * (quality profile, root folder). Series requests ask for all seasons - Seerr's
      * "seasons": "all" shorthand - since Findroid doesn't offer per-season picking (yet).
      */
     suspend fun createRequest(mediaType: String, tmdbId: Int) {
@@ -111,7 +111,7 @@ class JellyseerrApi(private val baseUrl: String, private val apiKey: String) {
             if (!response.isSuccessful) {
                 val snippet = body.take(200).ifBlank { "(empty body)" }
                 throw PvrApiException(
-                    "Jellyseerr request to $url failed with HTTP ${response.code}: $snippet",
+                    "Seerr request to $url failed with HTTP ${response.code}: $snippet",
                     httpCode = response.code,
                 )
             }

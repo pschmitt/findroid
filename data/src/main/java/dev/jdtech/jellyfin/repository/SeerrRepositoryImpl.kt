@@ -1,6 +1,6 @@
 package dev.jdtech.jellyfin.repository
 
-import dev.jdtech.jellyfin.api.pvr.JellyseerrApi
+import dev.jdtech.jellyfin.api.pvr.SeerrApi
 import dev.jdtech.jellyfin.api.pvr.SeerrSearchResult
 import dev.jdtech.jellyfin.models.SeerrMediaStatus
 import dev.jdtech.jellyfin.models.SeerrMediaType
@@ -14,15 +14,15 @@ import kotlinx.coroutines.coroutineScope
 import timber.log.Timber
 
 /**
- * Same lambda-injection pattern as the other PVR repositories ([jellyseerrApiKeyProvider]
+ * Same lambda-injection pattern as the other PVR repositories ([seerrApiKeyProvider]
  * resolves the secret from `SecureCredentialStore` in `core`). Constructed via
- * `dev.jdtech.jellyfin.di.JellyseerrModule` (a Hilt `@Provides`) rather than an `@Inject`
+ * `dev.jdtech.jellyfin.di.SeerrModule` (a Hilt `@Provides`) rather than an `@Inject`
  * constructor, since `data` has no Hilt plugin.
  */
-class JellyseerrRepositoryImpl(
+class SeerrRepositoryImpl(
     private val appPreferences: AppPreferences,
-    private val jellyseerrApiKeyProvider: () -> String?,
-) : JellyseerrRepository {
+    private val seerrApiKeyProvider: () -> String?,
+) : SeerrRepository {
 
     override suspend fun search(query: String): Result<List<SeerrSearchItem>> = runAction { api ->
         api.search(query)
@@ -34,8 +34,8 @@ class JellyseerrRepositoryImpl(
         api.createRequest(
             mediaType =
                 when (item.mediaType) {
-                    SeerrMediaType.MOVIE -> JellyseerrApi.MEDIA_TYPE_MOVIE
-                    SeerrMediaType.TV -> JellyseerrApi.MEDIA_TYPE_TV
+                    SeerrMediaType.MOVIE -> SeerrApi.MEDIA_TYPE_MOVIE
+                    SeerrMediaType.TV -> SeerrApi.MEDIA_TYPE_TV
                 },
             tmdbId = item.tmdbId,
         )
@@ -53,7 +53,7 @@ class JellyseerrRepositoryImpl(
                         async {
                             try {
                                 when (request.media.mediaType) {
-                                    JellyseerrApi.MEDIA_TYPE_MOVIE -> {
+                                    SeerrApi.MEDIA_TYPE_MOVIE -> {
                                         val details = api.getMovieDetails(request.media.tmdbId)
                                         SeerrRequestItem(
                                             id = request.id,
@@ -64,7 +64,7 @@ class JellyseerrRepositoryImpl(
                                             mediaStatus = SeerrMediaStatus.fromCode(request.media.status),
                                         )
                                     }
-                                    JellyseerrApi.MEDIA_TYPE_TV -> {
+                                    SeerrApi.MEDIA_TYPE_TV -> {
                                         val details = api.getTvDetails(request.media.tmdbId)
                                         SeerrRequestItem(
                                             id = request.id,
@@ -94,8 +94,8 @@ class JellyseerrRepositoryImpl(
     private fun SeerrSearchResult.toSearchItem(): SeerrSearchItem? {
         val type =
             when (mediaType) {
-                JellyseerrApi.MEDIA_TYPE_MOVIE -> SeerrMediaType.MOVIE
-                JellyseerrApi.MEDIA_TYPE_TV -> SeerrMediaType.TV
+                SeerrApi.MEDIA_TYPE_MOVIE -> SeerrMediaType.MOVIE
+                SeerrApi.MEDIA_TYPE_TV -> SeerrMediaType.TV
                 // Person results (actors/directors) aren't requestable - drop them.
                 else -> return null
             }
@@ -112,29 +112,29 @@ class JellyseerrRepositoryImpl(
 
     private fun String.toPosterUrl(): String = "$TMDB_IMAGE_BASE$this"
 
-    private suspend fun <T> runAction(block: suspend (JellyseerrApi) -> T): Result<T> {
+    private suspend fun <T> runAction(block: suspend (SeerrApi) -> T): Result<T> {
         val api =
-            api() ?: return Result.failure(IllegalStateException("Jellyseerr is not configured"))
+            api() ?: return Result.failure(IllegalStateException("Seerr is not configured"))
         return try {
             Result.success(block(api))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Timber.w(e, "Jellyseerr action failed")
-            Result.failure(mapPvrSearchError("Jellyseerr", e))
+            Timber.w(e, "Seerr action failed")
+            Result.failure(mapPvrSearchError("Seerr", e))
         }
     }
 
-    private fun api(): JellyseerrApi? {
-        if (!appPreferences.getValue(appPreferences.jellyseerrEnabled)) return null
-        val baseUrl = appPreferences.getValue(appPreferences.jellyseerrBaseUrl)
-        val apiKey = jellyseerrApiKeyProvider()
+    private fun api(): SeerrApi? {
+        if (!appPreferences.getValue(appPreferences.seerrEnabled)) return null
+        val baseUrl = appPreferences.getValue(appPreferences.seerrBaseUrl)
+        val apiKey = seerrApiKeyProvider()
         if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return null
-        return JellyseerrApi(baseUrl, apiKey)
+        return SeerrApi(baseUrl, apiKey)
     }
 
     private companion object {
-        // Jellyseerr's own web UI loads posters straight from TMDB; w342 is plenty for list rows.
+        // Seerr's own web UI loads posters straight from TMDB; w342 is plenty for list rows.
         const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
     }
 }

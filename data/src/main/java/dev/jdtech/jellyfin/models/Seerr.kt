@@ -1,15 +1,15 @@
 package dev.jdtech.jellyfin.models
 
-/** UI-facing models for the Jellyseerr/Seerr integration - see `JellyseerrRepository`. */
+/** UI-facing models for the Seerr/Seerr integration - see `SeerrRepository`. */
 
 enum class SeerrMediaType {
     MOVIE,
     TV,
 }
 
-/** Jellyseerr's media availability lifecycle. */
+/** Seerr's media availability lifecycle. */
 enum class SeerrMediaStatus {
-    /** Not tracked by Jellyseerr at all - requestable. */
+    /** Not tracked by Seerr at all - requestable. */
     NOT_REQUESTED,
     /** Requested, waiting for approval. */
     PENDING,
@@ -19,7 +19,7 @@ enum class SeerrMediaStatus {
     AVAILABLE;
 
     companion object {
-        /** Jellyseerr's numeric codes: 1=unknown, 2=pending, 3=processing, 4=partial, 5=available. */
+        /** Seerr's numeric codes: 1=unknown, 2=pending, 3=processing, 4=partial, 5=available. */
         fun fromCode(code: Int?): SeerrMediaStatus =
             when (code) {
                 2 -> PENDING

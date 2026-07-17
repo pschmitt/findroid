@@ -5,25 +5,25 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.jdtech.jellyfin.api.pvr.PvrCredentialKeys
-import dev.jdtech.jellyfin.repository.JellyseerrRepository
-import dev.jdtech.jellyfin.repository.JellyseerrRepositoryImpl
+import dev.jdtech.jellyfin.repository.SeerrRepository
+import dev.jdtech.jellyfin.repository.SeerrRepositoryImpl
 import dev.jdtech.jellyfin.security.SecureCredentialStore
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object JellyseerrModule {
+object SeerrModule {
     @Singleton
     @Provides
-    fun provideJellyseerrRepository(
+    fun provideSeerrRepository(
         appPreferences: AppPreferences,
         secureCredentialStore: SecureCredentialStore,
-    ): JellyseerrRepository {
-        return JellyseerrRepositoryImpl(
+    ): SeerrRepository {
+        return SeerrRepositoryImpl(
             appPreferences = appPreferences,
-            jellyseerrApiKeyProvider = {
-                secureCredentialStore.getString(PvrCredentialKeys.JELLYSEERR_API_KEY)
+            seerrApiKeyProvider = {
+                secureCredentialStore.getString(PvrCredentialKeys.SEERR_API_KEY)
             },
         )
     }
