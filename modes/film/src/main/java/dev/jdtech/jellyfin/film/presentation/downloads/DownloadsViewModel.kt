@@ -15,6 +15,7 @@ import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.models.toFindroidMovie
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.JellyfinRepository
+import dev.jdtech.jellyfin.repository.PvrDiskSpaceRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.Downloader
@@ -41,6 +42,7 @@ constructor(
     private val autoDownloadRuleRepository: AutoDownloadRuleRepository,
     private val appPreferences: AppPreferences,
     private val queueStatusRepository: QueueStatusRepository,
+    private val pvrDiskSpaceRepository: PvrDiskSpaceRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DownloadsState())
     val state = _state.asStateFlow()
@@ -88,6 +90,15 @@ constructor(
                         pvrErrors = snapshot.errors,
                     )
             }
+        }
+        refreshDiskSpace()
+    }
+
+    // Disk space doesn't change minute to minute, so this is a one-shot fetch on entering the
+    // screen and on pull-to-refresh, not part of the polling loops above.
+    private fun refreshDiskSpace() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(diskSpace = pvrDiskSpaceRepository.getDiskSpace())
         }
     }
 
@@ -145,6 +156,7 @@ constructor(
             queueStatusRepository.refreshNow()
             refreshDownloads()
         }
+        refreshDiskSpace()
     }
 
     private fun reconcileDownloadProgress(movies: List<FindroidMovie>, episodes: List<FindroidEpisode>) {

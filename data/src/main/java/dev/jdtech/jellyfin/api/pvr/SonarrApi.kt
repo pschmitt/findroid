@@ -70,6 +70,13 @@ class SonarrApi(private val baseUrl: String, private val apiKey: String) {
             json.decodeFromString<List<SonarrEpisodeDto>>(execute(url))
         }
 
+    /** Free/total space per root folder Sonarr manages. */
+    suspend fun getDiskSpace(): List<PvrDiskSpaceDto> =
+        withContext(Dispatchers.IO) {
+            val url = buildUrl("api", "v3", "diskspace")
+            json.decodeFromString<List<PvrDiskSpaceDto>>(execute(url))
+        }
+
     /**
      * Triggers an automatic search - Sonarr picks and grabs the best release itself. Returns the
      * queued command's id (see [getCommandStatus]), not the result - Sonarr answers this as soon

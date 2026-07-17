@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -83,6 +84,7 @@ import dev.jdtech.jellyfin.film.presentation.downloads.DownloadsEvent
 import dev.jdtech.jellyfin.film.presentation.downloads.PvrQueueUiItem
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidSourceType
+import dev.jdtech.jellyfin.models.PvrDiskSpaceResult
 import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.QueueItemStatus
 import dev.jdtech.jellyfin.models.isDownloaded
@@ -290,6 +292,12 @@ private fun DownloadsScreenLayout(
             (state.movies.map { it.id } + state.showGroups.flatMap { it.episodes }.map { it.id })
                 .toSet()
         }
+    val totalLocalSizeBytes =
+        remember(state.movies, state.showGroups) {
+            (state.movies + state.showGroups.flatMap { it.episodes }).sumOf {
+                it.sources.firstOrNull { s -> s.type == FindroidSourceType.LOCAL }?.size ?: 0L
+            }
+        }
     val allSelected = allIds.isNotEmpty() && state.selectedIds.containsAll(allIds)
     val selectionMode = state.selectedIds.isNotEmpty()
 
@@ -403,6 +411,18 @@ private fun DownloadsScreenLayout(
             }
             PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (
+                    totalLocalSizeBytes > 0 ||
+                        state.diskSpace.sonarr != null ||
+                        state.diskSpace.radarr != null
+                ) {
+                    item {
+                        DownloadsStorageSummaryCard(
+                            localUsedBytes = totalLocalSizeBytes,
+                            diskSpace = state.diskSpace,
+                        )
+                    }
+                }
                 if (selectionMode) {
                     item {
                         Row(
@@ -598,6 +618,83 @@ private fun DownloadsEmptyState(onGoToHomeClick: () -> Unit, modifier: Modifier 
         Button(onClick = onGoToHomeClick) {
             Text(text = stringResource(CoreR.string.downloads_empty_go_home))
         }
+    }
+}
+
+/**
+ * Storage at a glance: on-device space used by downloads, plus free space on each configured PVR
+ * service's root folders - see [PvrDiskSpaceResult] for why there's no Jellyfin-server number
+ * (the server API has no storage endpoint at all).
+ */
+@Composable
+private fun DownloadsStorageSummaryCard(
+    localUsedBytes: Long,
+    diskSpace: PvrDiskSpaceResult,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    Card(modifier = modifier.fillMaxWidth().padding(MaterialTheme.spacings.default)) {
+        Column(
+            modifier = Modifier.padding(MaterialTheme.spacings.default),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+        ) {
+            Text(
+                text = stringResource(CoreR.string.storage_summary_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            StorageSummaryRow(
+                iconRes = CoreR.drawable.ic_smartphone,
+                label = stringResource(CoreR.string.storage_summary_on_device),
+                value = Formatter.formatFileSize(context, localUsedBytes),
+            )
+            diskSpace.sonarr?.let { sonarr ->
+                StorageSummaryRow(
+                    iconRes = CoreR.drawable.ic_sonarr,
+                    tintIcon = false,
+                    label = stringResource(CoreR.string.integrations_sonarr),
+                    value =
+                        stringResource(
+                            CoreR.string.storage_summary_free,
+                            Formatter.formatFileSize(context, sonarr.freeBytes),
+                        ),
+                )
+            }
+            diskSpace.radarr?.let { radarr ->
+                StorageSummaryRow(
+                    iconRes = CoreR.drawable.ic_radarr,
+                    tintIcon = false,
+                    label = stringResource(CoreR.string.integrations_radarr),
+                    value =
+                        stringResource(
+                            CoreR.string.storage_summary_free,
+                            Formatter.formatFileSize(context, radarr.freeBytes),
+                        ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StorageSummaryRow(iconRes: Int, label: String, value: String, tintIcon: Boolean = true) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = if (tintIcon) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

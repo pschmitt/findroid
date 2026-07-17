@@ -27,6 +27,13 @@ class RadarrApi(private val baseUrl: String, private val apiKey: String) {
             json.decodeFromString<List<RadarrMovie>>(execute(url))
         }
 
+    /** Free/total space per root folder Radarr manages. */
+    suspend fun getDiskSpace(): List<PvrDiskSpaceDto> =
+        withContext(Dispatchers.IO) {
+            val url = buildUrl("api", "v3", "diskspace")
+            json.decodeFromString<List<PvrDiskSpaceDto>>(execute(url))
+        }
+
     suspend fun getQueue(): List<RadarrQueueItem> =
         withContext(Dispatchers.IO) {
             // Radarr paginates the queue endpoint (default page size 10-20); requesting a large

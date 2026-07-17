@@ -219,6 +219,20 @@ data class PvrRelease(
 
 // endregion
 
+// region Sonarr/Radarr - GET /api/v3/diskspace
+// One entry per root folder the service manages; both APIs return the same shape. A flat JSON
+// array, same as /calendar.
+
+@Serializable
+data class PvrDiskSpaceDto(
+    val path: String = "",
+    val label: String? = null,
+    val freeSpace: Long = 0L,
+    val totalSpace: Long = 0L,
+)
+
+// endregion
+
 // region Radarr - GET /api/v3/calendar
 // Radarr's calendar entries are full movie objects (same shape as /api/v3/movie), so tmdbId is
 // already present per entry - no separate getMovie() call/join needed. Also a flat JSON array,
