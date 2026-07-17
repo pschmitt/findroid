@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.film.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,17 +34,23 @@ import java.time.LocalDate
 
 /**
  * A Sonarr-known episode not yet in the Jellyfin library - visually distinct from a real
- * [EpisodeCard] on purpose: dimmed, no poster (there isn't one yet), no click target, and an
- * explicit "Not yet available" label so it doesn't read as a broken/loading real episode.
+ * [EpisodeCard] on purpose: dimmed with no poster (there isn't one yet). It can still open the
+ * release picker, matching the actionable upcoming entries in Calendar.
  */
 @Composable
 fun UpcomingEpisodeCard(
     episode: UpcomingEpisode,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     onSearchAutomatic: (() -> Unit)? = null,
     onSearchManual: (() -> Unit)? = null,
 ) {
-    Row(modifier = modifier.height(84.dp).fillMaxWidth()) {
+    Row(
+        modifier =
+            modifier.height(84.dp).fillMaxWidth().let {
+                if (onClick != null) it.clickable(onClick = onClick) else it
+            }
+    ) {
         Row(modifier = Modifier.weight(1f).fillMaxHeight().alpha(0.5f)) {
             Box(
                 modifier =

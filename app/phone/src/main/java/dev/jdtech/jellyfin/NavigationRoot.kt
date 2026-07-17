@@ -684,8 +684,6 @@ fun NavigationRoot(
             }
             composable<ConnectionsRoute> {
                 IntegrationsSettingsScreen(
-                    navigateToServers = { navController.safeNavigate(ServersRoute) },
-                    navigateToUsers = { navController.safeNavigate(UsersRoute) },
                     navigateBack = { navController.safePopBackStack() },
                 )
             }

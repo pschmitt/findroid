@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.settings.integrations
 
 import dev.jdtech.jellyfin.models.ServerWithAddresses
+import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.models.User
 
 data class IntegrationsSettingsState(
@@ -8,6 +9,8 @@ data class IntegrationsSettingsState(
     val jellyfinUsers: List<User> = emptyList(),
     val currentServerId: String? = null,
     val currentUserId: String? = null,
+    val jellyfinOperationInProgress: Boolean = false,
+    val jellyfinError: UiText? = null,
     val sonarrEnabled: Boolean = false,
     val sonarrBaseUrl: String = "",
     val sonarrApiKey: String = "",

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -30,6 +31,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -42,13 +47,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.models.ServerWithAddresses
 import dev.jdtech.jellyfin.api.pvr.PvrService
 import dev.jdtech.jellyfin.settings.R as SettingsR
+import dev.jdtech.jellyfin.setup.R as SetupR
 
 @Composable
 fun IntegrationsSettingsScreen(
-    navigateToServers: () -> Unit,
-    navigateToUsers: () -> Unit,
     navigateBack: () -> Unit,
     viewModel: IntegrationsSettingsViewModel = hiltViewModel(),
 ) {
@@ -58,8 +63,6 @@ fun IntegrationsSettingsScreen(
 
     IntegrationsSettingsScreenLayout(
         state = state,
-        navigateToServers = navigateToServers,
-        navigateToUsers = navigateToUsers,
         onAction = { action ->
             when (action) {
                 is IntegrationsSettingsAction.OnBackClick -> navigateBack()
@@ -73,8 +76,6 @@ fun IntegrationsSettingsScreen(
 @Composable
 private fun IntegrationsSettingsScreenLayout(
     state: IntegrationsSettingsState,
-    navigateToServers: () -> Unit,
-    navigateToUsers: () -> Unit,
     onAction: (IntegrationsSettingsAction) -> Unit,
 ) {
     Scaffold(
@@ -108,8 +109,12 @@ private fun IntegrationsSettingsScreenLayout(
                     onAction(IntegrationsSettingsAction.OnJellyfinServerSelected(it))
                 },
                 onUserSelected = { onAction(IntegrationsSettingsAction.OnJellyfinUserSelected(it)) },
-                onManageServers = navigateToServers,
-                onManageUsers = navigateToUsers,
+                onAddServer = { onAction(IntegrationsSettingsAction.OnAddJellyfinServer(it)) },
+                onDeleteServer = { onAction(IntegrationsSettingsAction.OnDeleteJellyfinServer(it)) },
+                onLogin = { username, password ->
+                    onAction(IntegrationsSettingsAction.OnLoginJellyfinUser(username, password))
+                },
+                onDeleteUser = { onAction(IntegrationsSettingsAction.OnDeleteJellyfinUser(it)) },
             )
 
             HorizontalDivider()
@@ -281,15 +286,23 @@ private fun JellyfinConnectionSection(
     state: IntegrationsSettingsState,
     onServerSelected: (String) -> Unit,
     onUserSelected: (java.util.UUID) -> Unit,
-    onManageServers: () -> Unit,
-    onManageUsers: () -> Unit,
+    onAddServer: (String) -> Unit,
+    onDeleteServer: (String) -> Unit,
+    onLogin: (String, String) -> Unit,
+    onDeleteUser: (java.util.UUID) -> Unit,
 ) {
+    var serverAddress by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var serverToDelete by remember { mutableStateOf<ServerWithAddresses?>(null) }
+    var userToDelete by remember { mutableStateOf<dev.jdtech.jellyfin.models.User?>(null) }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painter = painterResource(CoreR.drawable.ic_server),
+            Image(
+                painter = painterResource(CoreR.drawable.ic_logo),
                 contentDescription = null,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(28.dp),
             )
             Spacer(Modifier.width(12.dp))
             Text(
@@ -304,56 +317,148 @@ private fun JellyfinConnectionSection(
             )
         } else {
             state.jellyfinServers.forEach { server ->
-                Button(
-                    onClick = { onServerSelected(server.server.id) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = state.currentServerId != server.server.id,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(server.server.name)
-                        server.addresses.firstOrNull()?.let { address ->
-                            Text(address.address, style = MaterialTheme.typography.labelSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(
+                        onClick = { onServerSelected(server.server.id) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !state.jellyfinOperationInProgress,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(server.server.name)
+                            server.addresses.firstOrNull()?.let { address ->
+                                Text(address.address, style = MaterialTheme.typography.labelSmall)
+                            }
                         }
-                    }
-                    if (state.currentServerId == server.server.id) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_check),
-                            contentDescription = null,
-                        )
-                    }
-                }
-            }
-            if (state.jellyfinUsers.isNotEmpty()) {
-                Text(
-                    text = stringResource(SettingsR.string.users),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                state.jellyfinUsers.forEach { user ->
-                    TextButton(onClick = { onUserSelected(user.id) }) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_user),
-                            contentDescription = null,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(user.name, modifier = Modifier.weight(1f))
-                        if (state.currentUserId == user.id.toString()) {
+                        if (state.currentServerId == server.server.id) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_check),
                                 contentDescription = null,
                             )
                         }
                     }
+                    IconButton(
+                        onClick = { serverToDelete = server },
+                        enabled = !state.jellyfinOperationInProgress,
+                    ) {
+                        Icon(painter = painterResource(CoreR.drawable.ic_trash), contentDescription = null)
+                    }
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onManageServers) {
-                Text(stringResource(CoreR.string.integrations_manage_servers))
+        OutlinedTextField(
+            value = serverAddress,
+            onValueChange = { serverAddress = it },
+            label = { Text(stringResource(SetupR.string.edit_text_server_address_hint)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(
+            onClick = { onAddServer(serverAddress) },
+            enabled = serverAddress.isNotBlank() && !state.jellyfinOperationInProgress,
+        ) {
+            Text(stringResource(SetupR.string.add_server_btn_connect))
+        }
+        if (state.currentServerId != null) {
+            if (state.jellyfinUsers.isNotEmpty()) {
+                Text(
+                    text = stringResource(SettingsR.string.users),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                state.jellyfinUsers.forEach { user ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            onClick = { onUserSelected(user.id) },
+                            enabled = !state.jellyfinOperationInProgress,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(
+                                painter = painterResource(CoreR.drawable.ic_user),
+                                contentDescription = null,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(user.name, modifier = Modifier.weight(1f))
+                            if (state.currentUserId == user.id.toString()) {
+                                Icon(
+                                    painter = painterResource(CoreR.drawable.ic_check),
+                                    contentDescription = null,
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = { userToDelete = user },
+                            enabled = !state.jellyfinOperationInProgress,
+                        ) {
+                            Icon(painter = painterResource(CoreR.drawable.ic_trash), contentDescription = null)
+                        }
+                    }
+                }
             }
-            TextButton(onClick = onManageUsers, enabled = state.currentServerId != null) {
-                Text(stringResource(CoreR.string.integrations_manage_users))
+            Text(
+                text = stringResource(SetupR.string.login),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text(stringResource(SetupR.string.edit_text_username_hint)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text(stringResource(SetupR.string.edit_text_password_hint)) },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = { onLogin(username, password) },
+                enabled = username.isNotBlank() && password.isNotBlank() && !state.jellyfinOperationInProgress,
+            ) {
+                Text(stringResource(SetupR.string.login_btn_login))
             }
         }
+        state.jellyfinError?.let { error ->
+            Text(text = error.asString(), color = MaterialTheme.colorScheme.error)
+        }
+    }
+
+    serverToDelete?.let { server ->
+        AlertDialog(
+            title = { Text(stringResource(SetupR.string.remove_server_dialog)) },
+            text = { Text(stringResource(SetupR.string.remove_server_dialog_text, server.server.name)) },
+            onDismissRequest = { serverToDelete = null },
+            confirmButton = {
+                TextButton(onClick = { onDeleteServer(server.server.id); serverToDelete = null }) {
+                    Text(stringResource(SetupR.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { serverToDelete = null }) {
+                    Text(stringResource(SetupR.string.cancel))
+                }
+            },
+        )
+    }
+    userToDelete?.let { user ->
+        AlertDialog(
+            title = { Text(stringResource(SetupR.string.remove_user_dialog)) },
+            text = { Text(stringResource(SetupR.string.remove_user_dialog_text, user.name)) },
+            onDismissRequest = { userToDelete = null },
+            confirmButton = {
+                TextButton(onClick = { onDeleteUser(user.id); userToDelete = null }) {
+                    Text(stringResource(SetupR.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { userToDelete = null }) {
+                    Text(stringResource(SetupR.string.cancel))
+                }
+            },
+        )
     }
 }
 

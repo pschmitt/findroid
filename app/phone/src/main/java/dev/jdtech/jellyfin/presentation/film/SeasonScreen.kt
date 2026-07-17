@@ -320,6 +320,14 @@ private fun SeasonScreenLayout(
                     UpcomingEpisodeCard(
                         episode = episode,
                         modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
+                        onClick = {
+                            onAction(
+                                SeasonAction.OpenReleasePicker(
+                                    episodeNumber = episode.episodeNumber,
+                                    knownEpisodeId = episode.episodeId,
+                                )
+                            )
+                        },
                         onSearchAutomatic = {
                             onAction(
                                 SeasonAction.SearchEpisodeAutomatic(

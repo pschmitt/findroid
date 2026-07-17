@@ -8,6 +8,10 @@ import dev.jdtech.jellyfin.api.pvr.PvrCredentialKeys
 import dev.jdtech.jellyfin.api.pvr.PvrService
 import dev.jdtech.jellyfin.api.pvr.RadarrApi
 import dev.jdtech.jellyfin.api.pvr.SonarrApi
+import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.models.ExceptionUiText
+import dev.jdtech.jellyfin.models.ExceptionUiTexts
+import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.security.SecureCredentialStore
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.setup.domain.SetupRepository
@@ -38,12 +42,15 @@ constructor(
     private val dirtyApiKeys = mutableSetOf<String>()
 
     fun load() {
-        viewModelScope.launch {
-            val servers = setupRepository.getServers()
-            val currentServer = setupRepository.getCurrentServer()
-            val currentUser = setupRepository.getCurrentUser()
-            _state.value =
-                IntegrationsSettingsState(
+        viewModelScope.launch { loadState() }
+    }
+
+    private suspend fun loadState() {
+        val servers = setupRepository.getServers()
+        val currentServer = setupRepository.getCurrentServer()
+        val currentUser = setupRepository.getCurrentUser()
+        _state.value =
+            IntegrationsSettingsState(
                 jellyfinServers = servers,
                 jellyfinUsers = currentServer?.let { setupRepository.getUsers(it.id) }.orEmpty(),
                 currentServerId = currentServer?.id,
@@ -69,10 +76,9 @@ constructor(
                 seerrBasicAuthPassword = secureCredentialStore.getString(PvrCredentialKeys.SEERR_BASIC_AUTH_PASSWORD).orEmpty(),
                 pvrPollIntervalMinutes =
                     appPreferences.getValue(appPreferences.pvrPollIntervalMinutes),
-                    pvrReleaseCacheMinutes =
-                        appPreferences.getValue(appPreferences.pvrReleaseCacheMinutes),
-                )
-        }
+                pvrReleaseCacheMinutes =
+                    appPreferences.getValue(appPreferences.pvrReleaseCacheMinutes),
+            )
     }
 
     fun onAction(action: IntegrationsSettingsAction) {
@@ -80,6 +86,11 @@ constructor(
             is IntegrationsSettingsAction.OnBackClick -> Unit
             is IntegrationsSettingsAction.OnJellyfinServerSelected -> selectJellyfinServer(action.serverId)
             is IntegrationsSettingsAction.OnJellyfinUserSelected -> selectJellyfinUser(action.userId)
+            is IntegrationsSettingsAction.OnAddJellyfinServer -> addJellyfinServer(action.address)
+            is IntegrationsSettingsAction.OnDeleteJellyfinServer -> deleteJellyfinServer(action.serverId)
+            is IntegrationsSettingsAction.OnLoginJellyfinUser ->
+                loginJellyfinUser(action.username, action.password)
+            is IntegrationsSettingsAction.OnDeleteJellyfinUser -> deleteJellyfinUser(action.userId)
             is IntegrationsSettingsAction.OnSonarrEnabledChanged -> {
                 appPreferences.setValue(appPreferences.sonarrEnabled, action.enabled)
                 _state.value = _state.value.copy(sonarrEnabled = action.enabled)
@@ -168,15 +179,76 @@ constructor(
         viewModelScope.launch {
             setupRepository.setCurrentServer(serverId)
             appPreferences.setValue(appPreferences.currentServer, serverId)
-            load()
+            loadState()
         }
     }
 
     private fun selectJellyfinUser(userId: java.util.UUID) {
         viewModelScope.launch {
             setupRepository.setCurrentUser(userId)
-            load()
+            loadState()
         }
+    }
+
+    private fun addJellyfinServer(address: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(jellyfinOperationInProgress = true, jellyfinError = null)
+            try {
+                val server = setupRepository.addServer(address)
+                setupRepository.setCurrentServer(server.id)
+                appPreferences.setValue(appPreferences.currentServer, server.id)
+                loadState()
+            } catch (e: Exception) {
+                showJellyfinError(e)
+            }
+        }
+    }
+
+    private fun deleteJellyfinServer(serverId: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(jellyfinOperationInProgress = true, jellyfinError = null)
+            try {
+                setupRepository.deleteServer(serverId)
+                loadState()
+            } catch (e: Exception) {
+                showJellyfinError(e)
+            }
+        }
+    }
+
+    private fun loginJellyfinUser(username: String, password: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(jellyfinOperationInProgress = true, jellyfinError = null)
+            try {
+                setupRepository.login(username, password)
+                loadState()
+            } catch (e: Exception) {
+                showJellyfinError(e)
+            }
+        }
+    }
+
+    private fun deleteJellyfinUser(userId: java.util.UUID) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(jellyfinOperationInProgress = true, jellyfinError = null)
+            try {
+                setupRepository.deleteUser(userId)
+                loadState()
+            } catch (e: Exception) {
+                showJellyfinError(e)
+            }
+        }
+    }
+
+    private fun showJellyfinError(exception: Exception) {
+        val error =
+            when (exception) {
+                is ExceptionUiText -> exception.uiText
+                is ExceptionUiTexts -> exception.uiTexts.firstOrNull()
+                else -> UiText.DynamicString(exception.message ?: "")
+            } ?: UiText.StringResource(CoreR.string.unknown_error)
+        _state.value =
+            _state.value.copy(jellyfinOperationInProgress = false, jellyfinError = error)
     }
 
     private fun updateAdvancedSettings(action: IntegrationsSettingsAction.OnAdvancedSettingsChanged) {

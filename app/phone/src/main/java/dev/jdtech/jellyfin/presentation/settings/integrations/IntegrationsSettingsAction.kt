@@ -10,6 +10,14 @@ sealed interface IntegrationsSettingsAction {
 
     data class OnJellyfinUserSelected(val userId: UUID) : IntegrationsSettingsAction
 
+    data class OnAddJellyfinServer(val address: String) : IntegrationsSettingsAction
+
+    data class OnDeleteJellyfinServer(val serverId: String) : IntegrationsSettingsAction
+
+    data class OnLoginJellyfinUser(val username: String, val password: String) : IntegrationsSettingsAction
+
+    data class OnDeleteJellyfinUser(val userId: UUID) : IntegrationsSettingsAction
+
     data class OnSonarrEnabledChanged(val enabled: Boolean) : IntegrationsSettingsAction
 
     data class OnSonarrBaseUrlChanged(val baseUrl: String) : IntegrationsSettingsAction
