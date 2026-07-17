@@ -62,7 +62,7 @@ build *flags:
     scp -q "$tmpdir/findroid-ci.jks" "$tmpdir/findroid-ci-keystore.env" "$host:.findroid-ci-tmp/"
     # The keystore is shredded on the host whether or not the build succeeds.
     ssh "$host" "
-      artifact='{{remote_path}}/app/${variant}/build/outputs/apk/libre/${flavor}/${variant}-libre-${abi}-${flavor}.apk'
+      artifact={{remote_path}}/app/${variant}/build/outputs/apk/libre/${flavor}/${variant}-libre-${abi}-${flavor}.apk
       previous_mtime=0
       [[ -f \"\$artifact\" ]] && previous_mtime=\$(stat -c %Y \"\$artifact\")
       set -a
@@ -77,6 +77,11 @@ build *flags:
         echo 'release build did not refresh its APK artifact' >&2
         rc=1
       fi
+      if [[ \$rc -eq 0 ]] && ! unzip -p "\$artifact" 'classes*.dex' | strings | grep -Fxq "\$GIT_REVISION"
+      then
+        echo "release APK does not contain expected revision: \$GIT_REVISION" >&2
+        rc=1
+      fi
       shred -u ~/.findroid-ci-tmp/* 2>/dev/null || true
       rmdir ~/.findroid-ci-tmp 2>/dev/null || true
       exit \$rc
@@ -89,6 +94,17 @@ fetch *flags:
     read -r variant flavor host abi < <("{{justfile_directory()}}/.just-parse-flags.sh" {{remote_host}} {{mipad_abi}} -- {{flags}})
     mkdir -p {{local_dist}}
     scp "$host:{{remote_path}}/app/${variant}/build/outputs/apk/libre/${flavor}/${variant}-libre-${abi}-${flavor}.apk" {{local_dist}}/
+    if [[ "$flavor" == "release" ]]
+    then
+      apk={{local_dist}}/${variant}-libre-${abi}-${flavor}.apk
+      git_revision=$(git describe --always --abbrev=12 --dirty)
+      if ! unzip -p "$apk" 'classes*.dex' | strings | grep -Fxq "$git_revision"
+      then
+        rm -f "$apk"
+        echo "fetched release APK does not contain expected revision: $git_revision" >&2
+        exit 1
+      fi
+    fi
 
 # Build an APK remotely and copy it back to ./dist. Same flags as `build`.
 build-fetch *flags:
