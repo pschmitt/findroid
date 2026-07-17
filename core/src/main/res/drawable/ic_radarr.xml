@@ -1,5 +1,5 @@
-<!-- Radarr brand mark, converted from the official Logo/Radarr.svg (GPL-3.0). Drawn on the
-     same light disc as the Sonarr mark so the dark flag shape stays visible on dark themes. -->
+<!-- Radarr brand mark, simplified from the official radarr.github.io/logo/radarr.svg
+     (GPL-3.0): the yellow arrow and off-white swoosh on the brand's near-black disc. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -7,7 +7,7 @@
     android:viewportHeight="1024">
     <path
         android:pathData="M512,512m-512,0a512,512 0,1 1,1024 0a512,512 0,1 1,-1024 0"
-        android:fillColor="#EEEEEE" />
+        android:fillColor="#050808" />
     <group
         android:translateX="70"
         android:translateY="21"
@@ -17,12 +17,12 @@
         android:pivotY="470">
         <path
             android:pathData="M105.302 154.943L112.824 869.492C52.651 877.014,7.52158 846.927,7.52158 786.755L0 192.55C0 4.51106,172.996 -40.6184,278.298 34.5974L812.33 342.982C887.546 395.633,902.589 493.413,864.981 561.107C857.46 508.456,834.895 478.37,789.765 448.284L188.039 109.813C142.91 79.7268,105.302 87.2484,105.302 154.943Z"
-            android:fillColor="#24292E" />
+            android:fillColor="#F1F1F1" />
         <path
             android:pathData="M60.172 907.1C105.302 922.143,150.431 914.621,188.039 892.057L804.808 531.021C842.416 583.672,834.895 636.323,789.765 666.409L270.776 967.272C195.56 1004.88,97.78 967.272,60.172 907.1Z"
-            android:fillColor="#24292E" />
+            android:fillColor="#F1F1F1" />
         <path
             android:pathData="M240.69 696.496L609.247 485.892L248.212 282.809L240.69 696.496Z"
-            android:fillColor="#FFC230" />
+            android:fillColor="#FFC231" />
     </group>
 </vector>

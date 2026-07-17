@@ -97,7 +97,6 @@ private fun IntegrationsSettingsScreenLayout(
             PvrServiceSection(
                 nameRes = CoreR.string.integrations_sonarr,
                 logoRes = CoreR.drawable.ic_sonarr,
-                enableLabelRes = CoreR.string.integrations_enable_sonarr,
                 apiKeySettingsPath = "/settings/general",
                 enabled = state.sonarrEnabled,
                 baseUrl = state.sonarrBaseUrl,
@@ -122,7 +121,6 @@ private fun IntegrationsSettingsScreenLayout(
             PvrServiceSection(
                 nameRes = CoreR.string.integrations_radarr,
                 logoRes = CoreR.drawable.ic_radarr,
-                enableLabelRes = CoreR.string.integrations_enable_radarr,
                 apiKeySettingsPath = "/settings/general",
                 enabled = state.radarrEnabled,
                 baseUrl = state.radarrBaseUrl,
@@ -147,7 +145,6 @@ private fun IntegrationsSettingsScreenLayout(
             PvrServiceSection(
                 nameRes = CoreR.string.integrations_seerr,
                 logoRes = CoreR.drawable.ic_seerr,
-                enableLabelRes = CoreR.string.integrations_enable_seerr,
                 apiKeySettingsPath = "/settings",
                 enabled = state.seerrEnabled,
                 baseUrl = state.seerrBaseUrl,
@@ -224,7 +221,6 @@ private fun IntegrationsSettingsScreenLayout(
 private fun PvrServiceSection(
     nameRes: Int,
     @DrawableRes logoRes: Int,
-    enableLabelRes: Int,
     // Path under the service's base URL where its web UI shows the API key, e.g.
     // "/settings/general" for Sonarr/Radarr - linked from the section for easier setup.
     apiKeySettingsPath: String,
@@ -241,7 +237,9 @@ private fun PvrServiceSection(
     val uriHandler = LocalUriHandler.current
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Single header line: logo, name, and the enable toggle right-aligned.
         Row(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -250,15 +248,11 @@ private fun PvrServiceSection(
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
             )
-            Text(text = stringResource(nameRes), style = MaterialTheme.typography.titleMedium)
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = stringResource(enableLabelRes), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = stringResource(nameRes),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
             Switch(checked = enabled, onCheckedChange = onEnabledChanged)
         }
 

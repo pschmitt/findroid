@@ -77,6 +77,8 @@
     <string name="ascending">Ascending</string>
     <string name="descending">Descending</string>
     <string name="runtime_minutes">%1$d mins</string>
+    <string name="runtime_hours_minutes">%1$dh %2$dm</string>
+    <string name="runtime_minutes_short">%1$dm</string>
     <string name="runtime_minutes_left">%1$d mins left</string>
     <string name="restart_from_beginning">Restart</string>
     <string name="select_video_version_title">Select version</string>
@@ -176,10 +178,7 @@
     <string name="integrations_title">Integrations</string>
     <string name="integrations_sonarr">Sonarr</string>
     <string name="integrations_radarr">Radarr</string>
-    <string name="integrations_enable_sonarr">Enable Sonarr</string>
-    <string name="integrations_enable_radarr">Enable Radarr</string>
     <string name="integrations_seerr">Seerr</string>
-    <string name="integrations_enable_seerr">Enable Seerr</string>
     <string name="integrations_server_url">Server URL</string>
     <string name="integrations_server_url_hint">http://192.168.1.10:8989</string>
     <string name="integrations_api_key">API key</string>
