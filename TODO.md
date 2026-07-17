@@ -69,4 +69,5 @@ Batch of UX todos around the Sonarr/Radarr/Seerr integrations and general naviga
 - [x] Auto-backup filenames: use human-friendly timestamps
       (e.g. `xxx-2026-07-17T08:58:03+02:00`)
 
-Status: **in progress**.
+Status: **done** (2026-07-17). Verified via remote builds on rofl-13 (unit tests +
+phone/TV compile) and a CI-signed install on the Mi Pad 4.
