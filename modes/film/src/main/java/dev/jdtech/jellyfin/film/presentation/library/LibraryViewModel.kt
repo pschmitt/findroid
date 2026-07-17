@@ -80,7 +80,10 @@ constructor(
             when {
                 isMergedMedia ->
                     when (_state.value.filter) {
-                        MediaFilter.ALL -> listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES)
+                        // REQUESTED renders the Seerr request list instead of the grid, so the
+                        // (hidden) paging query just keeps the ALL shape.
+                        MediaFilter.ALL,
+                        MediaFilter.REQUESTED -> listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES)
                         MediaFilter.MOVIES -> listOf(BaseItemKind.MOVIE)
                         MediaFilter.SHOWS -> listOf(BaseItemKind.SERIES)
                     }
@@ -201,6 +204,11 @@ constructor(
                 if (action.filter != _state.value.filter) {
                     _state.value = _state.value.copy(filter = action.filter)
                     loadItems()
+                    // The request list may be stale from setup time - refresh it when the user
+                    // switches to the Requested tab.
+                    if (action.filter == MediaFilter.REQUESTED) {
+                        loadRecentRequests()
+                    }
                 }
             }
             is LibraryAction.OnSeerrRequest -> requestSeerr(action.item)

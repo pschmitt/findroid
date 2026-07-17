@@ -52,6 +52,8 @@ import dev.jdtech.jellyfin.film.presentation.calendar.CalendarState
 import dev.jdtech.jellyfin.film.presentation.calendar.CalendarViewModel
 import dev.jdtech.jellyfin.models.CalendarEntry
 import dev.jdtech.jellyfin.models.PvrSource
+import dev.jdtech.jellyfin.models.SeerrMediaType
+import dev.jdtech.jellyfin.presentation.components.TopBarTitle
 import dev.jdtech.jellyfin.presentation.film.components.PvrErrorBanner
 import dev.jdtech.jellyfin.presentation.film.components.PvrSearchButton
 import dev.jdtech.jellyfin.presentation.film.components.ReleasePickerSheet
@@ -66,7 +68,9 @@ import java.util.UUID
 @Composable
 fun CalendarScreen(
     onSeasonClick: (UUID) -> Unit = {},
+    onEpisodeClick: (UUID) -> Unit = {},
     onMovieClick: (UUID) -> Unit = {},
+    onSeerrClick: (tmdbId: Int, mediaType: SeerrMediaType) -> Unit = { _, _ -> },
     onSettingsClick: () -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel(),
 ) {
@@ -94,10 +98,26 @@ fun CalendarScreen(
         onEntryClick = { entry ->
             // entry.itemId is the season for Sonarr entries (see matchSonarrCalendar) - the
             // episode itself lives there, not on the show's overview page.
-            val itemId = entry.itemId ?: return@CalendarScreenLayout
-            when (entry.source) {
-                PvrSource.SONARR -> onSeasonClick(itemId)
-                PvrSource.RADARR -> onMovieClick(itemId)
+            val itemId = entry.itemId
+            val tmdbId = entry.tmdbId
+            val episodeItemId = entry.episodeItemId
+            when {
+                entry.hasFile && episodeItemId != null -> onEpisodeClick(episodeItemId)
+                itemId != null ->
+                    when (entry.source) {
+                        PvrSource.SONARR -> onSeasonClick(itemId)
+                        PvrSource.RADARR -> onMovieClick(itemId)
+                    }
+                // Not in the library yet - fall back to the Seerr detail view, where the item
+                // can be inspected and requested.
+                tmdbId != null ->
+                    onSeerrClick(
+                        tmdbId,
+                        when (entry.source) {
+                            PvrSource.SONARR -> SeerrMediaType.TV
+                            PvrSource.RADARR -> SeerrMediaType.MOVIE
+                        },
+                    )
             }
         },
         onSearchAutomatic = viewModel::searchAutomatic,
@@ -128,7 +148,12 @@ private fun CalendarScreenLayout(
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(text = stringResource(CoreR.string.title_calendar)) },
+                title = {
+                    TopBarTitle(
+                        text = stringResource(CoreR.string.title_calendar),
+                        iconRes = CoreR.drawable.ic_calendar,
+                    )
+                },
                 actions = {
                     IconButton(onClick = onSettingsClick) {
                         Icon(
@@ -169,6 +194,8 @@ private fun CalendarScreenLayout(
                     items(items = entries) { entry ->
                         CalendarEntryRow(
                             entry = entry,
+                            clickable =
+                                entry.itemId != null || entry.tmdbId != null,
                             onClick = { onEntryClick(entry) },
                             onSearchAutomatic =
                                 if (entry.episodeId != null || entry.movieId != null) {
@@ -238,12 +265,14 @@ private const val CALENDAR_TOMORROW_PLACEHOLDER = "Tomorrow"
  * A single upcoming Sonarr/Radarr release. Renders the matched item's real poster
  * ([CalendarEntry.images], fetched by [dev.jdtech.jellyfin.repository.CalendarRepositoryImpl]
  * once [CalendarEntry.itemId] resolves) when available, falling back to a source-based
- * placeholder icon for unmatched entries or if the poster fetch failed. Not clickable when
- * [CalendarEntry.itemId] is null (unmatched entry - nothing to navigate to yet).
+ * placeholder icon for unmatched entries or if the poster fetch failed. [clickable] is decided
+ * by the caller: matched entries navigate into the library, unmatched ones with a TMDB id open
+ * the Seerr detail view.
  */
 @Composable
 private fun CalendarEntryRow(
     entry: CalendarEntry,
+    clickable: Boolean,
     onClick: () -> Unit,
     onSearchAutomatic: (() -> Unit)? = null,
     onSearchManual: (() -> Unit)? = null,
@@ -251,7 +280,7 @@ private fun CalendarEntryRow(
     Row(
         modifier =
             Modifier.fillMaxWidth()
-                .let { if (entry.itemId != null) it.clickable(onClick = onClick) else it }
+                .let { if (clickable) it.clickable(onClick = onClick) else it }
                 .padding(
                     horizontal = MaterialTheme.spacings.default,
                     vertical = MaterialTheme.spacings.small,
@@ -259,10 +288,10 @@ private fun CalendarEntryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.width(64.dp).clip(MaterialTheme.shapes.small)) {
-            val posterUri = entry.images?.primary
-            if (posterUri != null) {
+            val poster = entry.images?.primary ?: entry.posterUrl
+            if (poster != null) {
                 AsyncImage(
-                    model = posterUri,
+                    model = poster,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier =

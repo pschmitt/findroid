@@ -94,7 +94,21 @@ data class RadarrQueueResponse(
 // The endpoint returns a flat JSON array, not a paginated {records: [...]} wrapper.
 
 @Serializable
-data class SonarrCalendarSeries(val tvdbId: Int = 0, val title: String = "")
+data class PvrImage(
+    val coverType: String? = null,
+    val remoteUrl: String? = null,
+    val url: String? = null,
+)
+
+@Serializable
+data class SonarrCalendarSeries(
+    val tvdbId: Int = 0,
+    // Sonarr v4 series resources also carry the TMDB id - used to open the Seerr detail view
+    // for entries that aren't in the Jellyfin library yet.
+    val tmdbId: Int = 0,
+    val title: String = "",
+    val images: List<PvrImage> = emptyList(),
+)
 
 @Serializable
 data class SonarrCalendarEntry(
@@ -204,6 +218,7 @@ data class RadarrCalendarEntry(
     val title: String = "",
     val hasFile: Boolean = false,
     val monitored: Boolean = false,
+    val images: List<PvrImage> = emptyList(),
     val inCinemas: String? = null,
     val digitalRelease: String? = null,
     val physicalRelease: String? = null,

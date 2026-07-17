@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -42,9 +43,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.settings.R as SettingsR
 
 @Composable
 fun IntegrationsSettingsScreen(
+    navigateToServers: () -> Unit,
+    navigateToUsers: () -> Unit,
     navigateBack: () -> Unit,
     viewModel: IntegrationsSettingsViewModel = hiltViewModel(),
 ) {
@@ -54,6 +58,8 @@ fun IntegrationsSettingsScreen(
 
     IntegrationsSettingsScreenLayout(
         state = state,
+        navigateToServers = navigateToServers,
+        navigateToUsers = navigateToUsers,
         onAction = { action ->
             when (action) {
                 is IntegrationsSettingsAction.OnBackClick -> navigateBack()
@@ -67,13 +73,15 @@ fun IntegrationsSettingsScreen(
 @Composable
 private fun IntegrationsSettingsScreenLayout(
     state: IntegrationsSettingsState,
+    navigateToServers: () -> Unit,
+    navigateToUsers: () -> Unit,
     onAction: (IntegrationsSettingsAction) -> Unit,
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(text = stringResource(CoreR.string.integrations_title)) },
+                title = { Text(text = stringResource(SettingsR.string.settings_category_connections)) },
                 navigationIcon = {
                     IconButton(onClick = { onAction(IntegrationsSettingsAction.OnBackClick) }) {
                         Icon(
@@ -94,6 +102,17 @@ private fun IntegrationsSettingsScreenLayout(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = navigateToServers, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(SettingsR.string.settings_category_servers))
+                }
+                OutlinedButton(onClick = navigateToUsers, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(SettingsR.string.users))
+                }
+            }
+
+            HorizontalDivider()
+
             PvrServiceSection(
                 nameRes = CoreR.string.integrations_sonarr,
                 logoRes = CoreR.drawable.ic_sonarr,

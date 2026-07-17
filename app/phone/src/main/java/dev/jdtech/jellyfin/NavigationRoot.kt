@@ -133,7 +133,7 @@ data class LibraryRoute(
 
 @Serializable data object BackupSettingsRoute
 
-@Serializable data object IntegrationsSettingsRoute
+@Serializable data object ConnectionsRoute
 
 @Serializable data object RestoreBackupRoute
 
@@ -315,13 +315,14 @@ fun NavigationRoot(
                             // type, and skip re-navigating if the tapped library tab is already
                             // the open one.
                             item.route !is LibraryRoute || !item.isSelected() -> {
-                                val useSavedState = item.route !is LibraryRoute
                                 navController.navigate(item.route) {
                                     popUpTo(navController.graph.startDestinationId) {
-                                        saveState = useSavedState
+                                        // A tab tap is an explicit request for that tab's root,
+                                        // not for the last detail screen visited from it.
+                                        saveState = false
                                     }
-                                    launchSingleTop = useSavedState
-                                    restoreState = useSavedState
+                                    launchSingleTop = true
+                                    restoreState = false
                                 }
                             }
                         }
@@ -475,8 +476,16 @@ fun NavigationRoot(
                     onSeasonClick = { seasonId ->
                         navController.safeNavigate(SeasonRoute(seasonId = seasonId.toString()))
                     },
+                    onEpisodeClick = { episodeId ->
+                        navController.safeNavigate(EpisodeRoute(episodeId = episodeId.toString()))
+                    },
                     onMovieClick = { movieId ->
                         navController.safeNavigate(MovieRoute(movieId = movieId.toString()))
+                    },
+                    onSeerrClick = { tmdbId, mediaType ->
+                        navController.safeNavigate(
+                            SeerrMediaRoute(tmdbId = tmdbId, mediaType = mediaType.name)
+                        )
                     },
                     onSettingsClick = { navController.safeNavigate(settingsRootRoute()) },
                 )
@@ -649,8 +658,6 @@ fun NavigationRoot(
                     navigateToSettingsFileEdit = { filePath ->
                         navController.safeNavigate(SettingsFileEditRoute(filePath = filePath))
                     },
-                    navigateToServers = { navController.safeNavigate(ServersRoute) },
-                    navigateToUsers = { navController.safeNavigate(UsersRoute) },
                     navigateToAbout = { navController.safeNavigate(AboutRoute) },
                     navigateToAutoDownloadRules = {
                         navController.safeNavigate(AutoDownloadRulesRoute)
@@ -658,8 +665,8 @@ fun NavigationRoot(
                     navigateToBackupSettings = {
                         navController.safeNavigate(BackupSettingsRoute)
                     },
-                    navigateToIntegrationsSettings = {
-                        navController.safeNavigate(IntegrationsSettingsRoute)
+                    navigateToConnections = {
+                        navController.safeNavigate(ConnectionsRoute)
                     },
                     navigateBack = { navController.safePopBackStack() },
                 )
@@ -670,8 +677,12 @@ fun NavigationRoot(
                     navigateToRestore = { navController.safeNavigate(RestoreBackupRoute) },
                 )
             }
-            composable<IntegrationsSettingsRoute> {
-                IntegrationsSettingsScreen(navigateBack = { navController.safePopBackStack() })
+            composable<ConnectionsRoute> {
+                IntegrationsSettingsScreen(
+                    navigateToServers = { navController.safeNavigate(ServersRoute) },
+                    navigateToUsers = { navController.safeNavigate(UsersRoute) },
+                    navigateBack = { navController.safePopBackStack() },
+                )
             }
             composable<RestoreBackupRoute> {
                 RestoreBackupScreen(onBackClick = { navController.safePopBackStack() })

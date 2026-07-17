@@ -60,7 +60,7 @@ fun SettingsScreen(
             is SettingsEvent.NavigateToAutoDownloadRules -> Unit
             is SettingsEvent.NavigateToBackupSettings -> Unit
             // Integrations settings are phone-only for this pass - nothing for TV to react to.
-            is SettingsEvent.NavigateToIntegrationsSettings -> Unit
+            is SettingsEvent.NavigateToConnections -> Unit
             is SettingsEvent.UpdateTheme -> Unit
             is SettingsEvent.LaunchIntent -> {
                 try {

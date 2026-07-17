@@ -28,12 +28,15 @@ data class CalendarEntry(
     val title: String,
     val subtitle: String?,
     val itemId: UUID?,
+    val episodeItemId: UUID? = null,
     val hasFile: Boolean,
     val monitored: Boolean,
     // Carried over from the matched FindroidShow/FindroidMovie at match time (see
     // matchSonarrCalendar/matchRadarrCalendar in CalendarMatching.kt) - null for unmatched
     // entries.
     val images: FindroidImages? = null,
+    /** Seerr or PVR artwork for entries not yet present in Jellyfin. */
+    val posterUrl: String? = null,
     // Sonarr's own numeric episode id (Sonarr's /calendar endpoint returns episode resources) -
     // always null for Radarr entries. Already known here, so triggering a search from the
     // Calendar screen doesn't need a separate SonarrSearchRepository.resolveEpisodeId round trip.
@@ -42,4 +45,7 @@ data class CalendarEntry(
     // always null for Sonarr entries. Same rationale as [episodeId], for
     // RadarrSearchRepository-backed searches.
     val movieId: Int? = null,
+    // TMDB id of the movie (Radarr) or series (Sonarr v4) - lets unmatched entries (not in the
+    // Jellyfin library yet) open the Seerr media detail view instead of being dead ends.
+    val tmdbId: Int? = null,
 )

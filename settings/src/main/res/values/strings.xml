@@ -4,6 +4,7 @@
     <string name="settings_preferred_audio_language">Preferred audio language</string>
     <string name="settings_preferred_subtitle_language">Preferred subtitle language</string>
     <string name="settings_category_connections">Connections</string>
+    <string name="settings_connections_summary">Servers, users &amp; integrations</string>
     <string name="settings_category_servers">Servers</string>
     <string name="settings_category_backup">Backup &amp; Restore</string>
     <string name="settings_category_integrations">Integrations</string>
@@ -63,6 +64,7 @@
     <string name="title_download">Downloads</string>
     <string name="auto_download_rules">Auto-download rules</string>
     <string name="about">About</string>
+    <string name="about_revision">Revision %1$s</string>
     <string name="home">Home</string>
     <string name="home_suggestions">Display suggestions</string>
     <string name="home_continue_watching">Display continue watching</string>

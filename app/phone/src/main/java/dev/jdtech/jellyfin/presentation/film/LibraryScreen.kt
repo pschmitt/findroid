@@ -73,6 +73,7 @@ import dev.jdtech.jellyfin.models.SeerrMediaStatus
 import dev.jdtech.jellyfin.models.SeerrMediaType
 import dev.jdtech.jellyfin.models.SeerrRequestItem
 import dev.jdtech.jellyfin.presentation.components.ErrorDialog
+import dev.jdtech.jellyfin.presentation.components.TopBarTitle
 import dev.jdtech.jellyfin.presentation.film.components.Direction
 import dev.jdtech.jellyfin.presentation.film.components.ErrorCard
 import dev.jdtech.jellyfin.presentation.film.components.ItemCard
@@ -212,7 +213,10 @@ private fun LibraryScreenLayout(
                                 KeyboardActions(onSearch = { keyboardController?.hide() }),
                         )
                     } else {
-                        Text(libraryName)
+                        TopBarTitle(
+                            text = libraryName,
+                            iconRes = if (isMergedMedia) CoreR.drawable.ic_film else null,
+                        )
                     }
                 },
                 navigationIcon = {
@@ -302,6 +306,14 @@ private fun LibraryScreenLayout(
                         state = state,
                         onAction = onAction,
                     )
+                    if (state.seerrConfigured) {
+                        MediaFilterChip(
+                            filter = MediaFilter.REQUESTED,
+                            labelRes = CoreR.string.discover_filter_requested,
+                            state = state,
+                            onAction = onAction,
+                        )
+                    }
                 }
             }
             ErrorGroup(
@@ -311,6 +323,10 @@ private fun LibraryScreenLayout(
             )
 
             val seerrActive = isMergedMedia && state.seerrConfigured
+            // The Requested tab replaces the library grid with the Seerr request list; while a
+            // search is open the normal search behavior wins.
+            val requestedTabActive =
+                seerrActive && state.filter == MediaFilter.REQUESTED && !searchExpanded
             // Opening search with an empty query surfaces the recent Seerr requests - feedback
             // on what's been asked for and how far along it is.
             val showRecentRequests =
@@ -324,7 +340,8 @@ private fun LibraryScreenLayout(
                     state.seerrResults
                         .filter {
                             when (state.filter) {
-                                MediaFilter.ALL -> true
+                                MediaFilter.ALL,
+                                MediaFilter.REQUESTED -> true
                                 MediaFilter.MOVIES -> it.mediaType == SeerrMediaType.MOVIE
                                 MediaFilter.SHOWS -> it.mediaType == SeerrMediaType.TV
                             }
@@ -345,12 +362,23 @@ private fun LibraryScreenLayout(
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
             ) {
-                if (showRecentRequests) {
-                    item(key = "seerr-requests-header", span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            text = stringResource(CoreR.string.discover_recent_requests),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                if (showRecentRequests || requestedTabActive) {
+                    if (showRecentRequests) {
+                        item(key = "seerr-requests-header", span = { GridItemSpan(maxLineSpan) }) {
+                            Text(
+                                text = stringResource(CoreR.string.discover_recent_requests),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                    }
+                    if (requestedTabActive && state.recentRequests.isEmpty()) {
+                        item(key = "seerr-requests-empty", span = { GridItemSpan(maxLineSpan) }) {
+                            Text(
+                                text = stringResource(CoreR.string.discover_requested_empty),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     items(
                         items = state.recentRequests,
@@ -375,16 +403,18 @@ private fun LibraryScreenLayout(
                         )
                     }
                 }
-                items(count = items.itemCount, key = items.itemKey { it.id }) {
-                    val item = items[it]
-                    item?.let { item ->
-                        ItemCard(
-                            item = item,
-                            direction = Direction.VERTICAL,
-                            onClick = { onAction(LibraryAction.OnItemClick(item)) },
-                            modifier = Modifier.animateItem(),
-                            queueStatus = state.queueStatus[item.id],
-                        )
+                if (!requestedTabActive) {
+                    items(count = items.itemCount, key = items.itemKey { it.id }) {
+                        val item = items[it]
+                        item?.let { item ->
+                            ItemCard(
+                                item = item,
+                                direction = Direction.VERTICAL,
+                                onClick = { onAction(LibraryAction.OnItemClick(item)) },
+                                modifier = Modifier.animateItem(),
+                                queueStatus = state.queueStatus[item.id],
+                            )
+                        }
                     }
                 }
                 if (showSeerrSection) {

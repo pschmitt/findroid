@@ -119,6 +119,10 @@ fun AboutScreen(navigateBack: () -> Unit) {
                                 text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                                 style = MaterialTheme.typography.bodyLarge,
                             )
+                            Text(
+                                text = stringResource(SettingsR.string.about_revision, BuildConfig.GIT_REVISION),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
                             Spacer(Modifier.height(MaterialTheme.spacings.small))
                             Text(
                                 text = stringResource(CoreR.string.app_description),
@@ -135,7 +139,7 @@ fun AboutScreen(navigateBack: () -> Unit) {
                                     onClick = {
                                         try {
                                             uriHandler.openUri(
-                                                "https://github.com/jarnedemeulemeester/findroid"
+                                                "https://github.com/pschmitt/findroidplus"
                                             )
                                         } catch (e: IllegalArgumentException) {
                                             Toast.makeText(

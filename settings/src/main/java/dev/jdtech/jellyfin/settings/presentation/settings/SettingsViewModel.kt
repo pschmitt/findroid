@@ -607,12 +607,23 @@ constructor(
                     )
             ),
             PreferenceGroup(
-                nameStringResource = R.string.settings_category_connections,
                 preferences =
                     listOf(
                         PreferenceCategory(
+                            nameStringResource = R.string.settings_category_connections,
+                            descriptionStringRes = R.string.settings_connections_summary,
+                            iconDrawableId = R.drawable.ic_network,
+                            supportedDeviceTypes = listOf(DeviceType.PHONE),
+                            onClick = {
+                                viewModelScope.launch {
+                                    eventsChannel.send(SettingsEvent.NavigateToConnections)
+                                }
+                            },
+                        ),
+                        PreferenceCategory(
                             nameStringResource = R.string.settings_category_servers,
                             iconDrawableId = R.drawable.ic_server,
+                            supportedDeviceTypes = listOf(DeviceType.TV),
                             onClick = {
                                 viewModelScope.launch {
                                     eventsChannel.send(SettingsEvent.NavigateToServers)
@@ -622,19 +633,10 @@ constructor(
                         PreferenceCategory(
                             nameStringResource = R.string.users,
                             iconDrawableId = R.drawable.ic_user,
+                            supportedDeviceTypes = listOf(DeviceType.TV),
                             onClick = {
                                 viewModelScope.launch {
                                     eventsChannel.send(SettingsEvent.NavigateToUsers)
-                                }
-                            },
-                        ),
-                        PreferenceCategory(
-                            nameStringResource = R.string.settings_category_integrations,
-                            iconDrawableId = R.drawable.ic_network,
-                            supportedDeviceTypes = listOf(DeviceType.PHONE),
-                            onClick = {
-                                viewModelScope.launch {
-                                    eventsChannel.send(SettingsEvent.NavigateToIntegrationsSettings)
                                 }
                             },
                         ),

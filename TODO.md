@@ -94,3 +94,16 @@ Status: **done** (2026-07-17). Verified via remote builds on rofl-13/rofl-14 (un
 phone/TV compile); release APK installed on both test devices. Note: release builds only get
 the persistent CI signature when the CI_KEYSTORE_* env vars are exported on the build host -
 a plain `just build-fetch --release` signs with the host's throwaway debug keystore.
+
+## FINDROID-4: navigation & connections round
+
+- [x] Media: separate "Requested" tab/filter listing the Seerr requests
+- [x] Calendar: entries that aren't in the library yet (no click action today) open the
+      Seerr media detail view
+- [x] Settings: one combined "Connections" view (Servers + Users + Integrations) instead
+      of three separate screens; keyboard must not cover focused inputs (currently does
+      for the Seerr fields)
+- [x] Title icons for the Media, Downloads, Calendar and Settings views
+
+Status: **done** (2026-07-17). Verified with remote `just lint` and Libre debug Kotlin
+compilation for the phone and TV apps on rofl-13.

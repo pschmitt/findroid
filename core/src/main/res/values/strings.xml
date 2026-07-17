@@ -264,6 +264,8 @@
     <string name="discover_filter_all">All</string>
     <string name="discover_filter_movies">Movies</string>
     <string name="discover_filter_shows">Shows</string>
+    <string name="discover_filter_requested">Requested</string>
+    <string name="discover_requested_empty">No Seerr requests yet</string>
     <string name="discover_request">Request</string>
     <string name="discover_requested_toast">Requested “%1$s”</string>
     <string name="discover_request_failed_toast">Request failed: %1$s</string>

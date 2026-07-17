@@ -9,7 +9,7 @@ sealed interface SettingsEvent {
 
     data object NavigateToBackupSettings : SettingsEvent
 
-    data object NavigateToIntegrationsSettings : SettingsEvent
+    data object NavigateToConnections : SettingsEvent
 
     data object NavigateToAbout : SettingsEvent
 

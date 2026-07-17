@@ -8,6 +8,7 @@ import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.PvrFetchError
 import dev.jdtech.jellyfin.models.PvrSource
+import dev.jdtech.jellyfin.models.SeerrMediaType
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
@@ -43,6 +44,7 @@ import timber.log.Timber
 class CalendarRepositoryImpl(
     private val appPreferences: AppPreferences,
     private val jellyfinRepository: JellyfinRepository,
+    private val seerrRepository: SeerrRepository,
     private val sonarrApiKeyProvider: () -> String?,
     private val radarrApiKeyProvider: () -> String?,
 ) : CalendarRepository {
@@ -60,9 +62,25 @@ class CalendarRepositoryImpl(
             val sonarr = sonarrDeferred.await()
             val radarr = radarrDeferred.await()
             CalendarResult(
-                entries = (sonarr.entries + radarr.entries).sortedBy { it.date },
+                entries = enrichPosters((sonarr.entries + radarr.entries).sortedBy { it.date }),
                 errors = sonarr.errors + radarr.errors,
             )
+        }
+
+    private suspend fun enrichPosters(entries: List<dev.jdtech.jellyfin.models.CalendarEntry>) =
+        coroutineScope {
+            entries
+            .map { entry ->
+                async {
+                    if (entry.images?.primary != null || entry.tmdbId == null) entry
+                    else {
+                        val type = if (entry.source == PvrSource.RADARR) SeerrMediaType.MOVIE else SeerrMediaType.TV
+                        val seerrPoster = seerrRepository.getDetails(entry.tmdbId, type).getOrNull()?.posterUrl
+                        entry.copy(posterUrl = seerrPoster ?: entry.posterUrl)
+                    }
+                }
+            }
+            .awaitAll()
         }
 
     private suspend fun fetchSonarrCalendar(start: LocalDate, end: LocalDate): CalendarResult {
@@ -126,7 +144,19 @@ class CalendarRepositoryImpl(
         val (referenced, rest) = shows.partition { it.tvdbId in referencedTvdbIds }
         val withSeasons =
             referenced
-                .map { show -> async { show.copy(seasons = jellyfinRepository.getSeasons(show.id)) } }
+                .map { show ->
+                    async {
+                        val seasons = jellyfinRepository.getSeasons(show.id)
+                        show.copy(
+                            seasons =
+                                seasons.map { season ->
+                                    season.copy(
+                                        episodes = jellyfinRepository.getEpisodes(show.id, season.id)
+                                    )
+                                }
+                        )
+                    }
+                }
                 .awaitAll()
         withSeasons + rest
     }

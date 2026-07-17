@@ -54,6 +54,7 @@ build *flags:
     fi
     tmpdir=$(mktemp -d)
     trap 'rm -rf "$tmpdir"' EXIT
+    git_revision=$(git describe --always --abbrev=12 --dirty)
     rbw attachment get "Findroid CI Signing Keystore" --attachment findroid-ci.jks --output "$tmpdir/findroid-ci.jks"
     rbw attachment get "Findroid CI Signing Keystore" --attachment findroid-ci-keystore.env --output "$tmpdir/findroid-ci-keystore.env"
     just sync "$host"
@@ -61,12 +62,21 @@ build *flags:
     scp -q "$tmpdir/findroid-ci.jks" "$tmpdir/findroid-ci-keystore.env" "$host:.findroid-ci-tmp/"
     # The keystore is shredded on the host whether or not the build succeeds.
     ssh "$host" "
+      artifact='{{remote_path}}/app/${variant}/build/outputs/apk/libre/${flavor}/${variant}-libre-${abi}-${flavor}.apk'
+      previous_mtime=0
+      [[ -f \"\$artifact\" ]] && previous_mtime=\$(stat -c %Y \"\$artifact\")
       set -a
       . ~/.findroid-ci-tmp/findroid-ci-keystore.env
       set +a
       export CI_KEYSTORE_PATH=\$HOME/.findroid-ci-tmp/findroid-ci.jks
-      cd {{remote_path}} && nix develop --command ./gradlew ':app:${variant}:assembleLibre${flavor^}'
+      export GIT_REVISION='$git_revision'
+      cd {{remote_path}} && nix develop --command ./gradlew ':app:${variant}:assembleLibre${flavor^}' --rerun-tasks 2>&1 | tee ~/findroid-release-build.log
       rc=\$?
+      if [[ \$rc -eq 0 && (! -f \"\$artifact\" || \$(stat -c %Y \"\$artifact\") -le \$previous_mtime) ]]
+      then
+        echo 'release build did not refresh its APK artifact' >&2
+        rc=1
+      fi
       shred -u ~/.findroid-ci-tmp/* 2>/dev/null || true
       rmdir ~/.findroid-ci-tmp 2>/dev/null || true
       exit \$rc

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.presentation.components.TopBarTitle
 import dev.jdtech.jellyfin.presentation.settings.components.DownloadLocationChangeDialog
 import dev.jdtech.jellyfin.presentation.settings.components.SettingsGroupCard
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -68,12 +69,10 @@ fun SettingsScreen(
     indexes: IntArray = intArrayOf(),
     navigateToSettings: (indexes: IntArray) -> Unit,
     navigateToSettingsFileEdit: (filePath: String) -> Unit,
-    navigateToServers: () -> Unit,
-    navigateToUsers: () -> Unit,
     navigateToAbout: () -> Unit,
     navigateToAutoDownloadRules: () -> Unit,
     navigateToBackupSettings: () -> Unit,
-    navigateToIntegrationsSettings: () -> Unit,
+    navigateToConnections: () -> Unit,
     navigateBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -89,12 +88,12 @@ fun SettingsScreen(
         when (event) {
             is SettingsEvent.NavigateToSettings -> navigateToSettings(event.indexes)
             is SettingsEvent.NavigateToSettingsFileEdit -> navigateToSettingsFileEdit(event.filePath)
-            is SettingsEvent.NavigateToUsers -> navigateToUsers()
-            is SettingsEvent.NavigateToServers -> navigateToServers()
+            is SettingsEvent.NavigateToUsers -> Unit
+            is SettingsEvent.NavigateToServers -> Unit
             is SettingsEvent.NavigateToAbout -> navigateToAbout()
             is SettingsEvent.NavigateToAutoDownloadRules -> navigateToAutoDownloadRules()
             is SettingsEvent.NavigateToBackupSettings -> navigateToBackupSettings()
-            is SettingsEvent.NavigateToIntegrationsSettings -> navigateToIntegrationsSettings()
+            is SettingsEvent.NavigateToConnections -> navigateToConnections()
             is SettingsEvent.UpdateTheme -> {
                 val uiModeManager = context.getSystemService(UiModeManager::class.java)
                 val nightMode =
@@ -199,7 +198,17 @@ private fun SettingsScreenLayout(
         bottomBar = { relocateProgress?.let { RelocateProgressCard(it) } },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(title)) },
+                title = {
+                    TopBarTitle(
+                        text = stringResource(title),
+                        iconRes =
+                            if (title == CoreR.string.title_settings) {
+                                CoreR.drawable.ic_settings
+                            } else {
+                                null
+                            },
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = { onAction(SettingsAction.OnBackClick) }) {
                         Icon(

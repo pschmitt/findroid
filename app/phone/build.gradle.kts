@@ -22,6 +22,9 @@ android {
         versionCode = Versions.APP_CODE
         versionName = Versions.APP_NAME
 
+        val gitRevision = System.getenv("GIT_REVISION") ?: "unknown"
+        buildConfigField("String", "GIT_REVISION", "\"$gitRevision\"")
+
         testInstrumentationRunner = "dev.jdtech.jellyfin.HiltTestRunner"
     }
 

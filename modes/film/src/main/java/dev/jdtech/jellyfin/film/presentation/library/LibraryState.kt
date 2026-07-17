@@ -51,4 +51,6 @@ enum class MediaFilter {
     ALL,
     MOVIES,
     SHOWS,
+    /** Seerr requests instead of library content - only offered when Seerr is configured. */
+    REQUESTED,
 }

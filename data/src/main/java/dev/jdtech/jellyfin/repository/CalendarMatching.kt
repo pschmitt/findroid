@@ -27,6 +27,9 @@ import java.time.format.DateTimeParseException
 /** Sonarr's `series.tvdbId`/Radarr's `tmdbId` default to 0 when the field is absent from the DTO. */
 private const val UNSET_PROVIDER_ID = 0
 
+private fun List<dev.jdtech.jellyfin.api.pvr.PvrImage>.posterUrl(): String? =
+    firstOrNull { it.coverType.equals("poster", ignoreCase = true) }?.let { it.remoteUrl ?: it.url }
+
 fun matchSonarrCalendar(
     entries: List<SonarrCalendarEntry>,
     jellyfinShows: List<FindroidShow>,
@@ -54,10 +57,14 @@ fun matchSonarrCalendar(
             title = title,
             subtitle = buildEpisodeSubtitle(entry.seasonNumber, entry.episodeNumber, entry.title),
             itemId = season?.id,
+            episodeItemId =
+                season?.episodes?.firstOrNull { it.indexNumber == entry.episodeNumber }?.id,
             hasFile = entry.hasFile,
             monitored = entry.monitored,
             images = season?.images ?: show?.images,
+            posterUrl = entry.series?.images?.posterUrl(),
             episodeId = entry.id,
+            tmdbId = entry.series?.tmdbId?.takeIf { it != UNSET_PROVIDER_ID },
         )
     }
 }
@@ -85,7 +92,9 @@ fun matchRadarrCalendar(
             hasFile = entry.hasFile,
             monitored = entry.monitored,
             images = movie?.images,
+            posterUrl = entry.images.posterUrl(),
             movieId = entry.id,
+            tmdbId = tmdbId,
         )
     }
 }

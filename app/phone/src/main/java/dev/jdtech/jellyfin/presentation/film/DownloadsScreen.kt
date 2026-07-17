@@ -80,6 +80,7 @@ import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.QueueItemStatus
 import dev.jdtech.jellyfin.models.isDownloaded
+import dev.jdtech.jellyfin.presentation.components.TopBarTitle
 import dev.jdtech.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.jdtech.jellyfin.presentation.film.components.Direction
 import dev.jdtech.jellyfin.presentation.film.components.ItemPoster
@@ -306,7 +307,12 @@ private fun DownloadsScreenLayout(
         },
         topBar = {
             TopAppBar(
-                title = { Text(text = stringResource(CoreR.string.title_download)) },
+                title = {
+                    TopBarTitle(
+                        text = stringResource(CoreR.string.title_download),
+                        iconRes = CoreR.drawable.ic_download,
+                    )
+                },
                 navigationIcon = {
                     if (selectionMode) {
                         IconButton(onClick = onClearSelection) {
