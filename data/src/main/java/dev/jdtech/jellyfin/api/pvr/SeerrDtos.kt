@@ -124,6 +124,25 @@ data class SeerrTvDetails(
     val mediaInfo: SeerrMediaInfo? = null,
 )
 
+@Serializable
+data class SeerrTvSeasonDetails(
+    val id: Int,
+    val name: String = "",
+    val seasonNumber: Int = 0,
+    val episodes: List<SeerrTvEpisode> = emptyList(),
+)
+
+@Serializable
+data class SeerrTvEpisode(
+    val id: Int,
+    val name: String = "",
+    val seasonNumber: Int = 0,
+    val episodeNumber: Int = 0,
+    val airDate: String? = null,
+    val overview: String? = null,
+    val stillPath: String? = null,
+)
+
 @Serializable data class SeerrGenre(val id: Int = 0, val name: String = "")
 
 // endregion

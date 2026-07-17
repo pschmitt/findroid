@@ -45,10 +45,19 @@ constructor(
 
     private var tmdbId: Int = 0
     private lateinit var mediaType: SeerrMediaType
+    private var seasonNumber: Int? = null
+    private var episodeNumber: Int? = null
 
-    fun loadDetail(tmdbId: Int, mediaType: SeerrMediaType) {
+    fun loadDetail(
+        tmdbId: Int,
+        mediaType: SeerrMediaType,
+        seasonNumber: Int? = null,
+        episodeNumber: Int? = null,
+    ) {
         this.tmdbId = tmdbId
         this.mediaType = mediaType
+        this.seasonNumber = seasonNumber
+        this.episodeNumber = episodeNumber
         viewModelScope.launch {
             _state.value =
                 _state.value.copy(
@@ -61,7 +70,7 @@ constructor(
                         },
                 )
             seerrRepository
-                .getDetails(tmdbId, mediaType)
+                .getDetails(tmdbId, mediaType, seasonNumber, episodeNumber)
                 .fold(
                     onSuccess = { detail ->
                         _state.value = _state.value.copy(isLoading = false, detail = detail)
@@ -79,7 +88,8 @@ constructor(
             is SeerrMediaAction.OnRequest -> request()
             is SeerrMediaAction.OnCancelRequest -> cancelRequests()
             is SeerrMediaAction.OnSearchInPvr -> searchInPvr()
-            is SeerrMediaAction.OnRetryClick -> loadDetail(tmdbId, mediaType)
+            is SeerrMediaAction.OnRetryClick ->
+                loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber)
             else -> Unit
         }
     }

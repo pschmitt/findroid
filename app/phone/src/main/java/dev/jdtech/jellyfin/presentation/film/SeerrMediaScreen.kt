@@ -72,6 +72,8 @@ import dev.jdtech.jellyfin.utils.ObserveAsEvents
 fun SeerrMediaScreen(
     tmdbId: Int,
     mediaType: SeerrMediaType,
+    seasonNumber: Int? = null,
+    episodeNumber: Int? = null,
     navigateBack: () -> Unit,
     viewModel: SeerrMediaViewModel = hiltViewModel(),
 ) {
@@ -81,7 +83,9 @@ fun SeerrMediaScreen(
     // Request and cancel share their failure event, so remember which label to show for it.
     var lastActionWasCancel by remember { mutableStateOf(false) }
 
-    LaunchedEffect(true) { viewModel.loadDetail(tmdbId = tmdbId, mediaType = mediaType) }
+    LaunchedEffect(tmdbId, mediaType, seasonNumber, episodeNumber) {
+        viewModel.loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber)
+    }
 
     ObserveAsEvents(viewModel.events) { event ->
         val message =
@@ -146,7 +150,7 @@ private fun SeerrMediaScreenLayout(state: SeerrMediaState, onAction: (SeerrMedia
                     Column(modifier = Modifier.padding(start = paddingStart, end = paddingEnd)) {
                         Spacer(Modifier.height(MaterialTheme.spacings.small))
                         Text(
-                            text = detail.title,
+                            text = detail.episode?.title ?: detail.title,
                             overflow = TextOverflow.Ellipsis,
                             maxLines = 3,
                             style = MaterialTheme.typography.headlineMedium,
@@ -166,7 +170,7 @@ private fun SeerrMediaScreenLayout(state: SeerrMediaState, onAction: (SeerrMedia
                             Spacer(Modifier.height(MaterialTheme.spacings.small))
                             SeerrStatusChip(status = detail.status)
                         }
-                        detail.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+                        (detail.episode?.overview ?: detail.overview)?.takeIf { it.isNotBlank() }?.let { overview ->
                             Spacer(Modifier.height(MaterialTheme.spacings.medium))
                             OverviewText(text = overview, maxCollapsedLines = 5)
                         }
@@ -296,7 +300,7 @@ private fun SeerrBackdrop(detail: SeerrMediaDetail) {
                 .aspectRatio(16f / 9f)
                 .background(MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        val imageUrl = detail.backdropUrl ?: detail.posterUrl
+        val imageUrl = detail.episode?.stillUrl ?: detail.backdropUrl ?: detail.posterUrl
         if (imageUrl != null) {
             AsyncImage(
                 model = imageUrl,
@@ -312,6 +316,20 @@ private fun SeerrBackdrop(detail: SeerrMediaDetail) {
 /** "2014 · Movie · 1h 49m · Comedy, Drama" - skips whatever the payload doesn't have. */
 @Composable
 private fun seerrMetaLine(detail: SeerrMediaDetail): String {
+    detail.episode?.let { episode ->
+        return listOf(
+                detail.title,
+                stringResource(
+                    CoreR.string.episode_name_extended,
+                    episode.seasonNumber,
+                    episode.episodeNumber,
+                    episode.title,
+                ),
+                episode.airDate?.take(10),
+            )
+            .filterNotNull()
+            .joinToString(" · ")
+    }
     val runtimeOrSeasons =
         when (detail.mediaType) {
             SeerrMediaType.MOVIE ->

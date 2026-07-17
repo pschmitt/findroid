@@ -109,7 +109,13 @@ data class LibraryRoute(
 
 // Detail view for a Seerr media item that isn't in the library (yet) - keyed by TMDB id.
 // mediaType is a SeerrMediaType enum name.
-@Serializable data class SeerrMediaRoute(val tmdbId: Int, val mediaType: String)
+@Serializable
+data class SeerrMediaRoute(
+    val tmdbId: Int,
+    val mediaType: String,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+)
 
 @Serializable data object FavoritesRoute
 
@@ -553,6 +559,8 @@ fun NavigationRoot(
                 SeerrMediaScreen(
                     tmdbId = route.tmdbId,
                     mediaType = SeerrMediaType.valueOf(route.mediaType),
+                    seasonNumber = route.seasonNumber,
+                    episodeNumber = route.episodeNumber,
                     navigateBack = { navController.safePopBackStack() },
                 )
             }
@@ -617,9 +625,14 @@ fun NavigationRoot(
                             launchSingleTop = true
                         }
                     },
-                    navigateToSeerr = { tmdbId ->
+                    navigateToSeerr = { tmdbId, seasonNumber, episodeNumber ->
                         navController.safeNavigate(
-                            SeerrMediaRoute(tmdbId = tmdbId, mediaType = SeerrMediaType.TV.name)
+                            SeerrMediaRoute(
+                                tmdbId = tmdbId,
+                                mediaType = SeerrMediaType.TV.name,
+                                seasonNumber = seasonNumber,
+                                episodeNumber = episodeNumber,
+                            )
                         )
                     },
                     navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },

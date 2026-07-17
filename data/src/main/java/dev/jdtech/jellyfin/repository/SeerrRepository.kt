@@ -25,7 +25,12 @@ interface SeerrRepository {
     suspend fun getPopularShows(): Result<List<SeerrSearchItem>>
 
     /** Full detail payload for the dedicated media view, including open request ids. */
-    suspend fun getDetails(tmdbId: Int, mediaType: SeerrMediaType): Result<SeerrMediaDetail>
+    suspend fun getDetails(
+        tmdbId: Int,
+        mediaType: SeerrMediaType,
+        seasonNumber: Int? = null,
+        episodeNumber: Int? = null,
+    ): Result<SeerrMediaDetail>
 
     /** Requests the item; series requests cover all seasons. */
     suspend fun request(tmdbId: Int, mediaType: SeerrMediaType): Result<Unit>

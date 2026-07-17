@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.repository
 import dev.jdtech.jellyfin.api.pvr.SeerrApi
 import dev.jdtech.jellyfin.api.pvr.SeerrMediaInfo
 import dev.jdtech.jellyfin.api.pvr.SeerrSearchResult
+import dev.jdtech.jellyfin.models.SeerrEpisodeDetail
 import dev.jdtech.jellyfin.models.SeerrMediaDetail
 import dev.jdtech.jellyfin.models.SeerrMediaStatus
 import dev.jdtech.jellyfin.models.SeerrMediaType
@@ -51,6 +52,8 @@ class SeerrRepositoryImpl(
     override suspend fun getDetails(
         tmdbId: Int,
         mediaType: SeerrMediaType,
+        seasonNumber: Int?,
+        episodeNumber: Int?,
     ): Result<SeerrMediaDetail> = runAction { api ->
         when (mediaType) {
             SeerrMediaType.MOVIE -> {
@@ -72,6 +75,27 @@ class SeerrRepositoryImpl(
             }
             SeerrMediaType.TV -> {
                 val details = api.getTvDetails(tmdbId)
+                val episode =
+                    if (seasonNumber != null && episodeNumber != null) {
+                        api.getTvSeason(tmdbId, seasonNumber)
+                            .episodes
+                            .firstOrNull { it.episodeNumber == episodeNumber }
+                            ?.let {
+                                SeerrEpisodeDetail(
+                                    title = it.name.ifBlank { "Episode $episodeNumber" },
+                                    seasonNumber = it.seasonNumber,
+                                    episodeNumber = it.episodeNumber,
+                                    airDate = it.airDate,
+                                    overview = it.overview?.takeIf(String::isNotBlank),
+                                    stillUrl = it.stillPath?.toBackdropUrl(),
+                                )
+                            }
+                            ?: throw IllegalArgumentException(
+                                "Could not find season $seasonNumber episode $episodeNumber in Seerr"
+                            )
+                    } else {
+                        null
+                    }
                 SeerrMediaDetail(
                     tmdbId = tmdbId,
                     mediaType = mediaType,
@@ -85,6 +109,7 @@ class SeerrRepositoryImpl(
                     numberOfSeasons = details.numberOfSeasons?.takeIf { it > 0 },
                     status = SeerrMediaStatus.fromCode(details.mediaInfo?.status),
                     cancellableRequestIds = details.mediaInfo.cancellableRequestIds(),
+                    episode = episode,
                 )
             }
         }

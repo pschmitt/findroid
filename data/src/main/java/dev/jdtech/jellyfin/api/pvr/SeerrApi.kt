@@ -94,6 +94,13 @@ class SeerrApi(private val baseUrl: String, private val apiKey: String) {
             json.decodeFromString<SeerrTvDetails>(execute(url))
         }
 
+    /** Returns a season and its episodes, used for an episode-specific Seerr detail view. */
+    suspend fun getTvSeason(tmdbId: Int, seasonNumber: Int): SeerrTvSeasonDetails =
+        withContext(Dispatchers.IO) {
+            val url = buildUrl("api", "v1", "tv", tmdbId.toString(), "season", seasonNumber.toString())
+            json.decodeFromString<SeerrTvSeasonDetails>(execute(url))
+        }
+
     /** Cancels/deletes a request filed via [createRequest] (or any request the API key may manage). */
     suspend fun deleteRequest(requestId: Int) {
         withContext(Dispatchers.IO) {

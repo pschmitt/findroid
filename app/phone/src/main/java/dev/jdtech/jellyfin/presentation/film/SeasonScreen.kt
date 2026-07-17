@@ -81,7 +81,7 @@ fun SeasonScreen(
     navigateHome: () -> Unit,
     navigateToItem: (item: FindroidItem) -> Unit,
     navigateToSeries: (seriesId: UUID) -> Unit,
-    navigateToSeerr: (tmdbId: Int) -> Unit,
+    navigateToSeerr: (tmdbId: Int, seasonNumber: Int, episodeNumber: Int) -> Unit,
     navigateToSettings: () -> Unit,
     viewModel: SeasonViewModel = hiltViewModel(),
 ) {
@@ -120,7 +120,8 @@ fun SeasonScreen(
                 is SeasonAction.OnSettingsClick -> navigateToSettings()
                 is SeasonAction.NavigateToItem -> navigateToItem(action.item)
                 is SeasonAction.NavigateToSeries -> navigateToSeries(action.seriesId)
-                is SeasonAction.NavigateToSeerr -> navigateToSeerr(action.tmdbId)
+                is SeasonAction.NavigateToSeerr ->
+                    navigateToSeerr(action.tmdbId, action.seasonNumber, action.episodeNumber)
                 else -> Unit
             }
             viewModel.onAction(action)
@@ -324,7 +325,15 @@ private fun SeasonScreenLayout(
                         modifier = Modifier.padding(start = paddingStart, end = paddingEnd),
                         onClick =
                             state.seriesTmdbId?.let { tmdbId ->
-                                { onAction(SeasonAction.NavigateToSeerr(tmdbId)) }
+                                {
+                                    onAction(
+                                        SeasonAction.NavigateToSeerr(
+                                            tmdbId = tmdbId,
+                                            seasonNumber = episode.seasonNumber,
+                                            episodeNumber = episode.episodeNumber,
+                                        )
+                                    )
+                                }
                             },
                         onSearchAutomatic = {
                             onAction(
