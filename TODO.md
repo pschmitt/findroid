@@ -136,3 +136,32 @@ compilation for the phone and TV apps on rofl-13.
 Status: **done** (2026-07-17). Verified with remote `ktfmtCheck` and Libre release
 builds for phone and TV on rofl-14; the signed phone APK was installed on the ASUS
 phone and Mi Pad 4.
+
+## FINDROID-6: Downloads storage summary & PVR request granularity
+
+- [x] Downloads screen: storage summary card (on-device usage + a single PVR
+      "server storage" bar - Sonarr/Radarr assumed to share a disk rather than
+      showing both; free/total resolved via `/rootfolder` matched against
+      `/diskspace` by path, not just the largest visible mount) with color-coded
+      usage bars (IEC/binary units - GiB/TiB - to match Sonarr/Radarr's own UI)
+- [x] Download widgets (item detail pages + PVR queue rows): show the download
+      size on the same line as the speed/ETA text
+- [ ] Seerr: allow requesting/searching a specific season of a show that isn't in
+      the Jellyfin library yet, not just the whole series - most requests are for
+      "just season 1", not the entire show
+- [ ] Downloads screen: the local download list takes a noticeable moment to
+      appear on open - investigate why (should be instant, it's just a local DB
+      read)
+
+Status: in progress (2026-07-18) - storage summary and download-size shipped;
+season-level Seerr requests and the downloads-list load delay still open.
+
+## FINDROID-7: Dependency currency (Renovate/Dependabot)
+
+- [ ] Review upstream Findroid's dependency updates since this fork diverged and
+      selectively pull in the ones that still make sense (don't blindly merge -
+      this fork has diverged substantially from upstream in places)
+- [ ] Enable Renovate or Dependabot on this repo so dependency versions stay
+      current going forward without manual tracking
+
+Status: not started.
