@@ -103,6 +103,8 @@ constructor(private val downloader: Downloader, private val appPreferences: AppP
                             progress = progress.percent.coerceAtLeast(0) / 100f,
                             speedBytesPerSecond = progress.speedBytesPerSecond,
                             etaSeconds = progress.etaSeconds,
+                            downloadedBytes = progress.downloadedBytes,
+                            totalBytes = progress.totalBytes,
                         )
                     )
                     if (progress.status == DownloadManager.STATUS_SUCCESSFUL) {

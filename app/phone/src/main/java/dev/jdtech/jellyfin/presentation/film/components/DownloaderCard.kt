@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.film.components
 
 import android.app.DownloadManager
+import android.text.format.Formatter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -133,20 +134,32 @@ fun DownloaderCard(
                 if (state.status == DownloadManager.STATUS_RUNNING && state.speedBytesPerSecond > 0) {
                     Spacer(Modifier.height(MaterialTheme.spacings.small))
                     val speedText = formatDownloadSpeed(context, state.speedBytesPerSecond)
-                    Text(
-                        text =
-                            if (state.etaSeconds >= 0) {
-                                stringResource(
-                                    CoreR.string.download_speed_eta,
-                                    speedText,
-                                    formatEta(state.etaSeconds),
-                                )
-                            } else {
-                                speedText
-                            },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text =
+                                if (state.etaSeconds >= 0) {
+                                    stringResource(
+                                        CoreR.string.download_speed_eta,
+                                        speedText,
+                                        formatEta(state.etaSeconds),
+                                    )
+                                } else {
+                                    speedText
+                                },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (state.totalBytes > 0) {
+                            Text(
+                                text = Formatter.formatFileSize(context, state.totalBytes),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(MaterialTheme.spacings.small))
                 if (state.errorText != null) {
@@ -262,6 +275,8 @@ fun PvrQueueDownloadCard(
                 errorText = status.errorMessage?.let(UiText::DynamicString),
                 speedBytesPerSecond = status.speedBytesPerSecond,
                 etaSeconds = status.etaSeconds,
+                downloadedBytes = (status.sizeBytes - status.remainingBytes).coerceAtLeast(0L),
+                totalBytes = status.sizeBytes,
             ),
         onCancelClick = {},
         onRetryClick = {},
