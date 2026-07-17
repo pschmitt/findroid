@@ -121,6 +121,9 @@
     <string name="live_tv">Live TV</string>
     <string name="play">Play</string>
     <string name="watch_trailer">Watch trailer</string>
+    <string name="trailer">Trailer</string>
+    <string name="watched">Watched</string>
+    <string name="delete">Delete</string>
     <string name="mark_as_played">Mark played</string>
     <string name="unmark_as_played">Mark unplayed</string>
     <string name="add_to_favorites">Favorite</string>

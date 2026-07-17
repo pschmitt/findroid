@@ -3,7 +3,6 @@ package dev.jdtech.jellyfin.presentation.film.components
 import android.app.DownloadManager
 import android.os.Environment
 import android.os.StatFs
-import android.text.format.Formatter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,15 +10,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilledTonalIconToggleButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -32,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
@@ -52,8 +43,6 @@ import dev.jdtech.jellyfin.utils.resolveDownloadStorageIndex
 fun ItemButtonsBar(
     item: FindroidItem,
     onPlayClick: (startFromBeginning: Boolean) -> Unit,
-    onMarkAsPlayedClick: () -> Unit,
-    onMarkAsFavoriteClick: () -> Unit,
     onDownloadClick: (storageIndex: Int) -> Unit,
     onDownloadCancelClick: () -> Unit,
     onDownloadDeleteClick: () -> Unit,
@@ -62,6 +51,8 @@ fun ItemButtonsBar(
     onDownloadResumeClick: () -> Unit = {},
     onTrailerClick: (uri: String) -> Unit,
     modifier: Modifier = Modifier,
+    onMarkAsPlayedClick: (() -> Unit)? = null,
+    onMarkAsFavoriteClick: (() -> Unit)? = null,
     downloaderState: DownloaderState? = null,
     downloadLocationPreference: String = "ask",
     enableDownloadDialog: Boolean = false,
@@ -77,7 +68,6 @@ fun ItemButtonsBar(
         { _, _, _ ->
         },
     downloadIconTint: Color? = null,
-    onInfoClick: (() -> Unit)? = null,
     trailingContent: @Composable FlowRowScope.() -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -126,204 +116,166 @@ fun ItemButtonsBar(
         }
     }
 
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        Column(
-            modifier = modifier,
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+    ) {
+        // One row of uniform labeled action tiles ([ItemActionButton]): every action - including
+        // anything injected via [trailingContent], like the PVR search tile - shares the same
+        // icon-above-label silhouette. Played/favorite toggles only appear here when the caller
+        // wires them up (Show/Season); Episode/Movie surface those on their meta line instead.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
         ) {
-            // One compact row of icon actions instead of a wrapping bar of labeled buttons:
-            // toggles (played/favorite) use the standard checked container color rather than a
-            // red icon tint, and the former overflow menu's actions are simply always visible.
-            // Each icon carries a content description; destructive delete is error-tinted.
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
-            ) {
-                FilledTonalIconToggleButton(
+            onMarkAsPlayedClick?.let { markAsPlayedClick ->
+                ItemActionButton(
+                    icon = painterResource(CoreR.drawable.ic_check),
+                    label = stringResource(CoreR.string.watched),
+                    onClick = markAsPlayedClick,
                     checked = item.played,
-                    onCheckedChange = { onMarkAsPlayedClick() },
-                ) {
-                    Icon(
-                        painter = painterResource(CoreR.drawable.ic_check),
-                        contentDescription =
-                            stringResource(
-                                if (item.played) CoreR.string.unmark_as_played
-                                else CoreR.string.mark_as_played
-                            ),
-                    )
-                }
-                FilledTonalIconToggleButton(
+                )
+            }
+            onMarkAsFavoriteClick?.let { markAsFavoriteClick ->
+                ItemActionButton(
+                    icon =
+                        painterResource(
+                            if (item.favorite) CoreR.drawable.ic_heart_filled
+                            else CoreR.drawable.ic_heart
+                        ),
+                    label = stringResource(CoreR.string.add_to_favorites),
+                    onClick = markAsFavoriteClick,
                     checked = item.favorite,
-                    onCheckedChange = { onMarkAsFavoriteClick() },
-                ) {
-                    Icon(
-                        painter =
-                            painterResource(
-                                if (item.favorite) CoreR.drawable.ic_heart_filled
-                                else CoreR.drawable.ic_heart
-                            ),
-                        contentDescription =
-                            stringResource(
-                                if (item.favorite) CoreR.string.remove_from_favorites
-                                else CoreR.string.add_to_favorites
-                            ),
+                )
+            }
+            val canRestart = item.playbackPositionTicks.div(600000000) > 0
+            if (canRestart) {
+                ItemActionButton(
+                    icon = painterResource(CoreR.drawable.ic_rotate_ccw),
+                    label = stringResource(CoreR.string.restart_from_beginning),
+                    onClick = { onPlayClick(true) },
+                )
+            }
+            trailerUri?.let { uri ->
+                ItemActionButton(
+                    icon = painterResource(CoreR.drawable.ic_film),
+                    label = stringResource(CoreR.string.trailer),
+                    onClick = { onTrailerClick(uri) },
+                )
+            }
+            trailingContent()
+            if (downloaderState != null && !downloaderState.isDownloading) {
+                if (item.isDownloaded()) {
+                    // Size/path details live in the confirmation dialog this opens.
+                    ItemActionButton(
+                        icon = painterResource(CoreR.drawable.ic_trash),
+                        label = stringResource(CoreR.string.delete),
+                        onClick = { deleteDownloadDialogOpen = true },
+                        contentColor = MaterialTheme.colorScheme.error,
+                    )
+                } else if (item.canDownload || item is FindroidShow || item is FindroidSeason) {
+                    ItemActionButton(
+                        icon = painterResource(CoreR.drawable.ic_download),
+                        label = stringResource(CoreR.string.download),
+                        onClick = {
+                            if (enableDownloadDialog) {
+                                downloadScopeDialogOpen = true
+                            } else {
+                                startDownload()
+                            }
+                        },
+                        contentColor = downloadIconTint,
                     )
                 }
-                val canRestart = item.playbackPositionTicks.div(600000000) > 0
-                if (canRestart) {
-                    FilledTonalIconButton(onClick = { onPlayClick(true) }) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_rotate_ccw),
-                            contentDescription =
-                                stringResource(CoreR.string.restart_from_beginning),
-                        )
-                    }
-                }
-                trailerUri?.let { uri ->
-                    FilledTonalIconButton(onClick = { onTrailerClick(uri) }) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_film),
-                            contentDescription = stringResource(CoreR.string.watch_trailer),
-                        )
-                    }
-                }
-                onInfoClick?.let { infoClick ->
-                    FilledTonalIconButton(onClick = infoClick) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_info),
-                            contentDescription = stringResource(CoreR.string.info),
-                        )
-                    }
-                }
-                trailingContent()
-                if (downloaderState != null && !downloaderState.isDownloading) {
-                    if (item.isDownloaded()) {
-                        // Size/path details live in the confirmation dialog this opens.
-                        FilledTonalIconButton(
-                            onClick = { deleteDownloadDialogOpen = true },
-                            colors =
-                                IconButtonDefaults.filledTonalIconButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                ),
-                        ) {
-                            Icon(
-                                painter = painterResource(CoreR.drawable.ic_trash),
-                                contentDescription =
-                                    downloadedSource?.size?.let { size ->
-                                        stringResource(
-                                            CoreR.string.delete_download_with_size,
-                                            Formatter.formatFileSize(context, size),
-                                        )
-                                    } ?: stringResource(CoreR.string.delete_download),
-                            )
-                        }
-                    } else if (item.canDownload || item is FindroidShow || item is FindroidSeason) {
-                        FilledTonalIconButton(
-                            onClick = {
-                                if (enableDownloadDialog) {
-                                    downloadScopeDialogOpen = true
-                                } else {
-                                    startDownload()
-                                }
-                            }
-                        ) {
-                            Icon(
-                                painter = painterResource(CoreR.drawable.ic_download),
-                                contentDescription = stringResource(CoreR.string.download),
-                                tint = downloadIconTint ?: LocalContentColor.current,
-                            )
-                        }
-                    }
-                }
             }
-            if (downloaderState != null) {
-                AnimatedVisibility(downloaderState.isDownloading) {
-                    Column {
-                        DownloaderCard(
-                            state = downloaderState,
-                            onCancelClick = { cancelDownloadDialogOpen = true },
-                            onRetryClick = { onDownloadClick(selectedStorageIndex) },
-                            onForceClick = onDownloadForceClick,
-                            onPauseClick = onDownloadPauseClick,
-                            onResumeClick = onDownloadResumeClick,
-                        )
-                        Spacer(Modifier.height(MaterialTheme.spacings.small))
-                    }
+        }
+        if (downloaderState != null) {
+            AnimatedVisibility(downloaderState.isDownloading) {
+                Column {
+                    DownloaderCard(
+                        state = downloaderState,
+                        onCancelClick = { cancelDownloadDialogOpen = true },
+                        onRetryClick = { onDownloadClick(selectedStorageIndex) },
+                        onForceClick = onDownloadForceClick,
+                        onPauseClick = onDownloadPauseClick,
+                        onResumeClick = onDownloadResumeClick,
+                    )
+                    Spacer(Modifier.height(MaterialTheme.spacings.small))
                 }
             }
         }
-        if (storageSelectionDialogOpen) {
-            val locations = remember {
-                storageLocations.map { dir ->
-                    val locationStringRes =
-                        if (Environment.isExternalStorageRemovable(dir)) CoreR.string.external
-                        else CoreR.string.internal
-                    val locationString = context.getString(locationStringRes)
+    }
+    if (storageSelectionDialogOpen) {
+        val locations = remember {
+            storageLocations.map { dir ->
+                val locationStringRes =
+                    if (Environment.isExternalStorageRemovable(dir)) CoreR.string.external
+                    else CoreR.string.internal
+                val locationString = context.getString(locationStringRes)
 
-                    val stat = StatFs(dir.path)
-                    val availableMegaBytes = stat.availableBytes.div(1000000)
-                    context.getString(CoreR.string.storage_name, locationString, availableMegaBytes)
-                }
+                val stat = StatFs(dir.path)
+                val availableMegaBytes = stat.availableBytes.div(1000000)
+                context.getString(CoreR.string.storage_name, locationString, availableMegaBytes)
             }
-            StorageSelectionDialog(
-                storageLocations = locations,
-                onSelect = { storageIndex ->
-                    selectedStorageIndex = storageIndex
-                    onDownloadClick(selectedStorageIndex)
-                    storageSelectionDialogOpen = false
-                },
-                onDismiss = { storageSelectionDialogOpen = false },
-            )
         }
-        if (cancelDownloadDialogOpen) {
-            CancelDownloadDialog(
-                onCancel = {
-                    onDownloadCancelClick()
-                    cancelDownloadDialogOpen = false
-                },
-                onDismiss = { cancelDownloadDialogOpen = false },
-            )
-        }
-        if (deleteDownloadDialogOpen) {
-            DeleteDownloadDialog(
-                onDelete = {
-                    onDownloadDeleteClick()
-                    deleteDownloadDialogOpen = false
-                },
-                onDismiss = { deleteDownloadDialogOpen = false },
-                name = item.displayNameWithContext(),
-                path = downloadedSource?.path,
-                sizeBytes = downloadedSource?.size,
-            )
-        }
-        if (downloadScopeDialogOpen) {
-            var seasons by remember { mutableStateOf<List<FindroidSeason>?>(null) }
-            LaunchedEffect(Unit) { seasons = getSeasons?.invoke() ?: emptyList() }
-            DownloadScopeDialog(
-                seasons = seasons,
-                showEpisodeOption = showEpisodeDownloadOption,
-                initialSelection = initialSelection,
-                initialAlsoFollowNew = initialAlsoFollowNew,
-                initialOnlyUnwatched = initialOnlyUnwatched,
-                canDelete = hasActiveDownloadOrRule,
-                onDelete =
-                    onDeleteDownloads?.let {
-                        {
-                            downloadScopeDialogOpen = false
-                            it()
-                        }
-                    },
-                onConfirm = { selection, alsoFollowNew, onlyUnwatched ->
-                    downloadScopeDialogOpen = false
-                    if (selection.thisEpisodeOnly) {
-                        startDownload()
-                    } else {
-                        onBulkDownload(selection, alsoFollowNew, onlyUnwatched)
+        StorageSelectionDialog(
+            storageLocations = locations,
+            onSelect = { storageIndex ->
+                selectedStorageIndex = storageIndex
+                onDownloadClick(selectedStorageIndex)
+                storageSelectionDialogOpen = false
+            },
+            onDismiss = { storageSelectionDialogOpen = false },
+        )
+    }
+    if (cancelDownloadDialogOpen) {
+        CancelDownloadDialog(
+            onCancel = {
+                onDownloadCancelClick()
+                cancelDownloadDialogOpen = false
+            },
+            onDismiss = { cancelDownloadDialogOpen = false },
+        )
+    }
+    if (deleteDownloadDialogOpen) {
+        DeleteDownloadDialog(
+            onDelete = {
+                onDownloadDeleteClick()
+                deleteDownloadDialogOpen = false
+            },
+            onDismiss = { deleteDownloadDialogOpen = false },
+            name = item.displayNameWithContext(),
+            path = downloadedSource?.path,
+            sizeBytes = downloadedSource?.size,
+        )
+    }
+    if (downloadScopeDialogOpen) {
+        var seasons by remember { mutableStateOf<List<FindroidSeason>?>(null) }
+        LaunchedEffect(Unit) { seasons = getSeasons?.invoke() ?: emptyList() }
+        DownloadScopeDialog(
+            seasons = seasons,
+            showEpisodeOption = showEpisodeDownloadOption,
+            initialSelection = initialSelection,
+            initialAlsoFollowNew = initialAlsoFollowNew,
+            initialOnlyUnwatched = initialOnlyUnwatched,
+            canDelete = hasActiveDownloadOrRule,
+            onDelete =
+                onDeleteDownloads?.let {
+                    {
+                        downloadScopeDialogOpen = false
+                        it()
                     }
                 },
-                onDismiss = { downloadScopeDialogOpen = false },
-            )
-        }
+            onConfirm = { selection, alsoFollowNew, onlyUnwatched ->
+                downloadScopeDialogOpen = false
+                if (selection.thisEpisodeOnly) {
+                    startDownload()
+                } else {
+                    onBulkDownload(selection, alsoFollowNew, onlyUnwatched)
+                }
+            },
+            onDismiss = { downloadScopeDialogOpen = false },
+        )
     }
 }
 
