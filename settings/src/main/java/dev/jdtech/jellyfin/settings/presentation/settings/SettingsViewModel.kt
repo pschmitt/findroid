@@ -220,6 +220,14 @@ constructor(
                                                     nameStringResource = R.string.home_latest,
                                                     backendPreference = appPreferences.homeLatest,
                                                 ),
+                                                PreferenceSwitch(
+                                                    nameStringResource = R.string.home_discover,
+                                                    descriptionStringRes =
+                                                        R.string.home_discover_summary,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences.homeDiscover,
+                                                ),
                                             ),
                                     ),
                                 ),
@@ -599,20 +607,7 @@ constructor(
                     )
             ),
             PreferenceGroup(
-                preferences =
-                    listOf(
-                        PreferenceCategory(
-                            nameStringResource = R.string.users,
-                            iconDrawableId = R.drawable.ic_user,
-                            onClick = {
-                                viewModelScope.launch {
-                                    eventsChannel.send(SettingsEvent.NavigateToUsers)
-                                }
-                            },
-                        )
-                    )
-            ),
-            PreferenceGroup(
+                nameStringResource = R.string.settings_category_connections,
                 preferences =
                     listOf(
                         PreferenceCategory(
@@ -623,8 +618,27 @@ constructor(
                                     eventsChannel.send(SettingsEvent.NavigateToServers)
                                 }
                             },
-                        )
-                    )
+                        ),
+                        PreferenceCategory(
+                            nameStringResource = R.string.users,
+                            iconDrawableId = R.drawable.ic_user,
+                            onClick = {
+                                viewModelScope.launch {
+                                    eventsChannel.send(SettingsEvent.NavigateToUsers)
+                                }
+                            },
+                        ),
+                        PreferenceCategory(
+                            nameStringResource = R.string.settings_category_integrations,
+                            iconDrawableId = R.drawable.ic_network,
+                            supportedDeviceTypes = listOf(DeviceType.PHONE),
+                            onClick = {
+                                viewModelScope.launch {
+                                    eventsChannel.send(SettingsEvent.NavigateToIntegrationsSettings)
+                                }
+                            },
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -636,21 +650,6 @@ constructor(
                             onClick = {
                                 viewModelScope.launch {
                                     eventsChannel.send(SettingsEvent.NavigateToBackupSettings)
-                                }
-                            },
-                        )
-                    )
-            ),
-            PreferenceGroup(
-                preferences =
-                    listOf(
-                        PreferenceCategory(
-                            nameStringResource = R.string.settings_category_integrations,
-                            iconDrawableId = R.drawable.ic_network,
-                            supportedDeviceTypes = listOf(DeviceType.PHONE),
-                            onClick = {
-                                viewModelScope.launch {
-                                    eventsChannel.send(SettingsEvent.NavigateToIntegrationsSettings)
                                 }
                             },
                         )

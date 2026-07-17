@@ -3,6 +3,7 @@
     <string name="settings_category_language">Language</string>
     <string name="settings_preferred_audio_language">Preferred audio language</string>
     <string name="settings_preferred_subtitle_language">Preferred subtitle language</string>
+    <string name="settings_category_connections">Connections</string>
     <string name="settings_category_servers">Servers</string>
     <string name="settings_category_backup">Backup &amp; Restore</string>
     <string name="settings_category_integrations">Integrations</string>
@@ -67,6 +68,8 @@
     <string name="home_continue_watching">Display continue watching</string>
     <string name="home_next_up">Display next up</string>
     <string name="home_latest">Display latest items</string>
+    <string name="home_discover">Display Seerr discovery</string>
+    <string name="home_discover_summary">Trending and popular rows from Seerr, requestable in place</string>
     <string name="title_settings">Settings</string>
     <string name="picture_in_picture">Picture-in-picture</string>
     <string name="picture_in_picture_gesture">Picture-in-picture home gesture</string>
