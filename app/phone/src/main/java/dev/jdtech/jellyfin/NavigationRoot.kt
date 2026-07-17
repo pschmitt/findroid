@@ -438,6 +438,14 @@ fun NavigationRoot(
                     onItemClick = { item ->
                         navigateToItem(navController = navController, item = item)
                     },
+                    onSeerrItemClick = { item ->
+                        navController.safeNavigate(
+                            SeerrMediaRoute(
+                                tmdbId = item.tmdbId,
+                                mediaType = item.mediaType.name,
+                            )
+                        )
+                    },
                 )
             }
             composable<DownloadsRoute> {
