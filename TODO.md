@@ -90,4 +90,7 @@ phone/TV compile) and a CI-signed install on the Mi Pad 4.
 - [x] "Unrequest" support: cancel a movie/show's open Seerr requests from the detail
       view (Seerr requests are per movie/season, so this lands at that granularity)
 
-Status: **in progress**.
+Status: **done** (2026-07-17). Verified via remote builds on rofl-13/rofl-14 (unit tests +
+phone/TV compile); release APK installed on both test devices. Note: release builds only get
+the persistent CI signature when the CI_KEYSTORE_* env vars are exported on the build host -
+a plain `just build-fetch --release` signs with the host's throwaway debug keystore.
