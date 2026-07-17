@@ -18,4 +18,7 @@ interface SeerrRepository {
 
     /** Most recent requests first, titles/posters already resolved. */
     suspend fun getRecentRequests(limit: Int = 20): Result<List<SeerrRequestItem>>
+
+    /** Cancels/deletes a request - Seerr also un-monitors it on the Sonarr/Radarr side. */
+    suspend fun cancelRequest(requestId: Int): Result<Unit>
 }

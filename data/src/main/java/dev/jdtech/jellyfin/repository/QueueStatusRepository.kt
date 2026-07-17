@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.repository
 
 import dev.jdtech.jellyfin.models.PvrQueueSnapshot
+import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.QueueStatus
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -22,4 +23,17 @@ interface QueueStatusRepository {
 
     /** Forces an immediate fetch+match cycle, independent of the in-process/background polling. */
     suspend fun refreshNow()
+
+    /**
+     * Removes a queue entry from Sonarr/Radarr (there is no API-side "pause" - that lives in the
+     * download client). [removeFromClient] also deletes the download in the download client;
+     * [blocklist] prevents the same release from being grabbed again. Refreshes the snapshot on
+     * success, so the flows above update immediately.
+     */
+    suspend fun removeQueueItem(
+        source: PvrSource,
+        queueItemId: Int,
+        removeFromClient: Boolean,
+        blocklist: Boolean,
+    ): Result<Unit>
 }

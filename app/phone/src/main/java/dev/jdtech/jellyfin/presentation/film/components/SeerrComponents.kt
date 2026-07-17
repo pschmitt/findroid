@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -86,9 +87,17 @@ fun SeerrResultRow(
     }
 }
 
-/** A recently filed Seerr request: poster, title, media type, and its availability status. */
+/**
+ * A recently filed Seerr request: poster, title, media type, and its availability status.
+ * [onCancel] (when non-null) renders a trailing cancel button - the caller decides which
+ * requests are still worth cancelling (pending/processing).
+ */
 @Composable
-fun SeerrRequestRow(request: SeerrRequestItem, modifier: Modifier = Modifier) {
+fun SeerrRequestRow(
+    request: SeerrRequestItem,
+    modifier: Modifier = Modifier,
+    onCancel: (() -> Unit)? = null,
+) {
     // No horizontal padding of its own - the hosting list/grid's content padding provides it.
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -111,6 +120,15 @@ fun SeerrRequestRow(request: SeerrRequestItem, modifier: Modifier = Modifier) {
             )
         }
         SeerrStatusChip(status = request.mediaStatus)
+        if (onCancel != null) {
+            IconButton(onClick = onCancel) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_x),
+                    contentDescription = stringResource(CoreR.string.seerr_cancel_request),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

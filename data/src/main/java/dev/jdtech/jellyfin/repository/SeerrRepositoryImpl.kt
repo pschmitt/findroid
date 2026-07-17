@@ -91,6 +91,10 @@ class SeerrRepositoryImpl(
             }
         }
 
+    override suspend fun cancelRequest(requestId: Int): Result<Unit> = runAction { api ->
+        api.deleteRequest(requestId)
+    }
+
     private fun SeerrSearchResult.toSearchItem(): SeerrSearchItem? {
         val type =
             when (mediaType) {

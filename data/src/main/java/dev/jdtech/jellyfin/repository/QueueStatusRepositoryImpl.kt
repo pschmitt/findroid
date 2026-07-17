@@ -86,6 +86,57 @@ class QueueStatusRepositoryImpl(
         }
     }
 
+    override suspend fun removeQueueItem(
+        source: PvrSource,
+        queueItemId: Int,
+        removeFromClient: Boolean,
+        blocklist: Boolean,
+    ): Result<Unit> {
+        val serviceName = if (source == PvrSource.SONARR) "Sonarr" else "Radarr"
+        return try {
+            when (source) {
+                PvrSource.SONARR -> {
+                    val baseUrl = appPreferences.getValue(appPreferences.sonarrBaseUrl)
+                    val apiKey = sonarrApiKeyProvider()
+                    if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) {
+                        return Result.failure(IllegalStateException("Sonarr is not configured"))
+                    }
+                    SonarrApi(baseUrl, apiKey)
+                        .deleteQueueItem(queueItemId, removeFromClient, blocklist)
+                }
+                PvrSource.RADARR -> {
+                    val baseUrl = appPreferences.getValue(appPreferences.radarrBaseUrl)
+                    val apiKey = radarrApiKeyProvider()
+                    if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) {
+                        return Result.failure(IllegalStateException("Radarr is not configured"))
+                    }
+                    RadarrApi(baseUrl, apiKey)
+                        .deleteQueueItem(queueItemId, removeFromClient, blocklist)
+                }
+            }
+            // Drop the entry from the current snapshot before refreshing: the disappearance diff
+            // in notifyFinishedDownloads would otherwise read this user-initiated removal as
+            // "finished importing" and fire a bogus notification. The refresh then updates the
+            // flows right away instead of waiting out the poll interval.
+            refreshMutex.withLock {
+                _queueSnapshot.value =
+                    _queueSnapshot.value.copy(
+                        entries =
+                            _queueSnapshot.value.entries.filterNot {
+                                it.status.source == source && it.queueItemId == queueItemId
+                            }
+                    )
+            }
+            refreshNow()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to remove $serviceName queue item $queueItemId")
+            Result.failure(mapPvrSearchError(serviceName, e))
+        }
+    }
+
     /**
      * A queue entry that was queued/downloading/importing in the [previous] snapshot and is gone
      * from the [new] one has (in the overwhelmingly common case) finished importing - Sonarr/Radarr

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -28,6 +29,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -69,6 +71,7 @@ import dev.jdtech.jellyfin.models.CollectionType
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.SeerrMediaStatus
 import dev.jdtech.jellyfin.models.SeerrMediaType
+import dev.jdtech.jellyfin.models.SeerrRequestItem
 import dev.jdtech.jellyfin.presentation.components.ErrorDialog
 import dev.jdtech.jellyfin.presentation.film.components.Direction
 import dev.jdtech.jellyfin.presentation.film.components.ErrorCard
@@ -120,6 +123,13 @@ fun LibraryScreen(
                         CoreR.string.discover_request_failed_toast,
                         event.message ?: context.getString(CoreR.string.unknown_error),
                     )
+                is LibraryEvent.SeerrRequestCancelled ->
+                    context.getString(CoreR.string.seerr_request_cancelled_toast, event.title)
+                is LibraryEvent.SeerrCancelFailed ->
+                    context.getString(
+                        CoreR.string.seerr_cancel_failed_toast,
+                        event.message ?: context.getString(CoreR.string.unknown_error),
+                    )
             }
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
@@ -158,6 +168,7 @@ private fun LibraryScreenLayout(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showSortByDialog by remember { mutableStateOf(false) }
+    var pendingSeerrCancel by remember { mutableStateOf<SeerrRequestItem?>(null) }
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -342,7 +353,21 @@ private fun LibraryScreenLayout(
                         key = { "seerr-request-${it.id}" },
                         span = { GridItemSpan(maxLineSpan) },
                     ) { request ->
-                        SeerrRequestRow(request = request)
+                        SeerrRequestRow(
+                            request = request,
+                            // Cancelling only makes sense while Seerr can still stop anything -
+                            // available (or partially available) media is already there.
+                            onCancel =
+                                if (
+                                    request.mediaStatus == SeerrMediaStatus.PENDING ||
+                                        request.mediaStatus == SeerrMediaStatus.PROCESSING ||
+                                        request.mediaStatus == SeerrMediaStatus.NOT_REQUESTED
+                                ) {
+                                    { pendingSeerrCancel = request }
+                                } else {
+                                    null
+                                },
+                        )
                     }
                 }
                 items(count = items.itemCount, key = items.itemKey { it.id }) {
@@ -392,6 +417,37 @@ private fun LibraryScreenLayout(
                 }
             }
         }
+    }
+
+    pendingSeerrCancel?.let { request ->
+        AlertDialog(
+            title = { Text(text = stringResource(CoreR.string.seerr_cancel_request)) },
+            text = {
+                Text(
+                    text =
+                        stringResource(CoreR.string.seerr_cancel_request_message, request.title)
+                )
+            },
+            onDismissRequest = { pendingSeerrCancel = null },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onAction(LibraryAction.OnSeerrCancelRequest(request))
+                        pendingSeerrCancel = null
+                    }
+                ) {
+                    Text(
+                        text = stringResource(CoreR.string.seerr_cancel_request),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingSeerrCancel = null }) {
+                    Text(text = stringResource(CoreR.string.close))
+                }
+            },
+        )
     }
 
     if (showSortByDialog) {

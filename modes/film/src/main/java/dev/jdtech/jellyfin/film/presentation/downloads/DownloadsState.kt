@@ -43,6 +43,16 @@ data class PvrQueueUiItem(
     val title: String,
     val item: FindroidItem? = null,
     val status: QueueStatus,
+    // The PVR service's own queue-row id, needed to remove the entry (see
+    // QueueStatusRepository.removeQueueItem).
+    val queueItemId: Int = 0,
 )
 
 data class PvrQueueGroup(val source: PvrSource, val items: List<PvrQueueUiItem>)
+
+/** One-shot feedback for a PVR queue-item removal, shown as a toast. */
+sealed interface DownloadsEvent {
+    data class PvrQueueItemRemoved(val title: String) : DownloadsEvent
+
+    data class PvrQueueItemRemoveFailed(val message: String?) : DownloadsEvent
+}

@@ -11,7 +11,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
- * Thin client for a single Seerr/Seerr instance, authenticated via `X-Api-Key` like the
+ * Thin client for a single Seerr (formerly Jellyseerr) instance, authenticated via `X-Api-Key` like the
  * Sonarr/Radarr clients (shared [PvrHttpClient]). Cheap to construct per-call - [baseUrl] and
  * [apiKey] are resolved by the caller (typically from
  * [dev.jdtech.jellyfin.security.SecureCredentialStore] and the Seerr settings) rather than
@@ -76,6 +76,14 @@ class SeerrApi(private val baseUrl: String, private val apiKey: String) {
             json.decodeFromString<SeerrTvDetails>(execute(url))
         }
 
+    /** Cancels/deletes a request filed via [createRequest] (or any request the API key may manage). */
+    suspend fun deleteRequest(requestId: Int) {
+        withContext(Dispatchers.IO) {
+            val url = buildUrl("api", "v1", "request", requestId.toString())
+            execute(url, delete = true)
+        }
+    }
+
     /** Validates base URL + API key in one call - see [SeerrUser]. */
     suspend fun getCurrentUser(): SeerrUser =
         withContext(Dispatchers.IO) {
@@ -93,16 +101,20 @@ class SeerrApi(private val baseUrl: String, private val apiKey: String) {
         return builder.build().toString()
     }
 
-    /** [jsonBody] `null` issues a GET; otherwise a POST with that body as the JSON payload. */
-    private fun execute(url: String, jsonBody: String? = null): String {
+    /**
+     * [jsonBody] `null` issues a GET; otherwise a POST with that body as the JSON payload.
+     * [delete] issues a DELETE instead.
+     */
+    private fun execute(url: String, jsonBody: String? = null, delete: Boolean = false): String {
         val request =
             Request.Builder()
                 .url(url)
                 .apply {
-                    if (jsonBody != null) {
-                        post(jsonBody.toRequestBody("application/json".toMediaType()))
-                    } else {
-                        get()
+                    when {
+                        delete -> delete()
+                        jsonBody != null ->
+                            post(jsonBody.toRequestBody("application/json".toMediaType()))
+                        else -> get()
                     }
                 }
                 .build()

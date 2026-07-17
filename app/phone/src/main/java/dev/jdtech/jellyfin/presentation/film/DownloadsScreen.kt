@@ -33,6 +33,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -72,6 +73,7 @@ import dev.jdtech.jellyfin.film.presentation.downloads.DownloadShowGroup
 import dev.jdtech.jellyfin.film.presentation.downloads.DownloadsState
 import dev.jdtech.jellyfin.film.presentation.downloads.DownloadsViewModel
 import dev.jdtech.jellyfin.film.presentation.downloads.PvrQueueGroup
+import dev.jdtech.jellyfin.film.presentation.downloads.DownloadsEvent
 import dev.jdtech.jellyfin.film.presentation.downloads.PvrQueueUiItem
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidSourceType
@@ -82,10 +84,12 @@ import dev.jdtech.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.jdtech.jellyfin.presentation.film.components.Direction
 import dev.jdtech.jellyfin.presentation.film.components.ItemPoster
 import dev.jdtech.jellyfin.presentation.film.components.PvrErrorBanner
+import dev.jdtech.jellyfin.presentation.film.components.ToggleOptionRow
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.DeleteProgress
 import dev.jdtech.jellyfin.utils.DownloadProgress
+import dev.jdtech.jellyfin.utils.ObserveAsEvents
 import dev.jdtech.jellyfin.utils.formatDownloadSpeed
 import dev.jdtech.jellyfin.utils.formatEta
 import java.util.UUID
@@ -105,10 +109,25 @@ fun DownloadsScreen(
 
     LaunchedEffect(true) { viewModel.startObserving() }
 
+    ObserveAsEvents(viewModel.events) { event ->
+        val message =
+            when (event) {
+                is DownloadsEvent.PvrQueueItemRemoved ->
+                    androidContext.getString(CoreR.string.pvr_queue_removed_toast, event.title)
+                is DownloadsEvent.PvrQueueItemRemoveFailed ->
+                    androidContext.getString(
+                        CoreR.string.pvr_queue_remove_failed_toast,
+                        event.message ?: androidContext.getString(CoreR.string.unknown_error),
+                    )
+            }
+        Toast.makeText(androidContext, message, Toast.LENGTH_SHORT).show()
+    }
+
     var clearAllDialogOpen by remember { mutableStateOf(false) }
     var deleteSelectedDialogOpen by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<PendingDownloadDelete?>(null) }
     var pendingGroupDelete by remember { mutableStateOf<DownloadShowGroup?>(null) }
+    var pendingPvrRemove by remember { mutableStateOf<Pair<PvrQueueUiItem, PvrSource>?>(null) }
 
     val allItems = state.movies + state.showGroups.flatMap { it.episodes }
     val totalSizeBytes =
@@ -144,7 +163,19 @@ fun DownloadsScreen(
         onShowClick = onShowClick,
         onMoviesClick = onMoviesClick,
         onForceGroup = viewModel::forceGroup,
+        onPvrRemoveRequest = { item, source -> pendingPvrRemove = item to source },
     )
+
+    pendingPvrRemove?.let { (queueItem, source) ->
+        RemovePvrQueueItemDialog(
+            title = queueItem.title,
+            onConfirm = { removeFromClient, blocklist ->
+                viewModel.removePvrQueueItem(queueItem, source, removeFromClient, blocklist)
+                pendingPvrRemove = null
+            },
+            onDismiss = { pendingPvrRemove = null },
+        )
+    }
 
     if (clearAllDialogOpen) {
         ClearDownloadsDialog(
@@ -236,6 +267,7 @@ private fun DownloadsScreenLayout(
     onShowClick: (UUID) -> Unit = {},
     onMoviesClick: () -> Unit = {},
     onForceGroup: (List<UUID>) -> Unit = {},
+    onPvrRemoveRequest: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val allIds =
@@ -492,6 +524,7 @@ private fun DownloadsScreenLayout(
                                 PvrQueueRow(
                                     queueItem = queueItem,
                                     onClick = { queueItem.item?.let(onItemClick) },
+                                    onRemove = { onPvrRemoveRequest(queueItem, group.source) },
                                 )
                             }
                         }
@@ -814,14 +847,14 @@ private fun DownloadRow(
 }
 
 /**
- * Read-only row for a single Sonarr/Radarr queue entry - same visual shape as [DownloadRow]
- * (poster, title, progress bar, status text) but with no pause/resume/cancel/delete actions,
- * since these items live on the PVR side, not locally. When [PvrQueueUiItem.item] is null (the
- * queue entry couldn't be matched to a local Jellyfin item), a placeholder icon is shown instead
- * of a poster and the row isn't clickable.
+ * Row for a single Sonarr/Radarr queue entry - same visual shape as [DownloadRow] (poster, title,
+ * progress bar, status text). The only available action is [onRemove] (delete from the PVR
+ * queue): pause/resume live in the download client, which the PVR APIs don't expose. When
+ * [PvrQueueUiItem.item] is null (the queue entry couldn't be matched to a local Jellyfin item), a
+ * placeholder icon is shown instead of a poster and the row isn't clickable.
  */
 @Composable
-private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit) {
+private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit, onRemove: () -> Unit) {
     val context = LocalContext.current
     val status = queueItem.status
     val isProblem = status.status == QueueItemStatus.WARNING || status.status == QueueItemStatus.FAILED
@@ -900,7 +933,61 @@ private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit) {
                 )
             }
         }
+        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+        IconButton(onClick = onRemove) {
+            Icon(
+                painter = painterResource(CoreR.drawable.ic_trash),
+                contentDescription = stringResource(CoreR.string.pvr_queue_remove_title),
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
     }
+}
+
+/**
+ * Confirmation for removing a Sonarr/Radarr queue entry, with the two flags their queue-delete
+ * API offers. "Remove from download client" defaults to on (matching the services' own web UI);
+ * blocklisting is opt-in for the "this release is broken, grab another" case.
+ */
+@Composable
+private fun RemovePvrQueueItemDialog(
+    title: String,
+    onConfirm: (removeFromClient: Boolean, blocklist: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var removeFromClient by remember { mutableStateOf(true) }
+    var blocklist by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        title = { Text(text = stringResource(CoreR.string.pvr_queue_remove_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
+                Text(text = stringResource(CoreR.string.pvr_queue_remove_message, title))
+                ToggleOptionRow(
+                    checked = removeFromClient,
+                    label = stringResource(CoreR.string.pvr_queue_remove_from_client),
+                    onToggle = { removeFromClient = it },
+                )
+                ToggleOptionRow(
+                    checked = blocklist,
+                    label = stringResource(CoreR.string.pvr_queue_blocklist),
+                    onToggle = { blocklist = it },
+                )
+            }
+        },
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onConfirm(removeFromClient, blocklist) }) {
+                Text(
+                    text = stringResource(CoreR.string.remove),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
+        },
+    )
 }
 
 @Composable

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.models.CollectionType
+import dev.jdtech.jellyfin.models.SeerrRequestItem
 import dev.jdtech.jellyfin.models.SeerrSearchItem
 import dev.jdtech.jellyfin.models.SortBy
 import dev.jdtech.jellyfin.models.SortOrder
@@ -203,6 +204,7 @@ constructor(
                 }
             }
             is LibraryAction.OnSeerrRequest -> requestSeerr(action.item)
+            is LibraryAction.OnSeerrCancelRequest -> cancelSeerrRequest(action.request)
             else -> Unit
         }
     }
@@ -247,6 +249,22 @@ constructor(
                     },
                     onFailure = { e ->
                         eventsChannel.send(LibraryEvent.SeerrRequestFailed(e.message))
+                    },
+                )
+        }
+    }
+
+    private fun cancelSeerrRequest(request: SeerrRequestItem) {
+        viewModelScope.launch {
+            seerrRepository
+                .cancelRequest(request.id)
+                .fold(
+                    onSuccess = {
+                        eventsChannel.send(LibraryEvent.SeerrRequestCancelled(request.title))
+                        loadRecentRequests()
+                    },
+                    onFailure = { e ->
+                        eventsChannel.send(LibraryEvent.SeerrCancelFailed(e.message))
                     },
                 )
         }

@@ -101,6 +101,28 @@ class RadarrApi(private val baseUrl: String, private val apiKey: String) {
             execute(url, body)
         }
 
+    /**
+     * Removes a queue item. [removeFromClient] also deletes the download (and its data) in the
+     * download client; [blocklist] prevents Radarr from grabbing the same release again. There is
+     * deliberately no "pause": the v3 API exposes none - pausing lives in the download client.
+     */
+    suspend fun deleteQueueItem(queueItemId: Int, removeFromClient: Boolean, blocklist: Boolean): Unit =
+        withContext(Dispatchers.IO) {
+            val url =
+                buildUrl(
+                    "api",
+                    "v3",
+                    "queue",
+                    queueItemId.toString(),
+                    queryParams =
+                        mapOf(
+                            "removeFromClient" to removeFromClient.toString(),
+                            "blocklist" to blocklist.toString(),
+                        ),
+                )
+            execute(url, delete = true)
+        }
+
     private fun buildUrl(
         vararg pathSegments: String,
         queryParams: Map<String, String> = emptyMap(),
@@ -113,17 +135,24 @@ class RadarrApi(private val baseUrl: String, private val apiKey: String) {
 
     /**
      * [jsonBody] `null` issues a GET; otherwise a POST with that body as the JSON payload.
-     * [readTimeoutMs] overrides [PvrHttpClient]'s default read timeout for this call only.
+     * [delete] issues a DELETE instead. [readTimeoutMs] overrides [PvrHttpClient]'s default read
+     * timeout for this call only.
      */
-    private fun execute(url: String, jsonBody: String? = null, readTimeoutMs: Long? = null): String {
+    private fun execute(
+        url: String,
+        jsonBody: String? = null,
+        readTimeoutMs: Long? = null,
+        delete: Boolean = false,
+    ): String {
         val request =
             Request.Builder()
                 .url(url)
                 .apply {
-                    if (jsonBody != null) {
-                        post(jsonBody.toRequestBody("application/json".toMediaType()))
-                    } else {
-                        get()
+                    when {
+                        delete -> delete()
+                        jsonBody != null ->
+                            post(jsonBody.toRequestBody("application/json".toMediaType()))
+                        else -> get()
                     }
                 }
                 .build()

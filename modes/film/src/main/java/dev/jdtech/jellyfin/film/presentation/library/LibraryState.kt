@@ -40,6 +40,10 @@ sealed interface LibraryEvent {
     data class SeerrRequested(val title: String) : LibraryEvent
 
     data class SeerrRequestFailed(val message: String?) : LibraryEvent
+
+    data class SeerrRequestCancelled(val title: String) : LibraryEvent
+
+    data class SeerrCancelFailed(val message: String?) : LibraryEvent
 }
 
 /** Item-kind filter for the merged movies+shows "Media" view. */

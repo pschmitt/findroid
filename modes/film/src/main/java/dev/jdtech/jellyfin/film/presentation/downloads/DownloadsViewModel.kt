@@ -9,6 +9,7 @@ import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.PvrQueueEntry
+import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.isDownloading
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.models.toFindroidMovie
@@ -21,9 +22,11 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,6 +44,9 @@ constructor(
 ) : ViewModel() {
     private val _state = MutableStateFlow(DownloadsState())
     val state = _state.asStateFlow()
+
+    private val eventsChannel = Channel<DownloadsEvent>()
+    val events = eventsChannel.receiveAsFlow()
 
     // itemId (movie or episode id) -> downloadId for every item currently being tracked by
     // progressJobs, so pause/resume/cancel can turn an item id from the UI into the downloadId
@@ -224,6 +230,35 @@ constructor(
         }
     }
 
+    /**
+     * Removes a Sonarr/Radarr queue entry (there is no API-side pause - that lives in the
+     * download client). See [QueueStatusRepository.removeQueueItem] for the flag semantics.
+     */
+    fun removePvrQueueItem(
+        item: PvrQueueUiItem,
+        source: PvrSource,
+        removeFromClient: Boolean,
+        blocklist: Boolean,
+    ) {
+        viewModelScope.launch {
+            queueStatusRepository
+                .removeQueueItem(
+                    source = source,
+                    queueItemId = item.queueItemId,
+                    removeFromClient = removeFromClient,
+                    blocklist = blocklist,
+                )
+                .fold(
+                    onSuccess = {
+                        eventsChannel.send(DownloadsEvent.PvrQueueItemRemoved(item.title))
+                    },
+                    onFailure = { e ->
+                        eventsChannel.send(DownloadsEvent.PvrQueueItemRemoveFailed(e.message))
+                    },
+                )
+        }
+    }
+
     fun clearAllDownloads(alsoRemoveRules: Boolean) {
         viewModelScope.launch {
             val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
@@ -278,6 +313,7 @@ internal fun buildPvrQueueGroups(entries: List<PvrQueueEntry>): List<PvrQueueGro
                             title = entry.item.toQueueTitle(fallback = entry.title),
                             item = entry.item,
                             status = entry.status,
+                            queueItemId = entry.queueItemId,
                         )
                     },
             )

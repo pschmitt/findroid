@@ -247,6 +247,7 @@
     <string name="download_scope_only_unwatched">Only unwatched episodes</string>
     <string name="download_scope_also_new">Automatically download new episodes</string>
     <string name="download_scope_remove">Remove</string>
+    <string name="download_scope_existing_rule_note">This show already has an auto-download rule. It stays unchanged unless you edit the selection below.</string>
     <string name="download">Download</string>
     <string name="clear_season_downloads">Delete downloads</string>
     <string name="clear_season_downloads_message">This will delete every downloaded episode of this season on this device.</string>
@@ -276,6 +277,16 @@
     <string name="discover_type_movie">Movie</string>
     <string name="discover_type_show">Show</string>
     <string name="media_seerr_section">Not in your library — request via Seerr</string>
+    <string name="pvr_queue_remove_title">Remove download</string>
+    <string name="pvr_queue_remove_message">Remove “%1$s” from the queue?</string>
+    <string name="pvr_queue_remove_from_client">Also remove from download client</string>
+    <string name="pvr_queue_blocklist">Blocklist this release</string>
+    <string name="pvr_queue_removed_toast">Removed “%1$s”</string>
+    <string name="pvr_queue_remove_failed_toast">Remove failed: %1$s</string>
+    <string name="seerr_cancel_request">Cancel request</string>
+    <string name="seerr_cancel_request_message">Cancel the request for “%1$s”?</string>
+    <string name="seerr_request_cancelled_toast">Cancelled request for “%1$s”</string>
+    <string name="seerr_cancel_failed_toast">Cancel failed: %1$s</string>
     <string name="calendar_empty">Nothing upcoming</string>
     <string name="calendar_today">Today</string>
     <string name="calendar_tomorrow">Tomorrow</string>

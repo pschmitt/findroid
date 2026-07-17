@@ -57,10 +57,14 @@ Batch of UX todos around the Sonarr/Radarr/Seerr integrations and general naviga
       external storage
 - [x] Navigation: the settings cog only appears on some views - show it consistently
       on all top-level views
-- [ ] Pause/delete downloads in Sonarr/Radarr/Seerr (queue item actions, request
-      cancellation)
-- [ ] Download dialog: behaves awkwardly when a show already has an auto-download rule
+- [x] Pause/delete downloads in Sonarr/Radarr/Seerr (queue item actions, request
+      cancellation). Note: the Sonarr/Radarr v3 APIs expose no per-item *pause* -
+      pausing lives in the download client - so this is remove (with
+      remove-from-client/blocklist flags) plus Seerr request cancellation.
+- [x] Download dialog: behaves awkwardly when a show already has an auto-download rule
       and the download button is hit on a single episode - make it ergonomically sound
+      ("This episode" is now always the preselected default; an existing rule is noted
+      and stays untouched unless the bulk selection is edited)
 - [x] Calendar: include the exact air time of episodes, in local time
 - [x] Auto-backup filenames: use human-friendly timestamps
       (e.g. `xxx-2026-07-17T08:58:03+02:00`)
