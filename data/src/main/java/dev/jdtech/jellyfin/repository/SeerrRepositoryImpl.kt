@@ -9,6 +9,7 @@ import dev.jdtech.jellyfin.models.SeerrMediaStatus
 import dev.jdtech.jellyfin.models.SeerrMediaType
 import dev.jdtech.jellyfin.models.SeerrRequestItem
 import dev.jdtech.jellyfin.models.SeerrSearchItem
+import dev.jdtech.jellyfin.models.SeerrSeasonDetail
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -75,9 +76,19 @@ class SeerrRepositoryImpl(
             }
             SeerrMediaType.TV -> {
                 val details = api.getTvDetails(tmdbId)
+                val season =
+                    seasonNumber?.let { requestedSeasonNumber ->
+                        val seasonDetails = api.getTvSeason(tmdbId, requestedSeasonNumber)
+                        SeerrSeasonDetail(
+                            title = seasonDetails.name.ifBlank { "Season $requestedSeasonNumber" },
+                            seasonNumber = seasonDetails.seasonNumber,
+                            overview = seasonDetails.overview?.takeIf(String::isNotBlank),
+                            posterUrl = seasonDetails.posterPath?.toPosterUrl(),
+                        ) to seasonDetails
+                    }
                 val episode =
-                    if (seasonNumber != null && episodeNumber != null) {
-                        api.getTvSeason(tmdbId, seasonNumber)
+                    if (season != null && episodeNumber != null) {
+                        season.second
                             .episodes
                             .firstOrNull { it.episodeNumber == episodeNumber }
                             ?.let {
@@ -109,6 +120,7 @@ class SeerrRepositoryImpl(
                     numberOfSeasons = details.numberOfSeasons?.takeIf { it > 0 },
                     status = SeerrMediaStatus.fromCode(details.mediaInfo?.status),
                     cancellableRequestIds = details.mediaInfo.cancellableRequestIds(),
+                    season = season?.first,
                     episode = episode,
                 )
             }

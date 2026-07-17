@@ -19,6 +19,7 @@ data class LibraryState(
     val error: Exception? = null,
     val searchQuery: String = "",
     val queueStatus: Map<UUID, QueueStatus> = emptyMap(),
+    val radarrQueueStatus: Map<Int, QueueStatus> = emptyMap(),
     // Only used by the merged "Media" view (no parent library), where movies and shows are
     // browsed together and can be narrowed down.
     val filter: MediaFilter = MediaFilter.ALL,

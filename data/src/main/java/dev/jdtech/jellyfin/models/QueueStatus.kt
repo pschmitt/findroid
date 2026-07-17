@@ -13,6 +13,10 @@ data class PvrQueueEntry(
     val item: FindroidItem?,
     val title: String,
     val status: QueueStatus,
+    // Provider ids keep progress visible for Seerr-only media before Jellyfin imports the file.
+    val tmdbId: Int? = null,
+    val sonarrEpisodeId: Int? = null,
+    val posterUrl: String? = null,
     // The PVR service's own id for this queue row - stable across polls, so snapshots can be
     // diffed to detect a download leaving the queue (= finished importing, in the common case).
     val queueItemId: Int = 0,

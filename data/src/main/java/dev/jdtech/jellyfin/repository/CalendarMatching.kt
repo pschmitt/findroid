@@ -64,6 +64,8 @@ fun matchSonarrCalendar(
             images = season?.images ?: show?.images,
             posterUrl = entry.series?.images?.posterUrl(),
             episodeId = entry.id,
+            seasonNumber = entry.seasonNumber,
+            episodeNumber = entry.episodeNumber,
             tmdbId = entry.series?.tmdbId?.takeIf { it != UNSET_PROVIDER_ID },
         )
     }

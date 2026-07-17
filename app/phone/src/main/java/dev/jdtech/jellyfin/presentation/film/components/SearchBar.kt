@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -173,6 +174,31 @@ fun FilmSearchBar(
                     onClick = { onAction(SearchAction.OnItemClick(item)) },
                     modifier = Modifier.animateItem(),
                 )
+            }
+            if (state.seerrResults.isNotEmpty()) {
+                item(key = "seerr-search-header", span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        text = stringResource(CoreR.string.media_seerr_section),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                items(
+                    items = state.seerrResults,
+                    key = { "seerr-${it.mediaType}-${it.tmdbId}" },
+                    span = { GridItemSpan(maxLineSpan) },
+                ) { item ->
+                    SeerrResultRow(
+                        item = item,
+                        requestedThisSession = false,
+                        queueStatus =
+                            if (item.mediaType == dev.jdtech.jellyfin.models.SeerrMediaType.MOVIE) {
+                                state.radarrQueueStatus[item.tmdbId]
+                            } else {
+                                null
+                            },
+                        onClick = { onAction(SearchAction.OnSeerrItemClick(item)) },
+                    )
+                }
             }
         }
     }

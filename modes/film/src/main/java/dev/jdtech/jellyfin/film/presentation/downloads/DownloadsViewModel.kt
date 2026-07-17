@@ -60,7 +60,7 @@ constructor(
         refreshJob =
             viewModelScope.launch {
                 while (isActive) {
-                    refresh()
+                    refreshDownloads()
                     delay(REFRESH_INTERVAL_MS)
                 }
             }
@@ -80,7 +80,7 @@ constructor(
         }
     }
 
-    private suspend fun refresh() {
+    private suspend fun refreshDownloads() {
         if (_state.value.isEmpty) {
             _state.value = _state.value.copy(isLoading = true, error = null)
         }
@@ -117,13 +117,22 @@ constructor(
             _state.value =
                 _state.value.copy(
                     isLoading = false,
+                    isRefreshing = false,
                     movies = movies,
                     showGroups = showGroups,
                     selectedIds = _state.value.selectedIds.intersect(allIds),
                 )
             reconcileDownloadProgress(movies, episodes)
         } catch (e: Exception) {
-            _state.value = _state.value.copy(isLoading = false, error = e)
+            _state.value = _state.value.copy(isLoading = false, isRefreshing = false, error = e)
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isRefreshing = true)
+            queueStatusRepository.refreshNow()
+            refreshDownloads()
         }
     }
 
@@ -192,7 +201,7 @@ constructor(
         viewModelScope.launch {
             downloader.deleteItems(ids)
             _state.value = _state.value.copy(selectedIds = _state.value.selectedIds - ids.toSet())
-            refresh()
+            refreshDownloads()
         }
     }
 
@@ -205,7 +214,7 @@ constructor(
                 DownloadAction.Force -> downloader.forceDownload(downloadId)
                 DownloadAction.Cancel -> {
                     downloader.cancelDownload(downloadId)
-                    refresh()
+                    refreshDownloads()
                 }
             }
         }
@@ -275,7 +284,7 @@ constructor(
                 autoDownloadRuleRepository.deleteAllRules(serverId, userId)
             }
 
-            refresh()
+            refreshDownloads()
         }
     }
 
@@ -312,6 +321,7 @@ internal fun buildPvrQueueGroups(entries: List<PvrQueueEntry>): List<PvrQueueGro
                             itemId = entry.item?.id,
                             title = entry.item.toQueueTitle(fallback = entry.title),
                             item = entry.item,
+                            posterUrl = entry.posterUrl,
                             status = entry.status,
                             queueItemId = entry.queueItemId,
                         )

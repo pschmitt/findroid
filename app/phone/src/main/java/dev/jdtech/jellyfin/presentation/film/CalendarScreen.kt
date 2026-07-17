@@ -28,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,7 +53,6 @@ import dev.jdtech.jellyfin.film.presentation.calendar.CalendarState
 import dev.jdtech.jellyfin.film.presentation.calendar.CalendarViewModel
 import dev.jdtech.jellyfin.models.CalendarEntry
 import dev.jdtech.jellyfin.models.PvrSource
-import dev.jdtech.jellyfin.models.SeerrMediaType
 import dev.jdtech.jellyfin.presentation.components.TopBarTitle
 import dev.jdtech.jellyfin.presentation.film.components.PvrErrorBanner
 import dev.jdtech.jellyfin.presentation.film.components.PvrSearchButton
@@ -70,7 +70,7 @@ fun CalendarScreen(
     onSeasonClick: (UUID) -> Unit = {},
     onEpisodeClick: (UUID) -> Unit = {},
     onMovieClick: (UUID) -> Unit = {},
-    onSeerrClick: (tmdbId: Int, mediaType: SeerrMediaType) -> Unit = { _, _ -> },
+    onSeerrClick: (CalendarEntry) -> Unit = {},
     onSettingsClick: () -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel(),
 ) {
@@ -103,6 +103,7 @@ fun CalendarScreen(
             val episodeItemId = entry.episodeItemId
             when {
                 entry.hasFile && episodeItemId != null -> onEpisodeClick(episodeItemId)
+                entry.source == PvrSource.SONARR && tmdbId != null -> onSeerrClick(entry)
                 itemId != null ->
                     when (entry.source) {
                         PvrSource.SONARR -> onSeasonClick(itemId)
@@ -110,20 +111,14 @@ fun CalendarScreen(
                     }
                 // Not in the library yet - fall back to the Seerr detail view, where the item
                 // can be inspected and requested.
-                tmdbId != null ->
-                    onSeerrClick(
-                        tmdbId,
-                        when (entry.source) {
-                            PvrSource.SONARR -> SeerrMediaType.TV
-                            PvrSource.RADARR -> SeerrMediaType.MOVIE
-                        },
-                    )
+                tmdbId != null -> onSeerrClick(entry)
             }
         },
         onSearchAutomatic = viewModel::searchAutomatic,
         onSearchManual = viewModel::openReleasePicker,
         onGrabRelease = viewModel::grabRelease,
         onDismissReleasePicker = viewModel::dismissReleasePicker,
+        onRefresh = viewModel::refresh,
         onSettingsClick = onSettingsClick,
     )
 }
@@ -137,6 +132,7 @@ private fun CalendarScreenLayout(
     onSearchManual: (CalendarEntry) -> Unit = {},
     onGrabRelease: (PvrRelease) -> Unit = {},
     onDismissReleasePicker: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -176,7 +172,8 @@ private fun CalendarScreenLayout(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            PullToRefreshBox(isRefreshing = state.isLoading, onRefresh = onRefresh) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (state.serviceErrors.isNotEmpty()) {
                     item {
                         PvrErrorBanner(
@@ -211,6 +208,7 @@ private fun CalendarScreenLayout(
                                 },
                         )
                     }
+                }
                 }
             }
         }

@@ -129,6 +129,8 @@ data class SeerrTvSeasonDetails(
     val id: Int,
     val name: String = "",
     val seasonNumber: Int = 0,
+    val overview: String? = null,
+    val posterPath: String? = null,
     val episodes: List<SeerrTvEpisode> = emptyList(),
 )
 

@@ -16,6 +16,7 @@ data class SonarrSeries(
     val tvdbId: Int = 0,
     val tmdbId: Int = 0,
     val title: String = "",
+    val images: List<PvrImage> = emptyList(),
 )
 
 // endregion
@@ -23,7 +24,12 @@ data class SonarrSeries(
 // region Radarr - GET /api/v3/movie
 
 @Serializable
-data class RadarrMovie(val id: Int, val tmdbId: Int = 0, val title: String = "")
+data class RadarrMovie(
+    val id: Int,
+    val tmdbId: Int = 0,
+    val title: String = "",
+    val images: List<PvrImage> = emptyList(),
+)
 
 // endregion
 

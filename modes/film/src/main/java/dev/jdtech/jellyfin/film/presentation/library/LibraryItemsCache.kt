@@ -32,4 +32,8 @@ class LibraryItemsCache @Inject constructor(@ApplicationScope private val scope:
     fun invalidate(key: String) {
         cache.remove(key)
     }
+
+    fun clear() {
+        cache.clear()
+    }
 }

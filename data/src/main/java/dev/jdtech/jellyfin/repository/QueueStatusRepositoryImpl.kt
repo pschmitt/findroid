@@ -75,6 +75,12 @@ class QueueStatusRepositoryImpl(
     override fun getQueueStatusFlow(itemId: UUID): Flow<QueueStatus?> =
         getQueueStatusFlow().map { it[itemId] }.distinctUntilChanged()
 
+    override fun getRadarrQueueStatusFlow(): Flow<Map<Int, QueueStatus>> =
+        getQueueSnapshotFlow().map { it.entries.toRadarrQueueStatusMap() }.distinctUntilChanged()
+
+    override fun getSonarrQueueStatusFlow(): Flow<Map<Int, QueueStatus>> =
+        getQueueSnapshotFlow().map { it.entries.toSonarrQueueStatusMap() }.distinctUntilChanged()
+
     override suspend fun refreshNow() {
         // Serializes concurrent callers (poll loop, WorkManager backstop, a manual pull-to-refresh)
         // so two overlapping fetches can't race to publish a stale result after a fresher one.

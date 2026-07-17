@@ -41,6 +41,7 @@ import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidShow
+import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.SeerrMediaType
 import dev.jdtech.jellyfin.presentation.film.AutoDownloadRulesScreen
 import dev.jdtech.jellyfin.presentation.film.CalendarScreen
@@ -115,6 +116,7 @@ data class SeerrMediaRoute(
     val mediaType: String,
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
+    val sonarrEpisodeId: Int? = null,
 )
 
 @Serializable data object FavoritesRoute
@@ -493,9 +495,19 @@ fun NavigationRoot(
                     onMovieClick = { movieId ->
                         navController.safeNavigate(MovieRoute(movieId = movieId.toString()))
                     },
-                    onSeerrClick = { tmdbId, mediaType ->
+                    onSeerrClick = { entry ->
                         navController.safeNavigate(
-                            SeerrMediaRoute(tmdbId = tmdbId, mediaType = mediaType.name)
+                            SeerrMediaRoute(
+                                tmdbId = entry.tmdbId!!,
+                                mediaType =
+                                    when (entry.source) {
+                                        PvrSource.SONARR -> SeerrMediaType.TV.name
+                                        PvrSource.RADARR -> SeerrMediaType.MOVIE.name
+                                    },
+                                seasonNumber = entry.seasonNumber,
+                                episodeNumber = entry.episodeNumber,
+                                sonarrEpisodeId = entry.episodeId,
+                            )
                         )
                     },
                     onSettingsClick = { navController.safeNavigate(settingsRootRoute()) },
@@ -561,6 +573,24 @@ fun NavigationRoot(
                     mediaType = SeerrMediaType.valueOf(route.mediaType),
                     seasonNumber = route.seasonNumber,
                     episodeNumber = route.episodeNumber,
+                    sonarrEpisodeId = route.sonarrEpisodeId,
+                    navigateToShow = {
+                        navController.safeNavigate(
+                            SeerrMediaRoute(
+                                tmdbId = route.tmdbId,
+                                mediaType = SeerrMediaType.TV.name,
+                            )
+                        )
+                    },
+                    navigateToSeason = { seasonNumber ->
+                        navController.safeNavigate(
+                            SeerrMediaRoute(
+                                tmdbId = route.tmdbId,
+                                mediaType = SeerrMediaType.TV.name,
+                                seasonNumber = seasonNumber,
+                            )
+                        )
+                    },
                     navigateBack = { navController.safePopBackStack() },
                 )
             }
@@ -625,13 +655,14 @@ fun NavigationRoot(
                             launchSingleTop = true
                         }
                     },
-                    navigateToSeerr = { tmdbId, seasonNumber, episodeNumber ->
+                    navigateToSeerr = { tmdbId, seasonNumber, episodeNumber, sonarrEpisodeId ->
                         navController.safeNavigate(
                             SeerrMediaRoute(
                                 tmdbId = tmdbId,
                                 mediaType = SeerrMediaType.TV.name,
                                 seasonNumber = seasonNumber,
                                 episodeNumber = episodeNumber,
+                                sonarrEpisodeId = sonarrEpisodeId,
                             )
                         )
                     },

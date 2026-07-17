@@ -21,6 +21,12 @@ interface QueueStatusRepository {
 
     fun getQueueStatusFlow(itemId: UUID): Flow<QueueStatus?>
 
+    /** Radarr queue status keyed by TMDB id, including movies not imported into Jellyfin yet. */
+    fun getRadarrQueueStatusFlow(): Flow<Map<Int, QueueStatus>>
+
+    /** Sonarr queue status keyed by Sonarr episode id, including episodes not in Jellyfin yet. */
+    fun getSonarrQueueStatusFlow(): Flow<Map<Int, QueueStatus>>
+
     /** Forces an immediate fetch+match cycle, independent of the in-process/background polling. */
     suspend fun refreshNow()
 

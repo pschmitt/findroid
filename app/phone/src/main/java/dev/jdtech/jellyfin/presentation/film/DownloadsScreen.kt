@@ -45,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,7 +56,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -67,6 +70,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyMovie
@@ -170,6 +174,7 @@ fun DownloadsScreen(
         onGoToHomeClick = onGoToHomeClick,
         onForceGroup = viewModel::forceGroup,
         onPvrRemoveRequest = { item, source -> pendingPvrRemove = item to source },
+        onRefresh = viewModel::refresh,
     )
 
     pendingPvrRemove?.let { (queueItem, source) ->
@@ -275,6 +280,7 @@ private fun DownloadsScreenLayout(
     onGoToHomeClick: () -> Unit = {},
     onForceGroup: (List<UUID>) -> Unit = {},
     onPvrRemoveRequest: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
+    onRefresh: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val allIds =
@@ -393,7 +399,8 @@ private fun DownloadsScreenLayout(
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
-            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (selectionMode) {
                     item {
                         Row(
@@ -548,6 +555,7 @@ private fun DownloadsScreenLayout(
                             }
                         }
                     }
+                }
                 }
             }
         }
@@ -902,7 +910,8 @@ private fun DownloadRow(
  * progress bar, status text). The only available action is [onRemove] (delete from the PVR
  * queue): pause/resume live in the download client, which the PVR APIs don't expose. When
  * [PvrQueueUiItem.item] is null (the queue entry couldn't be matched to a local Jellyfin item), a
- * placeholder icon is shown instead of a poster and the row isn't clickable.
+ * PVR's own poster is used when the queue entry has not reached Jellyfin yet. The row remains
+ * non-clickable until Jellyfin supplies a matching item.
  */
 @Composable
 private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit, onRemove: () -> Unit) {
@@ -944,6 +953,13 @@ private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit, onRemove
             val item = queueItem.item
             if (item != null) {
                 ItemPoster(item = item, direction = Direction.HORIZONTAL)
+            } else if (queueItem.posterUrl != null) {
+                AsyncImage(
+                    model = queueItem.posterUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(1.77f),
+                )
             } else {
                 Box(
                     modifier =
@@ -959,6 +975,29 @@ private fun PvrQueueRow(queueItem: PvrQueueUiItem, onClick: () -> Unit, onRemove
                     )
                 }
             }
+            Icon(
+                painter =
+                    painterResource(
+                        if (status.source == PvrSource.SONARR) {
+                            CoreR.drawable.ic_sonarr
+                        } else {
+                            CoreR.drawable.ic_radarr
+                        }
+                    ),
+                contentDescription =
+                    if (status.source == PvrSource.SONARR) {
+                        "Sonarr"
+                    } else {
+                        "Radarr"
+                    },
+                modifier =
+                    Modifier.align(Alignment.TopEnd)
+                        .padding(MaterialTheme.spacings.extraSmall)
+                        .size(20.dp)
+                        .clip(MaterialTheme.shapes.extraSmall)
+                        .background(MaterialTheme.colorScheme.surface),
+                tint = Color.Unspecified,
+            )
         }
         Spacer(modifier = Modifier.width(MaterialTheme.spacings.default))
         Column(modifier = Modifier.weight(1f)) {

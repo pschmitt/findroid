@@ -205,6 +205,7 @@ class QueueStatusMatchingTest {
         assertEquals(PvrSource.RADARR, status?.source)
         assertEquals(QueueItemStatus.DOWNLOADING, status?.status)
         assertEquals(90, status?.percent)
+        assertEquals(90, result.toRadarrQueueStatusMap()[2000]?.percent)
     }
 
     @Test
@@ -218,6 +219,8 @@ class QueueStatusMatchingTest {
 
         assertEquals(1, result.size)
         assertNull(result.single().item)
+        assertNull(result.single().tmdbId)
+        assertEquals(0, result.toRadarrQueueStatusMap().size)
         // The unmatched entry is still titled from Radarr's own movie metadata.
         assertEquals("Some Movie", result.single().title)
         assertTrue(result.toQueueStatusMap().isEmpty())
@@ -235,6 +238,7 @@ class QueueStatusMatchingTest {
 
         assertEquals(1, result.size)
         assertNull(result.single().item)
+        assertNull(result.single().tmdbId)
         assertEquals("Some.Movie.2024.2160p.WEB-DL", result.single().title)
         assertTrue(result.toQueueStatusMap().isEmpty())
     }
@@ -248,6 +252,8 @@ class QueueStatusMatchingTest {
 
         assertEquals(1, result.size)
         assertNull(result.single().item)
+        assertEquals(2000, result.single().tmdbId)
+        assertEquals(QueueItemStatus.QUEUED, result.toRadarrQueueStatusMap()[2000]?.status)
         assertEquals("Some Movie", result.single().title)
         assertTrue(result.toQueueStatusMap().isEmpty())
     }

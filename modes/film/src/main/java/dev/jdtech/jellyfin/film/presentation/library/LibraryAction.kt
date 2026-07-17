@@ -15,6 +15,8 @@ sealed interface LibraryAction {
 
     data class OnSearchQueryChange(val query: String) : LibraryAction
 
+    data object OnRefresh : LibraryAction
+
     data class ChangeFilter(val filter: MediaFilter) : LibraryAction
 
     data class OnSeerrRequest(val item: SeerrSearchItem) : LibraryAction

@@ -37,6 +37,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -283,7 +284,14 @@ private fun LibraryScreenLayout(
         // whole column, so the grid must not add them again.
         val listPadding = if (isMergedMedia) contentPadding else contentPadding + innerPadding
 
-        Column(modifier = if (isMergedMedia) Modifier.padding(innerPadding) else Modifier) {
+        PullToRefreshBox(
+            isRefreshing = state.isLoading,
+            onRefresh = {
+                items.refresh()
+                onAction(LibraryAction.OnRefresh)
+            },
+        ) {
+            Column(modifier = if (isMergedMedia) Modifier.padding(innerPadding) else Modifier) {
             if (isMergedMedia) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
@@ -449,11 +457,18 @@ private fun LibraryScreenLayout(
                         SeerrResultRow(
                             item = result,
                             requestedThisSession = result.tmdbId in state.requestedTmdbIds,
+                            queueStatus =
+                                if (result.mediaType == SeerrMediaType.MOVIE) {
+                                    state.radarrQueueStatus[result.tmdbId]
+                                } else {
+                                    null
+                                },
                             onRequest = { onAction(LibraryAction.OnSeerrRequest(result)) },
                             onClick = { onSeerrItemClick(result.tmdbId, result.mediaType) },
                         )
                     }
                 }
+            }
             }
         }
     }

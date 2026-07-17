@@ -41,6 +41,9 @@ data class CalendarEntry(
     // always null for Radarr entries. Already known here, so triggering a search from the
     // Calendar screen doesn't need a separate SonarrSearchRepository.resolveEpisodeId round trip.
     val episodeId: Int? = null,
+    /** Sonarr's season/episode coordinates, retained for Seerr's episode detail route. */
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
     // Radarr's own numeric movie id (Radarr's /calendar endpoint returns movie resources) -
     // always null for Sonarr entries. Same rationale as [episodeId], for
     // RadarrSearchRepository-backed searches.

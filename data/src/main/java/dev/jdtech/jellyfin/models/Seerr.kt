@@ -70,8 +70,17 @@ data class SeerrMediaDetail(
      * "unrequested" by deleting these.
      */
     val cancellableRequestIds: List<Int>,
+    /** Present when the view was opened for a TV season or an episode in it. */
+    val season: SeerrSeasonDetail? = null,
     /** Present when the view was opened from a specific upcoming TV episode. */
     val episode: SeerrEpisodeDetail? = null,
+)
+
+data class SeerrSeasonDetail(
+    val title: String,
+    val seasonNumber: Int,
+    val overview: String?,
+    val posterUrl: String?,
 )
 
 data class SeerrEpisodeDetail(

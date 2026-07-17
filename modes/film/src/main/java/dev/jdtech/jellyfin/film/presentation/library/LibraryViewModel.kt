@@ -60,6 +60,11 @@ constructor(
                 _state.value = _state.value.copy(queueStatus = queueStatusByItemId)
             }
         }
+        viewModelScope.launch {
+            queueStatusRepository.getRadarrQueueStatusFlow().collect { queueStatusByTmdbId ->
+                _state.value = _state.value.copy(radarrQueueStatus = queueStatusByTmdbId)
+            }
+        }
     }
 
     fun setup(parentId: UUID?, libraryType: CollectionType) {
@@ -149,9 +154,9 @@ constructor(
                             )
                         }
                     }
-                _state.emit(_state.value.copy(items = items))
+                _state.emit(_state.value.copy(items = items, isLoading = false))
             } catch (e: Exception) {
-                _state.emit(_state.value.copy(error = e))
+                _state.emit(_state.value.copy(isLoading = false, error = e))
             }
         }
     }
@@ -199,6 +204,12 @@ constructor(
                         loadItems()
                         searchSeerr(action.query)
                     }
+            }
+            is LibraryAction.OnRefresh -> {
+                libraryItemsCache.clear()
+                viewModelScope.launch { queueStatusRepository.refreshNow() }
+                loadItems()
+                if (isMergedMedia) loadRecentRequests()
             }
             is LibraryAction.ChangeFilter -> {
                 if (action.filter != _state.value.filter) {

@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.repository
 
 import dev.jdtech.jellyfin.api.pvr.RadarrMovie
 import dev.jdtech.jellyfin.api.pvr.RadarrQueueItem
+import dev.jdtech.jellyfin.api.pvr.PvrImage
 import dev.jdtech.jellyfin.api.pvr.SonarrQueueItem
 import dev.jdtech.jellyfin.api.pvr.SonarrSeries
 import dev.jdtech.jellyfin.models.FindroidEpisode
@@ -56,6 +57,9 @@ fun matchSonarr(
             item = episode,
             title = sonarrQueueTitle(sonarrSeries, item, episodeNumber),
             status = item.toQueueStatus(),
+            tmdbId = sonarrSeries?.tmdbId?.takeIf { it != UNSET_PROVIDER_ID },
+            sonarrEpisodeId = item.episodeId.takeIf { it != UNSET_PROVIDER_ID },
+            posterUrl = sonarrSeries?.images?.posterUrl(),
             queueItemId = item.id,
         )
     }
@@ -81,6 +85,8 @@ fun matchRadarr(
             item = movie,
             title = radarrMovie?.title?.takeIf { it.isNotBlank() } ?: item.title ?: UNKNOWN_TITLE,
             status = item.toQueueStatus(),
+            tmdbId = radarrMovie?.tmdbId?.takeIf { it != UNSET_PROVIDER_ID },
+            posterUrl = radarrMovie?.images?.posterUrl(),
             queueItemId = item.id,
         )
     }
@@ -94,6 +100,16 @@ fun matchRadarr(
  */
 fun List<PvrQueueEntry>.toQueueStatusMap(): Map<UUID, QueueStatus> =
     mapNotNull { entry -> entry.item?.let { it.id to entry.status } }.toMap()
+
+fun List<PvrQueueEntry>.toRadarrQueueStatusMap(): Map<Int, QueueStatus> =
+    filter { it.status.source == PvrSource.RADARR }
+        .mapNotNull { entry -> entry.tmdbId?.let { it to entry.status } }
+        .toMap()
+
+fun List<PvrQueueEntry>.toSonarrQueueStatusMap(): Map<Int, QueueStatus> =
+    filter { it.status.source == PvrSource.SONARR }
+        .mapNotNull { entry -> entry.sonarrEpisodeId?.let { it to entry.status } }
+        .toMap()
 
 /**
  * "Series - S1E5" when the episode is identified, "Series - Season 1" for season-pack grabs
@@ -115,6 +131,9 @@ private fun sonarrQueueTitle(
 }
 
 private const val UNKNOWN_TITLE = "Unknown"
+
+private fun List<PvrImage>.posterUrl(): String? =
+    firstOrNull { it.coverType.equals("poster", ignoreCase = true) }?.let { it.remoteUrl ?: it.url }
 
 private fun SonarrQueueItem.toQueueStatus(): QueueStatus =
     buildQueueStatus(

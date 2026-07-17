@@ -4,12 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.models.SeerrMediaType
+import dev.jdtech.jellyfin.models.PvrSource
+import dev.jdtech.jellyfin.api.pvr.PvrRelease
+import dev.jdtech.jellyfin.core.presentation.search.ReleasePickerState
 import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.RadarrSearchRepository
+import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.repository.SeerrRepository
 import dev.jdtech.jellyfin.repository.SonarrSearchRepository
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -21,9 +26,11 @@ sealed interface SeerrMediaEvent {
 
     data class RequestCancelled(val title: String) : SeerrMediaEvent
 
-    data object SearchTriggered : SeerrMediaEvent
+    data class SearchTriggered(val source: PvrSource) : SeerrMediaEvent
 
-    data class SearchFailed(val message: String?) : SeerrMediaEvent
+    data class SearchFailed(val source: PvrSource, val message: String?) : SeerrMediaEvent
+
+    data object ReleaseGrabbed : SeerrMediaEvent
 
     data class ActionFailed(val message: String?) : SeerrMediaEvent
 }
@@ -35,6 +42,7 @@ constructor(
     private val seerrRepository: SeerrRepository,
     private val sonarrSearchRepository: SonarrSearchRepository,
     private val radarrSearchRepository: RadarrSearchRepository,
+    private val queueStatusRepository: QueueStatusRepository,
     private val pvrConfiguration: PvrConfiguration,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SeerrMediaState())
@@ -47,17 +55,23 @@ constructor(
     private lateinit var mediaType: SeerrMediaType
     private var seasonNumber: Int? = null
     private var episodeNumber: Int? = null
+    private var sonarrEpisodeId: Int? = null
+    private var releasePickerSource: PvrSource? = null
+    private var queueStatusJob: Job? = null
 
     fun loadDetail(
         tmdbId: Int,
         mediaType: SeerrMediaType,
         seasonNumber: Int? = null,
         episodeNumber: Int? = null,
+        sonarrEpisodeId: Int? = null,
     ) {
         this.tmdbId = tmdbId
         this.mediaType = mediaType
         this.seasonNumber = seasonNumber
         this.episodeNumber = episodeNumber
+        this.sonarrEpisodeId = sonarrEpisodeId
+        observeQueueStatus(mediaType, tmdbId, sonarrEpisodeId)
         viewModelScope.launch {
             _state.value =
                 _state.value.copy(
@@ -67,6 +81,12 @@ constructor(
                         when (mediaType) {
                             SeerrMediaType.MOVIE -> pvrConfiguration.isRadarrConfigured()
                             SeerrMediaType.TV -> pvrConfiguration.isSonarrConfigured()
+                        },
+                    manualPvrSearchAvailable =
+                        when (mediaType) {
+                            SeerrMediaType.MOVIE -> pvrConfiguration.isRadarrConfigured()
+                            SeerrMediaType.TV ->
+                                sonarrEpisodeId != null && pvrConfiguration.isSonarrConfigured()
                         },
                 )
             seerrRepository
@@ -83,13 +103,41 @@ constructor(
         }
     }
 
+    private fun observeQueueStatus(
+        mediaType: SeerrMediaType,
+        tmdbId: Int,
+        sonarrEpisodeId: Int?,
+    ) {
+        queueStatusJob?.cancel()
+        queueStatusJob =
+            viewModelScope.launch {
+                when (mediaType) {
+                    SeerrMediaType.MOVIE ->
+                        queueStatusRepository.getRadarrQueueStatusFlow().collect { statuses ->
+                            _state.value = _state.value.copy(queueStatus = statuses[tmdbId])
+                        }
+                    SeerrMediaType.TV ->
+                        queueStatusRepository.getSonarrQueueStatusFlow().collect { statuses ->
+                            _state.value =
+                                _state.value.copy(
+                                    queueStatus = sonarrEpisodeId?.let { statuses[it] }
+                                )
+                        }
+                }
+            }
+    }
+
     fun onAction(action: SeerrMediaAction) {
         when (action) {
             is SeerrMediaAction.OnRequest -> request()
             is SeerrMediaAction.OnCancelRequest -> cancelRequests()
-            is SeerrMediaAction.OnSearchInPvr -> searchInPvr()
+            is SeerrMediaAction.OnAutomaticSearchInPvr -> searchInPvr()
+            is SeerrMediaAction.OnOpenReleasePicker -> openReleasePicker()
+            is SeerrMediaAction.GrabRelease -> grabRelease(action.release)
+            is SeerrMediaAction.DismissReleasePicker ->
+                _state.value = _state.value.copy(releasePicker = null)
             is SeerrMediaAction.OnRetryClick ->
-                loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber)
+                loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber, sonarrEpisodeId)
             else -> Unit
         }
     }
@@ -101,12 +149,65 @@ constructor(
             val result =
                 when (detail.mediaType) {
                     SeerrMediaType.MOVIE -> radarrSearchRepository.searchMovieByTmdbId(detail.tmdbId)
-                    SeerrMediaType.TV -> sonarrSearchRepository.searchSeriesByTmdbId(detail.tmdbId)
+                    SeerrMediaType.TV ->
+                        sonarrEpisodeId?.let { sonarrSearchRepository.searchEpisode(it) }
+                            ?: sonarrSearchRepository.searchSeriesByTmdbId(detail.tmdbId)
                 }
+            val source = if (detail.mediaType == SeerrMediaType.TV) PvrSource.SONARR else PvrSource.RADARR
             eventsChannel.send(
-                result.fold({ SeerrMediaEvent.SearchTriggered }, { SeerrMediaEvent.SearchFailed(it.message) })
+                result.fold(
+                    { SeerrMediaEvent.SearchTriggered(source) },
+                    { SeerrMediaEvent.SearchFailed(source, it.message) },
+                )
             )
             _state.value = _state.value.copy(isSubmitting = false)
+        }
+    }
+
+    private fun openReleasePicker() {
+        val detail = _state.value.detail ?: return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(releasePicker = ReleasePickerState())
+            val source = if (detail.mediaType == SeerrMediaType.TV) PvrSource.SONARR else PvrSource.RADARR
+            val result: Result<List<PvrRelease>> =
+                when (detail.mediaType) {
+                    SeerrMediaType.MOVIE -> {
+                        val movieId = radarrSearchRepository.resolveMovieId(detail.tmdbId.toString())
+                        if (movieId == null) {
+                            Result.failure(IllegalStateException("Could not find this movie in Radarr"))
+                        } else {
+                            radarrSearchRepository.getReleases(movieId)
+                        }
+                    }
+                    SeerrMediaType.TV -> {
+                        val episodeId = sonarrEpisodeId
+                        if (episodeId == null) {
+                            Result.failure(IllegalStateException("Could not find this episode in Sonarr"))
+                        } else {
+                            sonarrSearchRepository.getReleases(episodeId)
+                        }
+                    }
+                }
+            releasePickerSource = source
+            _state.value =
+                _state.value.copy(
+                    releasePicker = result.getOrNull()?.let { ReleasePickerState(isLoading = false, releases = it) }
+                )
+            result.onFailure { eventsChannel.send(SeerrMediaEvent.SearchFailed(source, it.message)) }
+        }
+    }
+
+    private fun grabRelease(release: PvrRelease) {
+        viewModelScope.launch {
+            val result =
+                when (releasePickerSource) {
+                    PvrSource.RADARR -> radarrSearchRepository.grabRelease(release)
+                    else -> sonarrSearchRepository.grabRelease(release)
+                }
+            _state.value = _state.value.copy(releasePicker = null)
+            eventsChannel.send(
+                result.fold({ SeerrMediaEvent.ReleaseGrabbed }, { SeerrMediaEvent.SearchFailed(releasePickerSource ?: PvrSource.SONARR, it.message) })
+            )
         }
     }
 
@@ -121,7 +222,13 @@ constructor(
                         eventsChannel.send(SeerrMediaEvent.Requested(detail.title))
                         // Reload rather than patching the state locally - the new request's id is
                         // needed for a subsequent unrequest, and only the server has it.
-                        loadDetail(detail.tmdbId, detail.mediaType)
+                        loadDetail(
+                            detail.tmdbId,
+                            detail.mediaType,
+                            seasonNumber,
+                            episodeNumber,
+                            sonarrEpisodeId,
+                        )
                     },
                     onFailure = { e ->
                         eventsChannel.send(SeerrMediaEvent.ActionFailed(e.message))
@@ -151,7 +258,13 @@ constructor(
             } else {
                 eventsChannel.send(SeerrMediaEvent.ActionFailed(failure.message))
             }
-            loadDetail(detail.tmdbId, detail.mediaType)
+            loadDetail(
+                detail.tmdbId,
+                detail.mediaType,
+                seasonNumber,
+                episodeNumber,
+                sonarrEpisodeId,
+            )
             _state.value = _state.value.copy(isSubmitting = false)
         }
     }

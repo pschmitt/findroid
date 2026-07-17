@@ -16,11 +16,13 @@ import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.SeerrRepository
+import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.Downloader
 import dev.jdtech.jellyfin.utils.toView
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -39,6 +41,7 @@ constructor(
     val downloader: Downloader,
     private val seerrRepository: SeerrRepository,
     private val pvrConfiguration: PvrConfiguration,
+    private val queueStatusRepository: QueueStatusRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(HomeState())
     val state = _state.asStateFlow()
@@ -51,6 +54,20 @@ constructor(
 
     private val uiTextContinueWatching = UiText.StringResource(FilmR.string.continue_watching)
     private val uiTextNextUp = UiText.StringResource(FilmR.string.next_up)
+
+    init {
+        viewModelScope.launch {
+            queueStatusRepository.getQueueSnapshotFlow().collectLatest { snapshot ->
+                _state.value =
+                    _state.value.copy(
+                        activeDownloads =
+                            snapshot.entries.filter {
+                                it.status.status == dev.jdtech.jellyfin.models.QueueItemStatus.DOWNLOADING
+                            }
+                    )
+            }
+        }
+    }
 
     fun loadData() {
         Timber.i("Loading data")
@@ -73,6 +90,8 @@ constructor(
             _state.emit(_state.value.copy(isLoading = false))
         }
     }
+
+    fun refresh() = loadData()
 
     private suspend fun loadServerName(serverId: String) {
         val server = database.get(serverId)

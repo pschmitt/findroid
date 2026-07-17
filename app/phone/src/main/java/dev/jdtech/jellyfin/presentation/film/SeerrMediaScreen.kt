@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -57,6 +58,8 @@ import dev.jdtech.jellyfin.models.SeerrMediaType
 import dev.jdtech.jellyfin.presentation.components.ErrorDialog
 import dev.jdtech.jellyfin.presentation.film.components.ErrorCard
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
+import dev.jdtech.jellyfin.presentation.film.components.ReleasePickerSheet
+import dev.jdtech.jellyfin.presentation.film.components.QueueBadge
 import dev.jdtech.jellyfin.presentation.film.components.SeerrStatusChip
 import dev.jdtech.jellyfin.presentation.film.components.seerrMediaTypeLabel
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -74,6 +77,9 @@ fun SeerrMediaScreen(
     mediaType: SeerrMediaType,
     seasonNumber: Int? = null,
     episodeNumber: Int? = null,
+    sonarrEpisodeId: Int? = null,
+    navigateToShow: () -> Unit = {},
+    navigateToSeason: (Int) -> Unit = {},
     navigateBack: () -> Unit,
     viewModel: SeerrMediaViewModel = hiltViewModel(),
 ) {
@@ -83,8 +89,8 @@ fun SeerrMediaScreen(
     // Request and cancel share their failure event, so remember which label to show for it.
     var lastActionWasCancel by remember { mutableStateOf(false) }
 
-    LaunchedEffect(tmdbId, mediaType, seasonNumber, episodeNumber) {
-        viewModel.loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber)
+    LaunchedEffect(tmdbId, mediaType, seasonNumber, episodeNumber, sonarrEpisodeId) {
+        viewModel.loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber, sonarrEpisodeId)
     }
 
     ObserveAsEvents(viewModel.events) { event ->
@@ -95,12 +101,26 @@ fun SeerrMediaScreen(
                 is SeerrMediaEvent.RequestCancelled ->
                     context.getString(CoreR.string.seerr_request_cancelled_toast, event.title)
                 is SeerrMediaEvent.SearchTriggered ->
-                    context.getString(CoreR.string.search_triggered_toast)
+                    context.getString(
+                        when (event.source) {
+                            dev.jdtech.jellyfin.models.PvrSource.SONARR ->
+                                CoreR.string.sonarr_search_started_toast
+                            dev.jdtech.jellyfin.models.PvrSource.RADARR ->
+                                CoreR.string.radarr_search_started_toast
+                        }
+                    )
                 is SeerrMediaEvent.SearchFailed ->
                     context.getString(
-                        CoreR.string.search_failed_toast,
+                        when (event.source) {
+                            dev.jdtech.jellyfin.models.PvrSource.SONARR ->
+                                CoreR.string.sonarr_search_failed_toast
+                            dev.jdtech.jellyfin.models.PvrSource.RADARR ->
+                                CoreR.string.radarr_search_failed_toast
+                        },
                         event.message ?: context.getString(CoreR.string.unknown_error),
                     )
+                is SeerrMediaEvent.ReleaseGrabbed ->
+                    context.getString(CoreR.string.release_grabbed_toast)
                 is SeerrMediaEvent.ActionFailed ->
                     context.getString(
                         if (lastActionWasCancel) {
@@ -116,6 +136,8 @@ fun SeerrMediaScreen(
 
     SeerrMediaScreenLayout(
         state = state,
+        navigateToShow = navigateToShow,
+        navigateToSeason = navigateToSeason,
         onAction = { action ->
             when (action) {
                 is SeerrMediaAction.OnRequest -> lastActionWasCancel = false
@@ -129,7 +151,13 @@ fun SeerrMediaScreen(
 }
 
 @Composable
-private fun SeerrMediaScreenLayout(state: SeerrMediaState, onAction: (SeerrMediaAction) -> Unit) {
+@OptIn(ExperimentalMaterial3Api::class)
+private fun SeerrMediaScreenLayout(
+    state: SeerrMediaState,
+    navigateToShow: () -> Unit,
+    navigateToSeason: (Int) -> Unit,
+    onAction: (SeerrMediaAction) -> Unit,
+) {
     val safePadding = rememberSafePadding()
 
     val paddingStart = safePadding.start + MaterialTheme.spacings.default
@@ -161,6 +189,18 @@ private fun SeerrMediaScreenLayout(state: SeerrMediaState, onAction: (SeerrMedia
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        detail.episode?.let { episode ->
+                            Spacer(Modifier.height(MaterialTheme.spacings.small))
+                            Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
+                                TextButton(onClick = navigateToShow) { Text(detail.title) }
+                                TextButton(onClick = { navigateToSeason(episode.seasonNumber) }) {
+                                    Text(detail.season?.title ?: "Season ${episode.seasonNumber}")
+                                }
+                            }
+                        } ?: detail.season?.let {
+                            Spacer(Modifier.height(MaterialTheme.spacings.small))
+                            TextButton(onClick = navigateToShow) { Text(detail.title) }
+                        }
                         // The chip renders NOT_REQUESTED as "Requested" (its just-requested
                         // marker), so only show it once there actually is a request or status.
                         if (
@@ -170,7 +210,13 @@ private fun SeerrMediaScreenLayout(state: SeerrMediaState, onAction: (SeerrMedia
                             Spacer(Modifier.height(MaterialTheme.spacings.small))
                             SeerrStatusChip(status = detail.status)
                         }
-                        (detail.episode?.overview ?: detail.overview)?.takeIf { it.isNotBlank() }?.let { overview ->
+                        state.queueStatus?.let { queueStatus ->
+                            Spacer(Modifier.height(MaterialTheme.spacings.small))
+                            QueueBadge(status = queueStatus)
+                        }
+                        (detail.episode?.overview ?: detail.season?.overview ?: detail.overview)
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { overview ->
                             Spacer(Modifier.height(MaterialTheme.spacings.medium))
                             OverviewText(text = overview, maxCollapsedLines = 5)
                         }
@@ -202,15 +248,38 @@ private fun SeerrMediaScreenLayout(state: SeerrMediaState, onAction: (SeerrMedia
                         if (state.pvrSearchConfigured) {
                             Spacer(Modifier.height(MaterialTheme.spacings.small))
                             OutlinedButton(
-                                onClick = { onAction(SeerrMediaAction.OnSearchInPvr) },
+                                onClick = { onAction(SeerrMediaAction.OnAutomaticSearchInPvr) },
                                 enabled = !state.isSubmitting,
                             ) {
                                 Text(
                                     text =
                                         stringResource(
                                             when (detail.mediaType) {
-                                                SeerrMediaType.MOVIE -> CoreR.string.search_movie
-                                                SeerrMediaType.TV -> CoreR.string.search_episodes
+                                                SeerrMediaType.MOVIE ->
+                                                    CoreR.string.search_movie_in_radarr_automatic
+                                                SeerrMediaType.TV ->
+                                                    if (detail.episode != null) {
+                                                        CoreR.string.search_episode_in_sonarr_automatic
+                                                    } else {
+                                                        CoreR.string.search_episodes_in_sonarr
+                                                    }
+                                            }
+                                        )
+                                )
+                            }
+                        }
+                        if (state.manualPvrSearchAvailable) {
+                            TextButton(
+                                onClick = { onAction(SeerrMediaAction.OnOpenReleasePicker) },
+                            ) {
+                                Text(
+                                    text =
+                                        stringResource(
+                                            when (detail.mediaType) {
+                                                SeerrMediaType.MOVIE ->
+                                                    CoreR.string.search_movie_in_radarr_manual
+                                                SeerrMediaType.TV ->
+                                                    CoreR.string.search_episode_in_sonarr_manual
                                             }
                                         )
                                 )
@@ -289,6 +358,14 @@ private fun SeerrMediaScreenLayout(state: SeerrMediaState, onAction: (SeerrMedia
             )
         }
     }
+
+    state.releasePicker?.let { releasePicker ->
+        ReleasePickerSheet(
+            state = releasePicker,
+            onGrab = { onAction(SeerrMediaAction.GrabRelease(it)) },
+            onDismissRequest = { onAction(SeerrMediaAction.DismissReleasePicker) },
+        )
+    }
 }
 
 /** 16:9 backdrop, falling back to the poster or a plain surface when there's no image at all. */
@@ -300,7 +377,7 @@ private fun SeerrBackdrop(detail: SeerrMediaDetail) {
                 .aspectRatio(16f / 9f)
                 .background(MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        val imageUrl = detail.episode?.stillUrl ?: detail.backdropUrl ?: detail.posterUrl
+        val imageUrl = detail.episode?.stillUrl ?: detail.backdropUrl ?: detail.season?.posterUrl ?: detail.posterUrl
         if (imageUrl != null) {
             AsyncImage(
                 model = imageUrl,
@@ -318,7 +395,7 @@ private fun SeerrBackdrop(detail: SeerrMediaDetail) {
 private fun seerrMetaLine(detail: SeerrMediaDetail): String {
     detail.episode?.let { episode ->
         return listOf(
-                detail.title,
+                detail.season?.title ?: detail.title,
                 stringResource(
                     CoreR.string.episode_name_extended,
                     episode.seasonNumber,
@@ -329,6 +406,9 @@ private fun seerrMetaLine(detail: SeerrMediaDetail): String {
             )
             .filterNotNull()
             .joinToString(" · ")
+    }
+    detail.season?.let { season ->
+        return listOf(detail.title, season.title).joinToString(" · ")
     }
     val runtimeOrSeasons =
         when (detail.mediaType) {
@@ -382,6 +462,8 @@ private fun SeerrMediaScreenLayoutPreview() {
                             cancellableRequestIds = emptyList(),
                         )
                 ),
+            navigateToShow = {},
+            navigateToSeason = {},
             onAction = {},
         )
     }

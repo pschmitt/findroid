@@ -12,6 +12,7 @@ import java.util.UUID
 
 data class DownloadsState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: Exception? = null,
     val movies: List<FindroidMovie> = emptyList(),
     val showGroups: List<DownloadShowGroup> = emptyList(),
@@ -42,6 +43,7 @@ data class PvrQueueUiItem(
     val itemId: UUID?,
     val title: String,
     val item: FindroidItem? = null,
+    val posterUrl: String? = null,
     val status: QueueStatus,
     // The PVR service's own queue-row id, needed to remove the entry (see
     // QueueStatusRepository.removeQueueItem).

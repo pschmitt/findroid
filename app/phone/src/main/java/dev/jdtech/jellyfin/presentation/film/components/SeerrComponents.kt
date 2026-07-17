@@ -32,6 +32,7 @@ import coil3.compose.AsyncImage
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.models.SeerrMediaStatus
 import dev.jdtech.jellyfin.models.SeerrMediaType
+import dev.jdtech.jellyfin.models.QueueStatus
 import dev.jdtech.jellyfin.models.SeerrRequestItem
 import dev.jdtech.jellyfin.models.SeerrSearchItem
 import dev.jdtech.jellyfin.presentation.theme.spacings
@@ -44,7 +45,8 @@ import dev.jdtech.jellyfin.presentation.theme.spacings
 fun SeerrResultRow(
     item: SeerrSearchItem,
     requestedThisSession: Boolean,
-    onRequest: () -> Unit,
+    onRequest: (() -> Unit)? = null,
+    queueStatus: QueueStatus? = null,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
@@ -82,12 +84,13 @@ fun SeerrResultRow(
             }
         }
         when {
+            queueStatus != null -> QueueBadge(status = queueStatus)
             requestedThisSession -> SeerrStatusChip(status = null)
-            item.status == SeerrMediaStatus.NOT_REQUESTED ->
+            item.status == SeerrMediaStatus.NOT_REQUESTED && onRequest != null ->
                 Button(onClick = onRequest) {
                     Text(text = stringResource(CoreR.string.discover_request))
                 }
-            else -> SeerrStatusChip(status = item.status)
+            item.status != SeerrMediaStatus.NOT_REQUESTED -> SeerrStatusChip(status = item.status)
         }
     }
 }

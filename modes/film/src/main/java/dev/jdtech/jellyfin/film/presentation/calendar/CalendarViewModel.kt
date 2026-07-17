@@ -108,9 +108,7 @@ constructor(
 
     private fun load() {
         viewModelScope.launch {
-            if (_state.value.isEmpty) {
-                _state.value = _state.value.copy(isLoading = true, error = null)
-            }
+            _state.value = _state.value.copy(isLoading = true, error = null)
             try {
                 val result = calendarRepository.getUpcoming()
                 _state.value =

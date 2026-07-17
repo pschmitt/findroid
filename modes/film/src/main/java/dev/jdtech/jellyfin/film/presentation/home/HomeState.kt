@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.film.presentation.home
 
 import androidx.annotation.StringRes
 import dev.jdtech.jellyfin.models.HomeItem
+import dev.jdtech.jellyfin.models.PvrQueueEntry
 import dev.jdtech.jellyfin.models.SeerrSearchItem
 import dev.jdtech.jellyfin.models.Server
 
@@ -18,6 +19,7 @@ data class HomeState(
     val nextUpSection: HomeItem.Section? = null,
     val views: List<HomeItem.ViewItem> = emptyList(),
     val discoverSections: List<HomeDiscoverSection> = emptyList(),
+    val activeDownloads: List<PvrQueueEntry> = emptyList(),
     val isLoading: Boolean = false,
     val error: Exception? = null,
 )
