@@ -59,6 +59,11 @@ constructor(
     private var pvrRefreshJob: Job? = null
 
     fun startObserving() {
+        // Unlike the one-shot registrations below, re-run every time the screen is (re-)entered,
+        // not just the first time this ViewModel instance observes anything - the ViewModel (and
+        // refreshJob) can outlive a single visit to this screen (e.g. surviving a tab switch), in
+        // which case the early return below would otherwise skip this forever after the first visit.
+        refreshStorage()
         if (refreshJob != null) return
         refreshJob =
             viewModelScope.launch {
@@ -91,7 +96,6 @@ constructor(
                     )
             }
         }
-        refreshStorage()
     }
 
     // Storage numbers don't change minute to minute, so this is a one-shot fetch on entering the
