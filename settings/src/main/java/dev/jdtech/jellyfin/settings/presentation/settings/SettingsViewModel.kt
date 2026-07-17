@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.settings.presentation.settings
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
@@ -50,6 +51,14 @@ constructor(
      */
     private fun hasRemovableStorage(): Boolean =
         context.getExternalFilesDirs(null).any { it != null && Environment.isExternalStorageRemovable(it) }
+
+    /**
+     * Same idea for the mobile-data/roaming download switches: on a device without cellular
+     * connectivity (e.g. a Wi-Fi-only tablet) they can't ever do anything, so disable them
+     * instead of offering dead options.
+     */
+    private fun hasCellularConnectivity(): Boolean =
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
 
     private val eventsChannel = Channel<SettingsEvent>()
     val events = eventsChannel.receiveAsFlow()
@@ -672,6 +681,7 @@ constructor(
                                                     nameStringResource =
                                                         R.string.download_mobile_data,
                                                     iconDrawableId = R.drawable.ic_network,
+                                                    enabled = hasCellularConnectivity(),
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
                                                         appPreferences.downloadOverMobileData,
@@ -679,6 +689,7 @@ constructor(
                                                 PreferenceSwitch(
                                                     nameStringResource = R.string.download_roaming,
                                                     iconDrawableId = R.drawable.ic_globe,
+                                                    enabled = hasCellularConnectivity(),
                                                     dependencies =
                                                         listOf(
                                                             appPreferences.downloadOverMobileData
