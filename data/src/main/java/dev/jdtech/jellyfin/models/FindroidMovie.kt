@@ -75,6 +75,11 @@ suspend fun BaseItemDto.toFindroidMovie(
 
 fun FindroidMovieDto.toFindroidMovie(database: ServerDatabaseDao, userId: UUID): FindroidMovie {
     val userData = database.getUserDataOrCreateNew(id, userId)
+    // NOTE: `sources` was previously recomputed a second time (with an identical, redundant
+    // `database.getSources(id)` call) inline in the FindroidMovie(...) constructor call below,
+    // discarding this one - doubling the getSources query, the per-source getMediaStreamsBySourceId
+    // query and the per-source File(path).length() stat for every movie mapped this way. Reusing
+    // the already-computed `sources` fixes that.
     val sources = database.getSources(id).map { it.toFindroidSource(database) }
     val trickplayInfos = mutableMapOf<String, FindroidTrickplayInfo>()
     for (source in sources) {
@@ -101,11 +106,91 @@ fun FindroidMovieDto.toFindroidMovie(database: ServerDatabaseDao, userId: UUID):
         endDate = endDate,
         canDownload = false,
         canPlay = true,
-        sources = database.getSources(id).map { it.toFindroidSource(database) },
+        sources = sources,
         trailer = null,
         images = toLocalFindroidImages(itemId = id),
         chapters = chapters ?: emptyList(),
         trickplayInfo = trickplayInfos,
         tmdbId = tmdbId,
     )
+}
+
+/**
+ * Batch equivalent of [toFindroidMovie] for mapping a whole list of DB rows at once. The singular
+ * function above does one `getUserDataOrCreateNew`/`getSources`/`getTrickplayInfo` (plus one
+ * `getMediaStreamsBySourceId` per source) round trip *per movie*, which is an N+1 query pattern -
+ * fine for a single item, but for a list of M movies it's roughly 3+ DB queries times M, run
+ * sequentially. This does the same fetches once for the whole list (a handful of queries total,
+ * each with an `IN (...)` clause) and maps in memory, which is what
+ * [dev.jdtech.jellyfin.film.presentation.downloads.DownloadsViewModel] uses to load the Downloads
+ * screen's local list without a per-row DB round trip.
+ */
+fun List<FindroidMovieDto>.toFindroidMovies(
+    database: ServerDatabaseDao,
+    userId: UUID,
+): List<FindroidMovie> {
+    if (isEmpty()) return emptyList()
+    val itemIds = map { it.id }
+
+    val userDataByItemId = database.getUserDataForItems(itemIds, userId).associateBy { it.itemId }.toMutableMap()
+    for (itemId in itemIds) {
+        if (itemId !in userDataByItemId) {
+            val created =
+                FindroidUserDataDto(
+                    userId = userId,
+                    itemId = itemId,
+                    played = false,
+                    favorite = false,
+                    playbackPositionTicks = 0L,
+                )
+            database.insertUserData(created)
+            userDataByItemId[itemId] = created
+        }
+    }
+
+    val sourcesByItemId = database.getSourcesForItems(itemIds).groupBy { it.itemId }
+    val sourceIds = sourcesByItemId.values.flatten().map { it.id }
+    val mediaStreamsBySourceId = database.getMediaStreamsForSources(sourceIds).groupBy { it.sourceId }
+    val trickplayBySourceId = database.getTrickplayInfoForSources(sourceIds).associateBy { it.sourceId }
+
+    return map { dto ->
+        val userData = userDataByItemId.getValue(dto.id)
+        val sources =
+            (sourcesByItemId[dto.id] ?: emptyList()).map { sourceDto ->
+                sourceDto.toFindroidSource(mediaStreamsBySourceId[sourceDto.id] ?: emptyList())
+            }
+        val trickplayInfo =
+            sources
+                .mapNotNull { source ->
+                    trickplayBySourceId[source.id]?.toFindroidTrickplayInfo()?.let { source.id to it }
+                }
+                .toMap()
+
+        FindroidMovie(
+            id = dto.id,
+            name = dto.name,
+            originalTitle = dto.originalTitle,
+            overview = dto.overview,
+            played = userData.played,
+            favorite = userData.favorite,
+            runtimeTicks = dto.runtimeTicks,
+            playbackPositionTicks = userData.playbackPositionTicks,
+            premiereDate = dto.premiereDate,
+            genres = emptyList(),
+            people = emptyList(),
+            communityRating = dto.communityRating,
+            officialRating = dto.officialRating,
+            status = dto.status,
+            productionYear = dto.productionYear,
+            endDate = dto.endDate,
+            canDownload = false,
+            canPlay = true,
+            sources = sources,
+            trailer = null,
+            images = dto.toLocalFindroidImages(itemId = dto.id),
+            chapters = dto.chapters ?: emptyList(),
+            trickplayInfo = trickplayInfo,
+            tmdbId = dto.tmdbId,
+        )
+    }
 }

@@ -109,6 +109,11 @@ interface ServerDatabaseDao {
     @Query("SELECT * FROM sources WHERE itemId = :itemId")
     fun getSources(itemId: UUID): List<FindroidSourceDto>
 
+    // Batch variant of getSources, used to avoid an N+1 query pattern when mapping a whole list of
+    // rows at once (see toFindroidMovies/toFindroidEpisodes in the models package).
+    @Query("SELECT * FROM sources WHERE itemId IN (:itemIds)")
+    fun getSourcesForItems(itemIds: List<UUID>): List<FindroidSourceDto>
+
     @Query("SELECT * FROM sources") fun getAllSources(): List<FindroidSourceDto>
 
     @Query("SELECT * FROM sources WHERE downloadId = :downloadId")
@@ -137,6 +142,10 @@ interface ServerDatabaseDao {
 
     @Query("SELECT * FROM mediastreams WHERE sourceId = :sourceId")
     fun getMediaStreamsBySourceId(sourceId: String): List<FindroidMediaStreamDto>
+
+    // Batch variant of getMediaStreamsBySourceId, see getSourcesForItems.
+    @Query("SELECT * FROM mediastreams WHERE sourceId IN (:sourceIds)")
+    fun getMediaStreamsForSources(sourceIds: List<String>): List<FindroidMediaStreamDto>
 
     @Query("SELECT * FROM mediastreams WHERE downloadId = :downloadId")
     fun getMediaStreamByDownloadId(downloadId: Long): FindroidMediaStreamDto?
@@ -222,6 +231,10 @@ interface ServerDatabaseDao {
     @Query("SELECT * FROM userdata WHERE itemId = :itemId AND userId = :userId")
     fun getUserData(itemId: UUID, userId: UUID): FindroidUserDataDto?
 
+    // Batch variant of getUserData, see getSourcesForItems.
+    @Query("SELECT * FROM userdata WHERE itemId IN (:itemIds) AND userId = :userId")
+    fun getUserDataForItems(itemIds: List<UUID>, userId: UUID): List<FindroidUserDataDto>
+
     @Transaction
     fun getUserDataOrCreateNew(itemId: UUID, userId: UUID): FindroidUserDataDto {
         var userData = getUserData(itemId, userId)
@@ -269,6 +282,10 @@ interface ServerDatabaseDao {
 
     @Query("SELECT * FROM trickplayInfos WHERE sourceId = :sourceId")
     fun getTrickplayInfo(sourceId: String): FindroidTrickplayInfoDto?
+
+    // Batch variant of getTrickplayInfo, see getSourcesForItems.
+    @Query("SELECT * FROM trickplayInfos WHERE sourceId IN (:sourceIds)")
+    fun getTrickplayInfoForSources(sourceIds: List<String>): List<FindroidTrickplayInfoDto>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAutoDownloadRule(rule: AutoDownloadRuleDto): Long

@@ -47,14 +47,22 @@ suspend fun MediaSourceInfo.toFindroidSource(
 }
 
 fun FindroidSourceDto.toFindroidSource(serverDatabaseDao: ServerDatabaseDao): FindroidSource {
+    return toFindroidSource(serverDatabaseDao.getMediaStreamsBySourceId(id))
+}
+
+/**
+ * Same mapping as [toFindroidSource], but takes an already-fetched media-stream list instead of
+ * doing its own DB query - lets batch callers (see `toFindroidMovies`/`toFindroidEpisodes`) fetch
+ * media streams for every source in one query instead of one query per source.
+ */
+fun FindroidSourceDto.toFindroidSource(mediaStreams: List<FindroidMediaStreamDto>): FindroidSource {
     return FindroidSource(
         id = id,
         name = name,
         type = type,
         path = path,
         size = File(path).length(),
-        mediaStreams =
-            serverDatabaseDao.getMediaStreamsBySourceId(id).map { it.toFindroidMediaStream() },
+        mediaStreams = mediaStreams.map { it.toFindroidMediaStream() },
         downloadId = downloadId,
         checksum = checksum,
     )
