@@ -126,6 +126,7 @@ fun DownloaderCard(
                             modifier = Modifier.fillMaxWidth(),
                             color = progressIndicatorColor,
                             trackColor = progressTrackColor,
+                            drawStopIndicator = {},
                         )
                     }
                 }

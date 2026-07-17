@@ -665,7 +665,6 @@ private fun StorageUsageBar(
     totalBytes: Long,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val fraction =
         if (totalBytes > 0) (usedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
     val barColor =
@@ -692,8 +691,8 @@ private fun StorageUsageBar(
                 text =
                     stringResource(
                         CoreR.string.storage_used_of_total,
-                        Formatter.formatFileSize(context, usedBytes),
-                        Formatter.formatFileSize(context, totalBytes),
+                        formatBinaryFileSize(usedBytes),
+                        formatBinaryFileSize(totalBytes),
                     ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -705,8 +704,28 @@ private fun StorageUsageBar(
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
             color = barColor,
             trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            drawStopIndicator = {},
         )
     }
+}
+
+/**
+ * Binary (IEC) units, e.g. "4.40 TiB" - Sonarr/Radarr (and most self-hosted PVR dashboards) report
+ * space this way (1024-based math, just conventionally mislabeled "GB"/"TB"), unlike Android's own
+ * [Formatter.formatFileSize] which is decimal (1000-based). Using IEC units/labels here instead
+ * keeps the number Findroid shows consistent with what Sonarr/Radarr's own UI shows for the same
+ * bytes, rather than the same value looking like two different sizes depending on where it's read.
+ */
+private fun formatBinaryFileSize(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val units = arrayOf("KiB", "MiB", "GiB", "TiB", "PiB")
+    var value = bytes / 1024.0
+    var unitIndex = 0
+    while (value >= 1024.0 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex++
+    }
+    return "%.2f %s".format(value, units[unitIndex])
 }
 
 @Composable
@@ -733,6 +752,7 @@ private fun DeleteProgressCard(progress: DeleteProgress, onDismiss: () -> Unit) 
                         if (progress.total > 0) progress.done / progress.total.toFloat() else 0f
                     },
                     modifier = Modifier.fillMaxWidth().height(3.dp),
+                    drawStopIndicator = {},
                 )
             }
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
@@ -951,6 +971,7 @@ private fun DownloadRow(
                         LinearProgressIndicator(
                             progress = { activeProgress.percent.coerceAtLeast(0) / 100f },
                             modifier = Modifier.fillMaxWidth().height(3.dp),
+                            drawStopIndicator = {},
                         )
                     }
                 } else {
@@ -1136,6 +1157,7 @@ private fun PvrQueueRow(
                 LinearProgressIndicator(
                     progress = { status.percent.coerceIn(0, 100) / 100f },
                     modifier = Modifier.fillMaxWidth().height(3.dp),
+                    drawStopIndicator = {},
                 )
             }
         }

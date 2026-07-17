@@ -498,12 +498,18 @@ class DownloaderImpl(
         // unreliable for an app-specific getExternalFilesDirs() subdirectory (spuriously reports
         // not-mounted here on some devices). ItemButtonsBar's storage-picker calls StatFs the same
         // direct way for the same reason.
-        val storageLocation = context.getExternalFilesDirs(null).getOrNull(storageIndex) ?: return null
-        val stats = StatFs(storageLocation.path)
-        return DeviceStorageStats(
-            totalBytes = stats.blockCountLong * stats.blockSizeLong,
-            availableBytes = stats.availableBlocksLong * stats.blockSizeLong,
-        )
+        return try {
+            val storageLocation =
+                context.getExternalFilesDirs(null).getOrNull(storageIndex) ?: return null
+            val stats = StatFs(storageLocation.path)
+            DeviceStorageStats(
+                totalBytes = stats.blockCountLong * stats.blockSizeLong,
+                availableBytes = stats.availableBlocksLong * stats.blockSizeLong,
+            )
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to read device storage stats")
+            null
+        }
     }
 
     override fun getProgressFlow(downloadId: Long): Flow<DownloadProgress> {
