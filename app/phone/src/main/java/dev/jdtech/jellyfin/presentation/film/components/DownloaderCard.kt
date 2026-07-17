@@ -29,6 +29,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
+import dev.jdtech.jellyfin.models.QueueItemStatus
+import dev.jdtech.jellyfin.models.QueueStatus
 import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.utils.DownloadProgress
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -42,9 +44,12 @@ fun DownloaderCard(
     state: DownloaderState,
     onCancelClick: () -> Unit,
     onRetryClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onForceClick: () -> Unit = {},
     onPauseClick: () -> Unit = {},
     onResumeClick: () -> Unit = {},
+    statusTextOverride: String? = null,
+    showControls: Boolean = true,
 ) {
     val context = LocalContext.current
     val animatedProgress by
@@ -61,13 +66,14 @@ fun DownloaderCard(
         }
 
     val statusText =
-        when (state.status) {
-            DownloadManager.STATUS_PENDING -> stringResource(CoreR.string.download_queued)
-            DownloadManager.STATUS_PAUSED -> stringResource(CoreR.string.download_paused)
-            DownloadManager.STATUS_FAILED -> stringResource(CoreR.string.download_failed)
-            DownloadProgress.STATUS_VERIFYING -> stringResource(CoreR.string.download_verifying)
-            else -> stringResource(CoreR.string.download_downloading)
-        }
+        statusTextOverride
+            ?: when (state.status) {
+                DownloadManager.STATUS_PENDING -> stringResource(CoreR.string.download_queued)
+                DownloadManager.STATUS_PAUSED -> stringResource(CoreR.string.download_paused)
+                DownloadManager.STATUS_FAILED -> stringResource(CoreR.string.download_failed)
+                DownloadProgress.STATUS_VERIFYING -> stringResource(CoreR.string.download_verifying)
+                else -> stringResource(CoreR.string.download_downloading)
+            }
 
     val progressIndicatorColor =
         when (state.status) {
@@ -83,7 +89,7 @@ fun DownloaderCard(
             else -> ProgressIndicatorDefaults.linearTrackColor
         }
 
-    OutlinedCard {
+    OutlinedCard(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.medium),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium),
@@ -145,68 +151,70 @@ fun DownloaderCard(
                     )
                 }
             }
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
-                    when (state.status) {
-                        DownloadManager.STATUS_PENDING -> {
-                            FilledTonalIconButton(onClick = onForceClick) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_fast_forward),
-                                    contentDescription =
-                                        stringResource(CoreR.string.download_action_force),
-                                )
+            if (showControls) {
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
+                        when (state.status) {
+                            DownloadManager.STATUS_PENDING -> {
+                                FilledTonalIconButton(onClick = onForceClick) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_fast_forward),
+                                        contentDescription =
+                                            stringResource(CoreR.string.download_action_force),
+                                    )
+                                }
+                                FilledTonalIconButton(onClick = onCancelClick) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_x),
+                                        contentDescription = null,
+                                    )
+                                }
                             }
-                            FilledTonalIconButton(onClick = onCancelClick) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_x),
-                                    contentDescription = null,
-                                )
+                            DownloadManager.STATUS_RUNNING -> {
+                                FilledTonalIconButton(onClick = onPauseClick) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_pause),
+                                        contentDescription =
+                                            stringResource(CoreR.string.download_action_pause),
+                                    )
+                                }
+                                FilledTonalIconButton(onClick = onCancelClick) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_x),
+                                        contentDescription = null,
+                                    )
+                                }
                             }
-                        }
-                        DownloadManager.STATUS_RUNNING -> {
-                            FilledTonalIconButton(onClick = onPauseClick) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_pause),
-                                    contentDescription =
-                                        stringResource(CoreR.string.download_action_pause),
-                                )
+                            DownloadManager.STATUS_PAUSED -> {
+                                FilledTonalIconButton(onClick = onResumeClick) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_play),
+                                        contentDescription =
+                                            stringResource(CoreR.string.download_action_resume),
+                                    )
+                                }
+                                FilledTonalIconButton(onClick = onCancelClick) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_x),
+                                        contentDescription = null,
+                                    )
+                                }
                             }
-                            FilledTonalIconButton(onClick = onCancelClick) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_x),
-                                    contentDescription = null,
-                                )
+                            DownloadManager.STATUS_FAILED -> {
+                                FilledTonalIconButton(onClick = onRetryClick) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_rotate_ccw),
+                                        contentDescription = null,
+                                    )
+                                }
                             }
-                        }
-                        DownloadManager.STATUS_PAUSED -> {
-                            FilledTonalIconButton(onClick = onResumeClick) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_play),
-                                    contentDescription =
-                                        stringResource(CoreR.string.download_action_resume),
-                                )
-                            }
-                            FilledTonalIconButton(onClick = onCancelClick) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_x),
-                                    contentDescription = null,
-                                )
-                            }
-                        }
-                        DownloadManager.STATUS_FAILED -> {
-                            FilledTonalIconButton(onClick = onRetryClick) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_rotate_ccw),
-                                    contentDescription = null,
-                                )
-                            }
-                        }
-                        DownloadProgress.STATUS_VERIFYING -> {
-                            FilledTonalIconButton(onClick = onCancelClick) {
-                                Icon(
-                                    painter = painterResource(CoreR.drawable.ic_x),
-                                    contentDescription = null,
-                                )
+                            DownloadProgress.STATUS_VERIFYING -> {
+                                FilledTonalIconButton(onClick = onCancelClick) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_x),
+                                        contentDescription = null,
+                                    )
+                                }
                             }
                         }
                     }
@@ -214,6 +222,43 @@ fun DownloaderCard(
             }
         }
     }
+}
+
+/** Reuses the local-download progress card for a Sonarr/Radarr queue item. */
+@Composable
+fun PvrQueueDownloadCard(status: QueueStatus, modifier: Modifier = Modifier) {
+    val statusText =
+        when (status.status) {
+            QueueItemStatus.QUEUED -> stringResource(CoreR.string.download_queued)
+            QueueItemStatus.DOWNLOADING -> stringResource(CoreR.string.download_downloading)
+            QueueItemStatus.IMPORTING -> stringResource(CoreR.string.pvr_queue_status_importing)
+            QueueItemStatus.WARNING -> stringResource(CoreR.string.pvr_queue_status_warning)
+            QueueItemStatus.FAILED -> stringResource(CoreR.string.pvr_queue_status_failed)
+        }
+    val downloaderStatus =
+        when (status.status) {
+            QueueItemStatus.QUEUED -> DownloadManager.STATUS_PENDING
+            QueueItemStatus.DOWNLOADING -> DownloadManager.STATUS_RUNNING
+            QueueItemStatus.IMPORTING -> DownloadProgress.STATUS_VERIFYING
+            QueueItemStatus.WARNING,
+            QueueItemStatus.FAILED -> DownloadManager.STATUS_FAILED
+        }
+
+    DownloaderCard(
+        state =
+            DownloaderState(
+                status = downloaderStatus,
+                progress = status.percent.coerceIn(0, 100) / 100f,
+                errorText = status.errorMessage?.let(UiText::DynamicString),
+                speedBytesPerSecond = status.speedBytesPerSecond,
+                etaSeconds = status.etaSeconds,
+            ),
+        onCancelClick = {},
+        onRetryClick = {},
+        statusTextOverride = statusText,
+        showControls = false,
+        modifier = modifier,
+    )
 }
 
 @Composable

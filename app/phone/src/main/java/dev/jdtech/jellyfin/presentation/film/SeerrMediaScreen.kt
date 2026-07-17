@@ -61,7 +61,7 @@ import dev.jdtech.jellyfin.presentation.components.ErrorDialog
 import dev.jdtech.jellyfin.presentation.film.components.ErrorCard
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
 import dev.jdtech.jellyfin.presentation.film.components.ReleasePickerSheet
-import dev.jdtech.jellyfin.presentation.film.components.QueueBadge
+import dev.jdtech.jellyfin.presentation.film.components.PvrQueueDownloadCard
 import dev.jdtech.jellyfin.presentation.film.components.SeerrStatusChip
 import dev.jdtech.jellyfin.presentation.film.components.seerrMediaTypeLabel
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -223,7 +223,7 @@ private fun SeerrMediaScreenLayout(
                         }
                         state.queueStatus?.let { queueStatus ->
                             Spacer(Modifier.height(MaterialTheme.spacings.small))
-                            QueueBadge(status = queueStatus)
+                            PvrQueueDownloadCard(status = queueStatus)
                         }
                         (detail.episode?.overview ?: detail.season?.overview ?: detail.overview)
                             ?.takeIf { it.isNotBlank() }
@@ -266,8 +266,9 @@ private fun SeerrMediaScreenLayout(
                             }
                         }
                         if (state.manualPvrSearchAvailable) {
-                            TextButton(
+                            OutlinedButton(
                                 onClick = { onAction(SeerrMediaAction.OnOpenReleasePicker) },
+                                enabled = !state.isSubmitting,
                             ) {
                                 PvrSearchButtonLabel(mediaType = detail.mediaType, manual = true)
                             }
