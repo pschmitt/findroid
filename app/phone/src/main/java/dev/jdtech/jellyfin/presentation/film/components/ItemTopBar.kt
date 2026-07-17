@@ -9,6 +9,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -26,6 +27,8 @@ import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
  * screens with no [androidx.compose.material3.TopAppBar] of their own, so the settings action
  * lives here rather than being duplicated per screen. Always shown (unlike back/home, which are
  * conditional) - the whole point is that settings stays reachable no matter what screen you're on.
+ * On tablets the home button is suppressed even when requested: the nav rail stays visible on
+ * detail screens there (see NavigationRoot), so Home is always one tap away already.
  */
 @Composable
 fun ItemTopBar(
@@ -37,6 +40,11 @@ fun ItemTopBar(
     content: @Composable (RowScope.() -> Unit) = {},
 ) {
     val safePadding = rememberSafePadding()
+    // Same breakpoint NavigationRoot uses to decide the nav rail is always visible.
+    val isTablet =
+        currentWindowAdaptiveInfo()
+            .windowSizeClass
+            .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     Row(
         modifier =
@@ -63,7 +71,7 @@ fun ItemTopBar(
                 )
             }
         }
-        if (hasHomeButton) {
+        if (hasHomeButton && !isTablet) {
             IconButton(
                 onClick = onHomeClick,
                 modifier = Modifier.alpha(0.7f),
