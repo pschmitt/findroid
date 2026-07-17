@@ -58,6 +58,9 @@ import dev.jdtech.jellyfin.setup.presentation.backup.BackupSettingsEvent
 import dev.jdtech.jellyfin.setup.presentation.backup.BackupSettingsState
 import dev.jdtech.jellyfin.setup.presentation.backup.BackupSettingsViewModel
 import dev.jdtech.jellyfin.utils.ObserveAsEvents
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Date
 import kotlinx.coroutines.launch
 
@@ -156,8 +159,13 @@ fun BackupSettingsScreen(
                     onClick = {
                         showPasswordDialog = false
                         pendingPassword = if (password.isEmpty()) null else password
+                        // Same human-friendly timestamp format as AutoBackupWorker's filenames.
                         createBackupLauncher.launch(
-                            "findroid-backup-${System.currentTimeMillis()}.frb"
+                            "findroid-backup-${
+                                ZonedDateTime.now()
+                                    .truncatedTo(ChronoUnit.SECONDS)
+                                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                            }.frb"
                         )
                     }
                 ) {

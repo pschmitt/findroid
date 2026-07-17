@@ -52,14 +52,17 @@ Batch of UX todos around the Sonarr/Radarr/Seerr integrations and general naviga
 - [x] Native Seerr integration: no separate Discover tab; searching in Media also
       searches Seerr so missing content can be requested in place (recent requests show
       when opening search)
-- [ ] Devices without cellular connectivity (e.g. Mi Pad 4): disable the "Download
+- [x] Devices without cellular connectivity (e.g. Mi Pad 4): disable the "Download
       using mobile data" setting, like "Download location" is disabled without
       external storage
-- [ ] Navigation: the settings cog only appears on some views - show it consistently
+- [x] Navigation: the settings cog only appears on some views - show it consistently
       on all top-level views
 - [ ] Pause/delete downloads in Sonarr/Radarr/Seerr (queue item actions, request
       cancellation)
 - [ ] Download dialog: behaves awkwardly when a show already has an auto-download rule
       and the download button is hit on a single episode - make it ergonomically sound
+- [x] Calendar: include the exact air time of episodes, in local time
+- [x] Auto-backup filenames: use human-friendly timestamps
+      (e.g. `xxx-2026-07-17T08:58:03+02:00`)
 
 Status: **in progress**.
