@@ -19,6 +19,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
@@ -172,6 +176,7 @@ private fun EpisodeScreenLayout(
     val paddingBottom = safePadding.bottom + MaterialTheme.spacings.default
 
     val scrollState = rememberScrollState()
+    var infoDialogOpen by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         state.episode?.let { episode ->
@@ -200,6 +205,12 @@ private fun EpisodeScreenLayout(
                                         )
                                     }
                             Text(
+                                text = episode.name,
+                                overflow = TextOverflow.Ellipsis,
+                                maxLines = 3,
+                                style = MaterialTheme.typography.headlineMedium,
+                            )
+                            Text(
                                 text = episode.seriesName,
                                 modifier =
                                     Modifier.clickable {
@@ -222,12 +233,24 @@ private fun EpisodeScreenLayout(
                                 maxLines = 1,
                                 style = MaterialTheme.typography.labelLarge,
                             )
-                            Text(
-                                text = episode.name,
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 3,
-                                style = MaterialTheme.typography.headlineMedium,
-                            )
+                        }
+                        if (state.videoMetadata != null) {
+                            IconButton(
+                                onClick = { infoDialogOpen = true },
+                                modifier =
+                                    Modifier.align(Alignment.BottomEnd)
+                                        .padding(end = paddingEnd),
+                                colors =
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor = Color.Black.copy(alpha = 0.7f),
+                                        contentColor = Color.White,
+                                    ),
+                            ) {
+                                Icon(
+                                    painter = painterResource(CoreR.drawable.ic_info),
+                                    contentDescription = stringResource(CoreR.string.info),
+                                )
+                            }
                         }
                     },
                 )
@@ -238,6 +261,16 @@ private fun EpisodeScreenLayout(
                         runtimeTicks = episode.runtimeTicks,
                         communityRating = episode.communityRating,
                         modifier = Modifier.fillMaxWidth(),
+                        played = episode.played,
+                        favorite = episode.favorite,
+                        onPlayedClick = {
+                            if (episode.played) onAction(EpisodeAction.UnmarkAsPlayed)
+                            else onAction(EpisodeAction.MarkAsPlayed)
+                        },
+                        onFavoriteClick = {
+                            if (episode.favorite) onAction(EpisodeAction.UnmarkAsFavorite)
+                            else onAction(EpisodeAction.MarkAsFavorite)
+                        },
                     )
                     Spacer(Modifier.height(MaterialTheme.spacings.medium))
                     val deleteDownload: () -> Unit = {
@@ -255,25 +288,12 @@ private fun EpisodeScreenLayout(
                         } else {
                             null
                         }
-                    var infoDialogOpen by remember { mutableStateOf(false) }
                     ItemButtonsBar(
                         item = episode,
                         downloaderState = downloaderState,
                         downloadLocationPreference = downloadLocationPreference,
                         onPlayClick = { startFromBeginning ->
                             onAction(EpisodeAction.Play(startFromBeginning = startFromBeginning))
-                        },
-                        onMarkAsPlayedClick = {
-                            when (episode.played) {
-                                true -> onAction(EpisodeAction.UnmarkAsPlayed)
-                                false -> onAction(EpisodeAction.MarkAsPlayed)
-                            }
-                        },
-                        onMarkAsFavoriteClick = {
-                            when (episode.favorite) {
-                                true -> onAction(EpisodeAction.UnmarkAsFavorite)
-                                false -> onAction(EpisodeAction.MarkAsFavorite)
-                            }
                         },
                         onTrailerClick = {},
                         onDownloadClick = { storageIndex ->
@@ -312,7 +332,6 @@ private fun EpisodeScreenLayout(
                                 )
                             )
                         },
-                        onInfoClick = state.videoMetadata?.let { { infoDialogOpen = true } },
                         trailingContent = {
                             if (state.seriesTvdbId != null && state.sonarrConfigured) {
                                 PvrSearchButton(
@@ -320,11 +339,12 @@ private fun EpisodeScreenLayout(
                                         onAction(EpisodeAction.SearchEpisodeAutomatic)
                                     },
                                     onManualSearch = { onAction(EpisodeAction.OpenReleasePicker) },
+                                    label = stringResource(CoreR.string.search_episode),
                                 )
                             }
                         },
                     )
-                    Spacer(Modifier.height(MaterialTheme.spacings.small))
+                    Spacer(Modifier.height(MaterialTheme.spacings.medium))
                     if (infoDialogOpen && state.videoMetadata != null) {
                         InfoDialog(
                             videoMetadata = state.videoMetadata!!,

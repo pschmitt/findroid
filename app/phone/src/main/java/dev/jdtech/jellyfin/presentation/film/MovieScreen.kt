@@ -14,6 +14,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,8 +27,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
@@ -165,6 +170,7 @@ private fun MovieScreenLayout(
     val paddingBottom = safePadding.bottom + MaterialTheme.spacings.default
 
     val scrollState = rememberScrollState()
+    var infoDialogOpen by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         state.movie?.let { movie ->
@@ -201,6 +207,24 @@ private fun MovieScreenLayout(
                                 }
                             }
                         }
+                        if (state.videoMetadata != null) {
+                            IconButton(
+                                onClick = { infoDialogOpen = true },
+                                modifier =
+                                    Modifier.align(Alignment.BottomEnd)
+                                        .padding(end = paddingEnd),
+                                colors =
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor = Color.Black.copy(alpha = 0.7f),
+                                        contentColor = Color.White,
+                                    ),
+                            ) {
+                                Icon(
+                                    painter = painterResource(CoreR.drawable.ic_info),
+                                    contentDescription = stringResource(CoreR.string.info),
+                                )
+                            }
+                        }
                     },
                 )
                 Column(modifier = Modifier.padding(start = paddingStart, end = paddingEnd)) {
@@ -211,6 +235,16 @@ private fun MovieScreenLayout(
                         officialRating = movie.officialRating,
                         communityRating = movie.communityRating,
                         modifier = Modifier.fillMaxWidth(),
+                        played = movie.played,
+                        favorite = movie.favorite,
+                        onPlayedClick = {
+                            if (movie.played) onAction(MovieAction.UnmarkAsPlayed)
+                            else onAction(MovieAction.MarkAsPlayed)
+                        },
+                        onFavoriteClick = {
+                            if (movie.favorite) onAction(MovieAction.UnmarkAsFavorite)
+                            else onAction(MovieAction.MarkAsFavorite)
+                        },
                     ) {
                         state.queueStatus?.let { queueStatus -> QueueBadge(status = queueStatus) }
                     }
@@ -230,25 +264,12 @@ private fun MovieScreenLayout(
                         } else {
                             null
                         }
-                    var infoDialogOpen by remember { mutableStateOf(false) }
                     ItemButtonsBar(
                         item = movie,
                         downloaderState = downloaderState,
                         downloadLocationPreference = downloadLocationPreference,
                         onPlayClick = { startFromBeginning ->
                             onAction(MovieAction.Play(startFromBeginning = startFromBeginning))
-                        },
-                        onMarkAsPlayedClick = {
-                            when (movie.played) {
-                                true -> onAction(MovieAction.UnmarkAsPlayed)
-                                false -> onAction(MovieAction.MarkAsPlayed)
-                            }
-                        },
-                        onMarkAsFavoriteClick = {
-                            when (movie.favorite) {
-                                true -> onAction(MovieAction.UnmarkAsFavorite)
-                                false -> onAction(MovieAction.MarkAsFavorite)
-                            }
                         },
                         onTrailerClick = { uri -> onAction(MovieAction.PlayTrailer(uri)) },
                         onDownloadClick = { storageIndex ->
@@ -267,7 +288,6 @@ private fun MovieScreenLayout(
                             onDownloaderAction(DownloaderAction.ResumeDownload)
                         },
                         onDownloadDeleteClick = deleteDownload,
-                        onInfoClick = state.videoMetadata?.let { { infoDialogOpen = true } },
                         trailingContent = {
                             if (movie.tmdbId != null && state.radarrConfigured) {
                                 PvrSearchButton(
@@ -277,12 +297,13 @@ private fun MovieScreenLayout(
                                     onManualSearch = { onAction(MovieAction.OpenReleasePicker) },
                                     contentDescription =
                                         stringResource(CoreR.string.search_movie),
+                                    label = stringResource(CoreR.string.search_movie),
                                 )
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Spacer(Modifier.height(MaterialTheme.spacings.small))
+                    Spacer(Modifier.height(MaterialTheme.spacings.medium))
                     if (infoDialogOpen && state.videoMetadata != null) {
                         InfoDialog(
                             videoMetadata = state.videoMetadata!!,
