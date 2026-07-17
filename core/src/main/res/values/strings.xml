@@ -277,6 +277,7 @@
     <string name="pvr_queue_status_warning">Warning</string>
     <string name="pvr_queue_status_failed">Failed</string>
     <string name="title_calendar">Calendar</string>
+    <string name="discover_filter_label">Filter</string>
     <string name="discover_filter_all">All</string>
     <string name="discover_filter_movies">Movies</string>
     <string name="discover_filter_shows">Shows</string>

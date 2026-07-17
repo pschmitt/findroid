@@ -3,9 +3,9 @@ package dev.jdtech.jellyfin.presentation.film
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,9 +23,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -177,6 +177,7 @@ private fun LibraryScreenLayout(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showSortByDialog by remember { mutableStateOf(false) }
+    var filterMenuExpanded by remember { mutableStateOf(false) }
     var pendingSeerrCancel by remember { mutableStateOf<SeerrRequestItem?>(null) }
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
@@ -261,6 +262,55 @@ private fun LibraryScreenLayout(
                                 contentDescription = null,
                             )
                         }
+                        if (isMergedMedia) {
+                            Box {
+                                IconButton(onClick = { filterMenuExpanded = true }) {
+                                    Icon(
+                                        painter =
+                                            painterResource(
+                                                CoreR.drawable.ic_sliders_horizontal
+                                            ),
+                                        contentDescription =
+                                            stringResource(CoreR.string.discover_filter_label),
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = filterMenuExpanded,
+                                    onDismissRequest = { filterMenuExpanded = false },
+                                ) {
+                                    MediaFilterMenuItem(
+                                        filter = MediaFilter.ALL,
+                                        labelRes = CoreR.string.discover_filter_all,
+                                        state = state,
+                                        onAction = onAction,
+                                        onDismissRequest = { filterMenuExpanded = false },
+                                    )
+                                    MediaFilterMenuItem(
+                                        filter = MediaFilter.MOVIES,
+                                        labelRes = CoreR.string.discover_filter_movies,
+                                        state = state,
+                                        onAction = onAction,
+                                        onDismissRequest = { filterMenuExpanded = false },
+                                    )
+                                    MediaFilterMenuItem(
+                                        filter = MediaFilter.SHOWS,
+                                        labelRes = CoreR.string.discover_filter_shows,
+                                        state = state,
+                                        onAction = onAction,
+                                        onDismissRequest = { filterMenuExpanded = false },
+                                    )
+                                    if (state.seerrConfigured) {
+                                        MediaFilterMenuItem(
+                                            filter = MediaFilter.REQUESTED,
+                                            labelRes = CoreR.string.discover_filter_requested,
+                                            state = state,
+                                            onAction = onAction,
+                                            onDismissRequest = { filterMenuExpanded = false },
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         IconButton(onClick = { showSortByDialog = true }) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_arrow_down_up),
@@ -280,9 +330,7 @@ private fun LibraryScreenLayout(
             )
         },
     ) { innerPadding ->
-        // In the merged Media view the filter chips consume the scaffold insets once for the
-        // whole column, so the grid must not add them again.
-        val listPadding = if (isMergedMedia) contentPadding else contentPadding + innerPadding
+        val listPadding = contentPadding + innerPadding
 
         PullToRefreshBox(
             isRefreshing = state.isLoading,
@@ -291,42 +339,7 @@ private fun LibraryScreenLayout(
                 onAction(LibraryAction.OnRefresh)
             },
         ) {
-            Column(modifier = if (isMergedMedia) Modifier.padding(innerPadding) else Modifier) {
-            if (isMergedMedia) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
-                    modifier =
-                        Modifier.fillMaxWidth()
-                            .padding(horizontal = MaterialTheme.spacings.default),
-                ) {
-                    MediaFilterChip(
-                        filter = MediaFilter.ALL,
-                        labelRes = CoreR.string.discover_filter_all,
-                        state = state,
-                        onAction = onAction,
-                    )
-                    MediaFilterChip(
-                        filter = MediaFilter.MOVIES,
-                        labelRes = CoreR.string.discover_filter_movies,
-                        state = state,
-                        onAction = onAction,
-                    )
-                    MediaFilterChip(
-                        filter = MediaFilter.SHOWS,
-                        labelRes = CoreR.string.discover_filter_shows,
-                        state = state,
-                        onAction = onAction,
-                    )
-                    if (state.seerrConfigured) {
-                        MediaFilterChip(
-                            filter = MediaFilter.REQUESTED,
-                            labelRes = CoreR.string.discover_filter_requested,
-                            state = state,
-                            onAction = onAction,
-                        )
-                    }
-                }
-            }
+            Column {
             ErrorGroup(
                 loadStates = items.loadState,
                 onRefresh = { items.refresh() },
@@ -517,16 +530,20 @@ private fun LibraryScreenLayout(
 }
 
 @Composable
-private fun MediaFilterChip(
+private fun MediaFilterMenuItem(
     filter: MediaFilter,
     labelRes: Int,
     state: LibraryState,
     onAction: (LibraryAction) -> Unit,
+    onDismissRequest: () -> Unit,
 ) {
-    FilterChip(
-        selected = state.filter == filter,
-        onClick = { onAction(LibraryAction.ChangeFilter(filter)) },
-        label = { Text(stringResource(labelRes)) },
+    val selected = state.filter == filter
+    DropdownMenuItem(
+        text = { Text(stringResource(labelRes)) },
+        onClick = {
+            onDismissRequest()
+            onAction(LibraryAction.ChangeFilter(filter))
+        },
         leadingIcon = {
             when (filter) {
                 // The Seerr mark is a brand-colored asset (same one as on the Integrations
@@ -536,7 +553,7 @@ private fun MediaFilterChip(
                     Image(
                         painter = painterResource(CoreR.drawable.ic_seerr),
                         contentDescription = null,
-                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                        modifier = Modifier.size(24.dp),
                     )
                 else ->
                     Icon(
@@ -549,8 +566,13 @@ private fun MediaFilterChip(
                                 }
                             ),
                         contentDescription = null,
-                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                        modifier = Modifier.size(24.dp),
                     )
+            }
+        },
+        trailingIcon = {
+            if (selected) {
+                Icon(painter = painterResource(CoreR.drawable.ic_check), contentDescription = null)
             }
         },
     )
