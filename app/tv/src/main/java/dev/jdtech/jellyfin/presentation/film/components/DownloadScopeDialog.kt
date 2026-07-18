@@ -56,11 +56,14 @@ fun DownloadScopeDialog(
     onDismiss: () -> Unit,
 ) {
     var selectedSeasonIds by remember { mutableStateOf(initialSelection.seasonIds) }
-    var alsoFutureSeasons by remember { mutableStateOf(initialSelection.alsoFutureSeasons) }
-    var alsoFollowNew by remember { mutableStateOf(initialAlsoFollowNew) }
+    // Either kind of previously-saved rule (future-seasons-only, or per-season-follow) means the
+    // show already has ongoing tracking from the user's point of view - there's only one toggle
+    // for that now, so either signal being true should show it as on.
+    var alsoFollowNew by
+        remember { mutableStateOf(initialAlsoFollowNew || initialSelection.alsoFutureSeasons) }
     var onlyUnwatched by remember { mutableStateOf(initialOnlyUnwatched) }
 
-    val bulkModeSelected = selectedSeasonIds.isNotEmpty() || alsoFutureSeasons
+    val bulkModeSelected = selectedSeasonIds.isNotEmpty() || alsoFollowNew
     val allSeasonIds = seasons?.map { it.id }?.toSet().orEmpty()
 
     Dialog(onDismissRequest = onDismiss) {
@@ -121,10 +124,10 @@ fun DownloadScopeDialog(
                     item { HorizontalDivider() }
                     item {
                         ScopeToggleRow(
-                            checked = alsoFutureSeasons,
-                            label = stringResource(CoreR.string.download_scope_future_seasons),
-                            icon = CoreR.drawable.ic_sparkles,
-                            onToggle = { alsoFutureSeasons = it },
+                            checked = alsoFollowNew,
+                            label = stringResource(CoreR.string.download_scope_also_new),
+                            icon = CoreR.drawable.ic_refresh_cw,
+                            onToggle = { alsoFollowNew = it },
                         )
                     }
                     if (bulkModeSelected) {
@@ -135,16 +138,6 @@ fun DownloadScopeDialog(
                                 icon = CoreR.drawable.ic_eye_off,
                                 onToggle = { onlyUnwatched = it },
                             )
-                        }
-                        if (selectedSeasonIds.isNotEmpty()) {
-                            item {
-                                ScopeToggleRow(
-                                    checked = alsoFollowNew,
-                                    label = stringResource(CoreR.string.download_scope_also_new),
-                                    icon = CoreR.drawable.ic_refresh_cw,
-                                    onToggle = { alsoFollowNew = it },
-                                )
-                            }
                         }
                     }
                 }
@@ -164,7 +157,7 @@ fun DownloadScopeDialog(
                     Button(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
                     Button(
                         enabled = bulkModeSelected,
-                        onClick = { onConfirm(DownloadSelection(seasonIds = selectedSeasonIds, alsoFutureSeasons = alsoFutureSeasons), alsoFollowNew, onlyUnwatched) },
+                        onClick = { onConfirm(DownloadSelection(seasonIds = selectedSeasonIds, alsoFutureSeasons = alsoFollowNew), alsoFollowNew, onlyUnwatched) },
                     ) {
                         Icon(painter = painterResource(CoreR.drawable.ic_download), contentDescription = null)
                         Spacer(modifier = Modifier.width(6.dp))

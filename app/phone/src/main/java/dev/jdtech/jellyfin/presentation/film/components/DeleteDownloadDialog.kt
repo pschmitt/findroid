@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.presentation.film.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
@@ -10,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -28,14 +30,20 @@ fun DeleteDownloadDialog(
     sizeBytes: Long? = null,
 ) {
     AlertDialog(
-        icon = {
-            Icon(
-                painter = painterResource(CoreR.drawable.ic_trash),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-            )
+        // Not AlertDialog's own `icon` slot - Material3 always renders that centered *above* the
+        // title, not inline with it. Building the title as an icon+text Row instead keeps them on
+        // the same line.
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_trash),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.delete_download))
+            }
         },
-        title = { Text(text = stringResource(CoreR.string.delete_download)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
                 Text(text = stringResource(CoreR.string.delete_download_message))

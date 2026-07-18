@@ -719,10 +719,13 @@ private fun DownloadsStorageSummaryCard(
     pvrStorage: PvrServiceDiskSpace?,
     modifier: Modifier = Modifier,
 ) {
-    // Edge-to-edge, matching every other Card in this list (SectionHeader, ShowGroupHeader) -
-    // this previously had an outer margin *in addition to* the inner Column padding below, making
-    // it visibly narrower than the show-title cards right above/below it in the same list.
-    Card(modifier = modifier.fillMaxWidth()) {
+    // Edge-to-edge horizontally, matching every other Card in this list (SectionHeader,
+    // ShowGroupHeader) - this previously had an outer margin *in addition to* the inner Column
+    // padding below, making it visibly narrower than the show-title cards right above/below it in
+    // the same list. A bottom margin is still needed vertically though - without it this card
+    // sits flush against whatever's next in the list (the local downloads section, or the PVR
+    // queue), with no visual separation between two otherwise-unrelated cards.
+    Card(modifier = modifier.fillMaxWidth().padding(bottom = MaterialTheme.spacings.default)) {
         Column(
             modifier = Modifier.padding(MaterialTheme.spacings.default),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
@@ -1468,14 +1471,20 @@ private fun DeleteSelectedDownloadsDialog(
     sizeBytes: Long? = null,
 ) {
     AlertDialog(
-        icon = {
-            Icon(
-                painter = painterResource(CoreR.drawable.ic_trash),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-            )
+        // Not AlertDialog's own `icon` slot - Material3 always renders that centered *above* the
+        // title, not inline with it. Building the title as an icon+text Row instead keeps them on
+        // the same line.
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_trash),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.delete_selected_downloads))
+            }
         },
-        title = { Text(text = stringResource(CoreR.string.delete_selected_downloads)) },
         text = {
             Column {
                 Text(text = stringResource(CoreR.string.delete_selected_downloads_message, count))
@@ -1522,14 +1531,20 @@ private fun DeleteSingleDownloadDialog(
     sizeBytes: Long? = null,
 ) {
     AlertDialog(
-        icon = {
-            Icon(
-                painter = painterResource(CoreR.drawable.ic_trash),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-            )
+        // Not AlertDialog's own `icon` slot - Material3 always renders that centered *above* the
+        // title, not inline with it. Building the title as an icon+text Row instead keeps them on
+        // the same line.
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_trash),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.delete_download))
+            }
         },
-        title = { Text(text = stringResource(CoreR.string.delete_download)) },
         text = {
             Column {
                 Text(text = title)
@@ -1583,14 +1598,20 @@ private fun DeleteShowDownloadsDialog(
     sizeBytes: Long? = null,
 ) {
     AlertDialog(
-        icon = {
-            Icon(
-                painter = painterResource(CoreR.drawable.ic_trash),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-            )
+        // Not AlertDialog's own `icon` slot - Material3 always renders that centered *above* the
+        // title, not inline with it. Building the title as an icon+text Row instead keeps them on
+        // the same line.
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_trash),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.clear_season_downloads))
+            }
         },
-        title = { Text(text = stringResource(CoreR.string.clear_season_downloads)) },
         text = {
             Column {
                 Text(

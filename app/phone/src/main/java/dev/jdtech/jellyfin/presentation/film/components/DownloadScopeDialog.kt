@@ -39,12 +39,14 @@ import dev.jdtech.jellyfin.presentation.theme.spacings
 /**
  * Lets the user pick what to download: for an episode, either just that episode or a bulk
  * selection of seasons/whole show; for a season or show screen, only the bulk selection. "This
- * episode" is exclusive with everything else (it's a fundamentally different, single-item scope),
- * but picking specific seasons and toggling "auto-download future seasons" are independent of
- * each other - a rule can mean "grab season 3 now AND auto-grab season 4 once it airs".
- * [seasons] is null while still loading. [initialSelection]/[initialAlsoFollowNew]/
- * [initialOnlyUnwatched] pre-populate the dialog from an already-saved rule, if any, so reopening
- * it reflects what's actually configured instead of always starting blank.
+ * episode" is exclusive with everything else (it's a fundamentally different, single-item scope).
+ * "Automatically download new episodes" covers both halves of staying current on a show: new
+ * episodes airing in a season already picked below, and brand new seasons that don't exist yet -
+ * there's no reason to make the user think about that distinction, since the intent ("keep this
+ * show up to date") is the same either way. [seasons] is null while still loading.
+ * [initialSelection]/[initialAlsoFollowNew]/[initialOnlyUnwatched] pre-populate the dialog from an
+ * already-saved rule, if any, so reopening it reflects what's actually configured instead of
+ * always starting blank.
  */
 @Composable
 fun DownloadScopeDialog(
@@ -66,11 +68,14 @@ fun DownloadScopeDialog(
     // confirms with "this episode" selected.
     var thisEpisodeOnly by remember { mutableStateOf(showEpisodeOption) }
     var selectedSeasonIds by remember { mutableStateOf(initialSelection.seasonIds) }
-    var alsoFutureSeasons by remember { mutableStateOf(initialSelection.alsoFutureSeasons) }
-    var alsoFollowNew by remember { mutableStateOf(initialAlsoFollowNew) }
+    // Either kind of previously-saved rule (future-seasons-only, or per-season-follow) means the
+    // show already has ongoing tracking from the user's point of view - there's only one toggle
+    // for that now, so either signal being true should show it as on.
+    var alsoFollowNew by
+        remember { mutableStateOf(initialAlsoFollowNew || initialSelection.alsoFutureSeasons) }
     var onlyUnwatched by remember { mutableStateOf(initialOnlyUnwatched) }
 
-    val bulkModeSelected = !thisEpisodeOnly && (selectedSeasonIds.isNotEmpty() || alsoFutureSeasons)
+    val bulkModeSelected = !thisEpisodeOnly && (selectedSeasonIds.isNotEmpty() || alsoFollowNew)
     val canConfirm = thisEpisodeOnly || bulkModeSelected
     val allSeasonIds = seasons?.map { it.id }?.toSet().orEmpty()
 
@@ -86,7 +91,6 @@ fun DownloadScopeDialog(
                         onToggle = {
                             thisEpisodeOnly = true
                             selectedSeasonIds = initialSelection.seasonIds
-                            alsoFutureSeasons = initialSelection.alsoFutureSeasons
                         },
                     )
                     if (hasExistingRule && thisEpisodeOnly) {
@@ -130,12 +134,12 @@ fun DownloadScopeDialog(
                 }
                 HorizontalDivider()
                 ToggleOptionRow(
-                    checked = alsoFutureSeasons,
-                    label = stringResource(CoreR.string.download_scope_future_seasons),
-                    icon = CoreR.drawable.ic_sparkles,
+                    checked = alsoFollowNew,
+                    label = stringResource(CoreR.string.download_scope_also_new),
+                    icon = CoreR.drawable.ic_refresh_cw,
                     onToggle = { checked ->
                         thisEpisodeOnly = false
-                        alsoFutureSeasons = checked
+                        alsoFollowNew = checked
                     },
                 )
                 if (bulkModeSelected) {
@@ -145,14 +149,6 @@ fun DownloadScopeDialog(
                         icon = CoreR.drawable.ic_eye_off,
                         onToggle = { onlyUnwatched = it },
                     )
-                    if (selectedSeasonIds.isNotEmpty()) {
-                        ToggleOptionRow(
-                            checked = alsoFollowNew,
-                            label = stringResource(CoreR.string.download_scope_also_new),
-                            icon = CoreR.drawable.ic_refresh_cw,
-                            onToggle = { alsoFollowNew = it },
-                        )
-                    }
                 }
             }
         },
@@ -165,7 +161,9 @@ fun DownloadScopeDialog(
                         DownloadSelection(
                             thisEpisodeOnly = thisEpisodeOnly,
                             seasonIds = selectedSeasonIds,
-                            alsoFutureSeasons = alsoFutureSeasons,
+                            // Only one toggle now - "keep this show up to date" covers both new
+                            // episodes in the seasons picked above and brand new seasons alike.
+                            alsoFutureSeasons = alsoFollowNew,
                         ),
                         alsoFollowNew,
                         onlyUnwatched,

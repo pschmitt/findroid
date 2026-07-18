@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -41,14 +42,20 @@ fun ClearDownloadsDialog(
     var checkboxChecked by remember { mutableStateOf(checkboxDefault) }
 
     AlertDialog(
-        icon = {
-            Icon(
-                painter = painterResource(CoreR.drawable.ic_trash),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-            )
+        // Not AlertDialog's own `icon` slot - Material3 always renders that centered *above* the
+        // title, not inline with it. Building the title as an icon+text Row instead keeps them on
+        // the same line.
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_trash),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = title)
+            }
         },
-        title = { Text(text = title) },
         text = {
             Column {
                 Text(text = message)

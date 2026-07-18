@@ -5,9 +5,12 @@ import java.util.UUID
 /**
  * What to download, chosen from [dev.jdtech.jellyfin.presentation.film.components.DownloadScopeDialog].
  * [thisEpisodeOnly] triggers the normal single-item download flow instead of a bulk queue, and is
- * exclusive with [seasonIds]/[alsoFutureSeasons]. [seasonIds] and [alsoFutureSeasons] are
- * otherwise independent: picking specific seasons and also watching for future seasons of the
- * same show can both be on at once.
+ * exclusive with [seasonIds]/[alsoFutureSeasons]. The download-scope dialog itself only exposes a
+ * single "automatically download new episodes" toggle that drives both [alsoFutureSeasons] and
+ * the separate `alsoFollowNew` flag together - from the user's point of view "keep this show up to
+ * date" shouldn't require understanding the season/episode distinction. The more advanced
+ * per-rule editor (`AutoDownloadRulesScreen`) still lets the two be configured independently,
+ * which is why they remain separate fields here rather than being collapsed into one.
  */
 data class DownloadSelection(
     val thisEpisodeOnly: Boolean = false,

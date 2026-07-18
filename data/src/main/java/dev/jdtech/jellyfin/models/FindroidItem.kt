@@ -49,3 +49,16 @@ fun FindroidItem.isDownloaded(): Boolean {
         .filter { it.type == FindroidSourceType.LOCAL }
         .any { !it.path.endsWith(".download") }
 }
+
+/**
+ * TMDB id, when known - only [FindroidMovie]/[FindroidShow] carry one (Jellyfin's own
+ * `ProviderIds["Tmdb"]`, a nullable String there since it's Jellyfin-sourced metadata, not
+ * guaranteed present). Used to match a Jellyfin library item against a Seerr search result, whose
+ * `tmdbId` is a non-nullable `Int` (TMDB is the ground truth Seerr is built on).
+ */
+fun FindroidItem.tmdbIdOrNull(): Int? =
+    when (this) {
+        is FindroidMovie -> tmdbId
+        is FindroidShow -> tmdbId
+        else -> null
+    }?.toIntOrNull()

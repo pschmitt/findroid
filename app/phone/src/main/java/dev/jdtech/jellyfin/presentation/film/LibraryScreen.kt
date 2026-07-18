@@ -76,6 +76,7 @@ import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.SeerrMediaStatus
 import dev.jdtech.jellyfin.models.SeerrMediaType
 import dev.jdtech.jellyfin.models.SeerrRequestItem
+import dev.jdtech.jellyfin.models.tmdbIdOrNull
 import dev.jdtech.jellyfin.presentation.components.ErrorDialog
 import dev.jdtech.jellyfin.presentation.components.TopBarTitle
 import dev.jdtech.jellyfin.presentation.film.components.Direction
@@ -358,7 +359,12 @@ private fun LibraryScreenLayout(
                     searchExpanded &&
                     state.searchQuery.isBlank() &&
                     state.recentRequests.isNotEmpty()
-            // Fully available results would duplicate the library results right above them.
+            // A Seerr result already in the library right above it is a plain duplicate - matched
+            // by tmdbId against whatever's currently loaded (the direct, reliable signal), with
+            // Seerr's own AVAILABLE status as a fallback for anything not loaded into `items` yet
+            // (e.g. still fetching the next page).
+            val libraryTmdbIds =
+                items.itemSnapshotList.mapNotNull { it?.tmdbIdOrNull() }.toSet()
             val seerrResults =
                 if (seerrActive && state.searchQuery.isNotBlank()) {
                     state.seerrResults
@@ -371,6 +377,7 @@ private fun LibraryScreenLayout(
                             }
                         }
                         .filter { it.status != SeerrMediaStatus.AVAILABLE }
+                        .filter { it.tmdbId !in libraryTmdbIds }
                 } else {
                     emptyList()
                 }

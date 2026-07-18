@@ -7,6 +7,7 @@ import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.repository.SeerrRepository
+import dev.jdtech.jellyfin.models.tmdbIdOrNull
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -55,9 +56,16 @@ constructor(
                         )
                     )
                     val items = repository.getSearchItems(query)
+                    // Hide Seerr results already in the Jellyfin library right above them - a
+                    // Seerr result is only useful here as "not on your server yet, want to
+                    // request it?", so one that's already a library hit is a plain duplicate.
+                    val libraryTmdbIds = items.mapNotNull { it.tmdbIdOrNull() }.toSet()
                     val seerrResults =
                         if (pvrConfiguration.isSeerrConfigured()) {
-                            seerrRepository.search(query).getOrDefault(emptyList())
+                            seerrRepository
+                                .search(query)
+                                .getOrDefault(emptyList())
+                                .filter { it.tmdbId !in libraryTmdbIds }
                         } else {
                             emptyList()
                         }

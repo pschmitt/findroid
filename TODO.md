@@ -318,3 +318,35 @@ Status: **done** (2026-07-18).
       correctly this time.
 
 Status: **done** (2026-07-18).
+
+## FINDROID-13: Download-scope dialog cleanup, search dedup, dialog polish
+
+- [x] The download-scope dialog had two separate, confusing toggles -
+      "Auto-download future seasons" (new seasons only, never backfills
+      episodes in a season already picked) and "Automatically download new
+      episodes" (new episodes in seasons already picked, but not new seasons).
+      A show still airing its current season needed both toggled to actually
+      stay up to date, with no obvious reason why. Merged into a single
+      "Automatically download new episodes" toggle that always covers both -
+      new episodes in whatever's selected, and brand new seasons once they
+      exist - since "keep this show current" is one intent, not two. The more
+      advanced per-rule editor (`AutoDownloadRulesScreen`) still exposes the
+      two independently for power users; only the everyday download dialog
+      (phone + tv) was simplified.
+- [x] Media/Home search results: a Seerr result already in the Jellyfin
+      library duplicated the library result shown right above it. Added
+      tmdbId-based dedup (`FindroidItem.tmdbIdOrNull()`) that hides any Seerr
+      result whose tmdbId matches a Jellyfin result already in the list, in
+      both search surfaces (`LibraryScreen`'s inline Media search and the
+      shared `SearchViewModel`/`FilmSearchBar` used by Home).
+- [x] Downloads screen: no visual gap between the storage summary card and
+      whatever's below it (the local downloads list, or the PVR queue) - they
+      sat flush against each other. Added a bottom margin to the storage card.
+- [x] "Delete download" (and every other trash-icon confirmation dialog -
+      clear-all, delete-selected, delete-show) rendered the trash icon
+      centered *above* the title instead of inline with it - that's just how
+      Material3's `AlertDialog` `icon` slot always lays out, regardless of
+      what's passed to it. Fixed by building the title as an icon+text `Row`
+      instead of using the dedicated `icon` parameter.
+
+Status: **done** (2026-07-18).
