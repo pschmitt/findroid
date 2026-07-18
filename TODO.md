@@ -157,9 +157,20 @@ phone and Mi Pad 4.
       the Jellyfin library yet, not just the whole series - most requests are for
       "just season 1", not the entire show. `SeerrApi.createRequest` now sends
       `seasons: [N]` instead of `seasons: "all"` when a season-scoped view fires
-      the request. Follow-up not yet done: a season-list UI with per-season
-      status on the show-level Seerr view (needs new DTOs modeling Jellyseerr's
-      `mediaInfo.seasons` array - out of scope for this pass).
+      the request.
+- [x] Seerr: show-level view had no way to reach a specific season at all (only
+      an indirect two-hop path via Calendar/PVR-queue episode entries). Added a
+      season list (modeling Jellyseerr's `mediaInfo.seasons` array, with each
+      row's own `SeerrStatusChip`) to the show-level Seerr view; tapping a
+      season navigates into a season-scoped view via the existing
+      `navigateToSeason` callback.
+- [x] Request buttons across the app (show/season request, inline search-result
+      request) now consistently show the Seerr icon, matching the
+      cancel-request/PVR-search buttons.
+- [x] Every file/transfer size in the app now uses consistent binary (IEC)
+      units (GiB/TiB) via a shared `formatBinaryFileSize` helper, instead of
+      mixing Android's decimal `Formatter` in most places with binary units on
+      the Downloads storage bars.
 - [x] Downloads screen: the local download list took a noticeable moment to
       appear on open - root-caused to an N+1 query pattern in
       `toFindroidMovie`/`toFindroidEpisode` (one `getUserDataOrCreateNew`/
