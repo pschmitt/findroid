@@ -1,7 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film
 
 import android.app.DownloadManager
-import android.text.format.Formatter
 import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -100,6 +99,7 @@ import dev.jdtech.jellyfin.utils.DeleteProgress
 import dev.jdtech.jellyfin.utils.DeviceStorageStats
 import dev.jdtech.jellyfin.utils.DownloadProgress
 import dev.jdtech.jellyfin.utils.ObserveAsEvents
+import dev.jdtech.jellyfin.utils.formatBinaryFileSize
 import dev.jdtech.jellyfin.utils.formatDownloadSpeed
 import dev.jdtech.jellyfin.utils.formatEta
 import java.util.UUID
@@ -709,25 +709,6 @@ private fun StorageUsageBar(
     }
 }
 
-/**
- * Binary (IEC) units, e.g. "4.40 TiB" - Sonarr/Radarr (and most self-hosted PVR dashboards) report
- * space this way (1024-based math, just conventionally mislabeled "GB"/"TB"), unlike Android's own
- * [Formatter.formatFileSize] which is decimal (1000-based). Using IEC units/labels here instead
- * keeps the number Findroid shows consistent with what Sonarr/Radarr's own UI shows for the same
- * bytes, rather than the same value looking like two different sizes depending on where it's read.
- */
-private fun formatBinaryFileSize(bytes: Long): String {
-    if (bytes < 1024) return "$bytes B"
-    val units = arrayOf("KiB", "MiB", "GiB", "TiB", "PiB")
-    var value = bytes / 1024.0
-    var unitIndex = 0
-    while (value >= 1024.0 && unitIndex < units.lastIndex) {
-        value /= 1024.0
-        unitIndex++
-    }
-    return "%.2f %s".format(value, units[unitIndex])
-}
-
 @Composable
 private fun DeleteProgressCard(progress: DeleteProgress, onDismiss: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.default)) {
@@ -822,7 +803,6 @@ private fun ShowGroupHeader(
     swipeEnabled: Boolean = false,
     onSwipeDeleteRequest: () -> Unit = {},
 ) {
-    val context = LocalContext.current
     val downloadedSizeBytes =
         remember(group.episodes) {
             group.episodes.sumOf { episode ->
@@ -859,7 +839,7 @@ private fun ShowGroupHeader(
                     )
                     if (downloadedSizeBytes > 0) {
                         Text(
-                            text = Formatter.formatFileSize(context, downloadedSizeBytes),
+                            text = formatBinaryFileSize(downloadedSizeBytes),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -910,7 +890,6 @@ private fun DownloadRow(
     onDownloadAction: (DownloadAction) -> Unit,
     onSwipeDeleteRequest: () -> Unit,
 ) {
-    val context = LocalContext.current
     val activeProgress = progress?.takeIf { it.status != DownloadManager.STATUS_SUCCESSFUL }
     val isPending = activeProgress?.status == DownloadManager.STATUS_PENDING
     val isPaused = activeProgress?.status == DownloadManager.STATUS_PAUSED
@@ -955,10 +934,7 @@ private fun DownloadRow(
                                     stringResource(
                                         CoreR.string.download_progress_status,
                                         activeProgress.percent,
-                                        formatDownloadSpeed(
-                                            context,
-                                            activeProgress.speedBytesPerSecond,
-                                        ),
+                                        formatDownloadSpeed(activeProgress.speedBytesPerSecond),
                                         formatEta(activeProgress.etaSeconds),
                                     )
                                 else -> stringResource(CoreR.string.download_downloading)
@@ -976,7 +952,7 @@ private fun DownloadRow(
                     }
                 } else {
                     Text(
-                        text = Formatter.formatFileSize(context, sizeBytes),
+                        text = formatBinaryFileSize(sizeBytes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1055,7 +1031,6 @@ private fun PvrQueueRow(
     onClick: (() -> Unit)?,
     onRemove: () -> Unit,
 ) {
-    val context = LocalContext.current
     val status = queueItem.status
     val isProblem = status.status == QueueItemStatus.WARNING || status.status == QueueItemStatus.FAILED
     val statusText =
@@ -1066,7 +1041,7 @@ private fun PvrQueueRow(
                     stringResource(
                         CoreR.string.download_progress_status,
                         status.percent,
-                        formatDownloadSpeed(context, status.speedBytesPerSecond),
+                        formatDownloadSpeed(status.speedBytesPerSecond),
                         formatEta(status.etaSeconds),
                     )
                 } else {
@@ -1279,7 +1254,6 @@ private fun DeleteSelectedDownloadsDialog(
     onDismiss: () -> Unit,
     sizeBytes: Long? = null,
 ) {
-    val context = LocalContext.current
     AlertDialog(
         icon = {
             Icon(
@@ -1294,7 +1268,7 @@ private fun DeleteSelectedDownloadsDialog(
                 Text(text = stringResource(CoreR.string.delete_selected_downloads_message, count))
                 if (sizeBytes != null) {
                     Text(
-                        text = Formatter.formatFileSize(context, sizeBytes),
+                        text = formatBinaryFileSize(sizeBytes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1334,7 +1308,6 @@ private fun DeleteSingleDownloadDialog(
     path: String? = null,
     sizeBytes: Long? = null,
 ) {
-    val context = LocalContext.current
     AlertDialog(
         icon = {
             Icon(
@@ -1356,7 +1329,7 @@ private fun DeleteSingleDownloadDialog(
                 }
                 if (sizeBytes != null) {
                     Text(
-                        text = Formatter.formatFileSize(context, sizeBytes),
+                        text = formatBinaryFileSize(sizeBytes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1396,7 +1369,6 @@ private fun DeleteShowDownloadsDialog(
     onDismiss: () -> Unit,
     sizeBytes: Long? = null,
 ) {
-    val context = LocalContext.current
     AlertDialog(
         icon = {
             Icon(
@@ -1418,7 +1390,7 @@ private fun DeleteShowDownloadsDialog(
                 )
                 if (sizeBytes != null) {
                     Text(
-                        text = Formatter.formatFileSize(context, sizeBytes),
+                        text = formatBinaryFileSize(sizeBytes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

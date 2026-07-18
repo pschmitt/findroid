@@ -1,7 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film
 
 import android.content.Intent
-import android.text.format.Formatter
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -67,6 +66,7 @@ import dev.jdtech.jellyfin.presentation.film.components.OverviewText
 import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.formatBinaryFileSize
 import dev.jdtech.jellyfin.utils.formatCalendarDate
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
 import dev.jdtech.jellyfin.utils.getShowDateString
@@ -276,7 +276,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                             text =
                                 stringResource(
                                     CoreR.string.downloads_disk_usage,
-                                    Formatter.formatFileSize(androidContext, state.downloadsSizeBytes),
+                                    formatBinaryFileSize(state.downloadsSizeBytes),
                                 ),
                             style = MaterialTheme.typography.bodyMedium,
                         )

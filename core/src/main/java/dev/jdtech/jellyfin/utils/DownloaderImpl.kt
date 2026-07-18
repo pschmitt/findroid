@@ -5,7 +5,6 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.os.StatFs
-import android.text.format.Formatter
 import androidx.core.net.toUri
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -101,8 +100,8 @@ class DownloaderImpl(
                     -1,
                     UiText.StringResource(
                         CoreR.string.not_enough_storage,
-                        Formatter.formatFileSize(context, source.size),
-                        Formatter.formatFileSize(context, stats.availableBytes),
+                        formatBinaryFileSize(source.size),
+                        formatBinaryFileSize(stats.availableBytes),
                     ),
                 )
             }

@@ -113,14 +113,14 @@ internal object DownloadNotificationCoordinator {
                     context.getString(
                         CoreR.string.download_progress_status,
                         entry.percent,
-                        formatDownloadSpeed(context, entry.speedBytesPerSecond),
+                        formatDownloadSpeed(entry.speedBytesPerSecond),
                         formatEta(etaSeconds),
                     )
                 !indeterminate -> "${entry.percent}%"
                 entry.speedBytesPerSecond > 0 ->
                     context.getString(
                         CoreR.string.download_progress_speed_only,
-                        formatDownloadSpeed(context, entry.speedBytesPerSecond),
+                        formatDownloadSpeed(entry.speedBytesPerSecond),
                     )
                 else -> null
             }
@@ -157,7 +157,7 @@ internal object DownloadNotificationCoordinator {
                 context.getString(
                     CoreR.string.download_progress_status,
                     percent,
-                    formatDownloadSpeed(context, speedBytesPerSecond),
+                    formatDownloadSpeed(speedBytesPerSecond),
                     formatEta(etaSeconds),
                 )
             } else {

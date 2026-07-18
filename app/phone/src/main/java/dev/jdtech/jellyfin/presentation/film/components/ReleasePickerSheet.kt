@@ -1,6 +1,5 @@
 package dev.jdtech.jellyfin.presentation.film.components
 
-import android.text.format.Formatter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,7 +26,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +36,7 @@ import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.search.ReleasePickerState
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.formatBinaryFileSize
 
 /**
  * Sonarr's manual/interactive search - lists candidate releases (from
@@ -96,7 +95,6 @@ fun ReleasePickerSheet(
 
 @Composable
 private fun ReleaseRow(release: PvrRelease, onGrab: () -> Unit) {
-    val context = LocalContext.current
     Row(
         modifier =
             Modifier.fillMaxWidth()
@@ -118,7 +116,7 @@ private fun ReleaseRow(release: PvrRelease, onGrab: () -> Unit) {
             val details =
                 listOfNotNull(
                         release.quality?.quality?.name,
-                        Formatter.formatShortFileSize(context, release.size),
+                        formatBinaryFileSize(release.size),
                         release.seeders?.let { seedersText },
                         release.indexer,
                     )

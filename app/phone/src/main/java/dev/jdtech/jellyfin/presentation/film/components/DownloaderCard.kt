@@ -1,7 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film.components
 
 import android.app.DownloadManager
-import android.text.format.Formatter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,7 +22,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +34,7 @@ import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.utils.DownloadProgress
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.formatBinaryFileSize
 import dev.jdtech.jellyfin.utils.formatDownloadSpeed
 import dev.jdtech.jellyfin.utils.formatEta
 import kotlin.math.roundToInt
@@ -53,7 +52,6 @@ fun DownloaderCard(
     statusTextOverride: String? = null,
     showControls: Boolean = true,
 ) {
-    val context = LocalContext.current
     val animatedProgress by
         animateFloatAsState(
             targetValue = state.progress,
@@ -133,7 +131,7 @@ fun DownloaderCard(
                 }
                 if (state.status == DownloadManager.STATUS_RUNNING && state.speedBytesPerSecond > 0) {
                     Spacer(Modifier.height(MaterialTheme.spacings.small))
-                    val speedText = formatDownloadSpeed(context, state.speedBytesPerSecond)
+                    val speedText = formatDownloadSpeed(state.speedBytesPerSecond)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -154,7 +152,7 @@ fun DownloaderCard(
                         )
                         if (state.totalBytes > 0) {
                             Text(
-                                text = Formatter.formatFileSize(context, state.totalBytes),
+                                text = formatBinaryFileSize(state.totalBytes),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                             )

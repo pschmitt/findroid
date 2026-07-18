@@ -1,11 +1,26 @@
 package dev.jdtech.jellyfin.utils
 
-import android.content.Context
-import android.text.format.Formatter
+/**
+ * Binary (IEC) units - e.g. "4.40 GiB" - used for every file/transfer size shown in the app,
+ * matching how Sonarr/Radarr (and most similar dashboards) report space. Deliberately not
+ * Android's own `Formatter.formatFileSize`/`formatShortFileSize` (decimal/1000-based) - mixing the
+ * two made the same byte count look like two different sizes depending on which screen showed it.
+ */
+fun formatBinaryFileSize(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val units = arrayOf("KiB", "MiB", "GiB", "TiB", "PiB")
+    var value = bytes / 1024.0
+    var unitIndex = 0
+    while (value >= 1024.0 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex++
+    }
+    return "%.2f %s".format(value, units[unitIndex])
+}
 
 /** Formats a transfer rate the same way across the download notification and the Downloads page. */
-fun formatDownloadSpeed(context: Context, bytesPerSecond: Long): String {
-    return "${Formatter.formatShortFileSize(context, bytesPerSecond.coerceAtLeast(0))}/s"
+fun formatDownloadSpeed(bytesPerSecond: Long): String {
+    return "${formatBinaryFileSize(bytesPerSecond.coerceAtLeast(0))}/s"
 }
 
 /** Formats a remaining-time estimate as m:ss, or h:mm:ss once it crosses an hour. */

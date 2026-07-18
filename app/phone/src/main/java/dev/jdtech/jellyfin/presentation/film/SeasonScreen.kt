@@ -1,7 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film
 
 import android.content.Intent
-import android.text.format.Formatter
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,6 +69,7 @@ import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.ObserveAsEvents
 import dev.jdtech.jellyfin.utils.displayNameWithContext
+import dev.jdtech.jellyfin.utils.formatBinaryFileSize
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
 import java.util.UUID
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -278,7 +278,7 @@ private fun SeasonScreenLayout(
                             text =
                                 stringResource(
                                     CoreR.string.downloads_disk_usage,
-                                    Formatter.formatFileSize(androidContext, state.downloadsSizeBytes),
+                                    formatBinaryFileSize(state.downloadsSizeBytes),
                                 ),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier =

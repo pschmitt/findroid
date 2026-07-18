@@ -356,10 +356,7 @@ private fun MovieScreenLayout(
                                         stringResource(
                                             id = CoreR.string.download_progress_status,
                                             (downloaderState.progress * 100).toInt(),
-                                            formatDownloadSpeed(
-                                                context,
-                                                downloaderState.speedBytesPerSecond,
-                                            ),
+                                            formatDownloadSpeed(downloaderState.speedBytesPerSecond),
                                             formatEta(downloaderState.etaSeconds),
                                         )
                                     else -> stringResource(id = CoreR.string.download_downloading)

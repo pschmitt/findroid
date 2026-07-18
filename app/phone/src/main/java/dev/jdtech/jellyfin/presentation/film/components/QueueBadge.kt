@@ -1,6 +1,5 @@
 package dev.jdtech.jellyfin.presentation.film.components
 
-import android.text.format.Formatter
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,6 +29,7 @@ import dev.jdtech.jellyfin.models.QueueItemStatus
 import dev.jdtech.jellyfin.models.QueueStatus
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.formatBinaryFileSize
 import dev.jdtech.jellyfin.utils.formatDownloadSpeed
 import dev.jdtech.jellyfin.utils.formatEta
 
@@ -125,7 +124,6 @@ fun QueueBadge(status: QueueStatus, modifier: Modifier = Modifier) {
 
 @Composable
 private fun QueueStatusDetailDialog(status: QueueStatus, onDismiss: () -> Unit) {
-    val context = LocalContext.current
     AlertDialog(
         title = { Text(text = stringResource(CoreR.string.queue_status_detail_title)) },
         text = {
@@ -135,11 +133,8 @@ private fun QueueStatusDetailDialog(status: QueueStatus, onDismiss: () -> Unit) 
                         text =
                             stringResource(
                                 CoreR.string.queue_status_detail_size,
-                                Formatter.formatShortFileSize(
-                                    context,
-                                    status.sizeBytes - status.remainingBytes,
-                                ),
-                                Formatter.formatShortFileSize(context, status.sizeBytes),
+                                formatBinaryFileSize(status.sizeBytes - status.remainingBytes),
+                                formatBinaryFileSize(status.sizeBytes),
                             ),
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -159,7 +154,7 @@ private fun QueueStatusDetailDialog(status: QueueStatus, onDismiss: () -> Unit) 
                         text =
                             stringResource(
                                 CoreR.string.queue_status_detail_speed,
-                                formatDownloadSpeed(context, status.speedBytesPerSecond),
+                                formatDownloadSpeed(status.speedBytesPerSecond),
                             ),
                         style = MaterialTheme.typography.bodyMedium,
                     )
