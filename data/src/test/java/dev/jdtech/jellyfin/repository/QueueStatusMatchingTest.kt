@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.repository
 
+import dev.jdtech.jellyfin.api.pvr.PvrStatusMessage
 import dev.jdtech.jellyfin.api.pvr.RadarrMovie
 import dev.jdtech.jellyfin.api.pvr.RadarrQueueItem
 import dev.jdtech.jellyfin.api.pvr.SonarrEpisode
@@ -348,6 +349,77 @@ class QueueStatusMatchingTest {
         assertEquals(
             QueueItemStatus.FAILED,
             mapQueueItemStatus(status = "downloading", trackedDownloadStatus = "ok", trackedDownloadState = "failedPending"),
+        )
+    }
+
+    @Test
+    fun `matchSonarr surfaces the bare top-level statusMessages reason when errorMessage is absent`() {
+        // Real-world case: a season-pack release where Sonarr imported every file it found, but
+        // considers the release itself incomplete (fewer episodes than expected for the season).
+        // errorMessage is null in this scenario - the actual reason only lives in statusMessages,
+        // mixed in with a noisy per-file "already imported" confirmation for every episode.
+        val series = listOf(SonarrSeries(id = 1, tvdbId = 1000, title = "Some Show"))
+        val queue =
+            listOf(
+                SonarrQueueItem(
+                    id = 42,
+                    seriesId = 1,
+                    seasonNumber = 1,
+                    status = "completed",
+                    trackedDownloadStatus = "warning",
+                    trackedDownloadState = "importBlocked",
+                    errorMessage = null,
+                    statusMessages =
+                        listOf(
+                            PvrStatusMessage(
+                                title =
+                                    "One or more episodes expected in this release were not " +
+                                        "imported or missing from the release",
+                                messages = emptyList(),
+                            ),
+                            PvrStatusMessage(
+                                title = "S01E01-Episode.mkv",
+                                messages = listOf("Episode file already imported"),
+                            ),
+                        ),
+                )
+            )
+
+        val result = matchSonarr(series, queue, emptyList(), emptyMap())
+
+        assertEquals(QueueItemStatus.WARNING, result.single().status.status)
+        assertEquals(
+            "One or more episodes expected in this release were not imported or missing from the release",
+            result.single().status.errorMessage,
+        )
+    }
+
+    @Test
+    fun `matchRadarr falls back to the first per-file statusMessage when no bare reason exists`() {
+        val movies = listOf(RadarrMovie(id = 7, tmdbId = 2000, title = "Some Movie"))
+        val queue =
+            listOf(
+                RadarrQueueItem(
+                    id = 1,
+                    movieId = 7,
+                    status = "warning",
+                    trackedDownloadStatus = "warning",
+                    errorMessage = null,
+                    statusMessages =
+                        listOf(
+                            PvrStatusMessage(
+                                title = "Some.Movie.2024.mkv",
+                                messages = listOf("Not a preferred word score"),
+                            )
+                        ),
+                )
+            )
+
+        val result = matchRadarr(movies, queue, emptyList())
+
+        assertEquals(
+            "Some.Movie.2024.mkv: Not a preferred word score",
+            result.single().status.errorMessage,
         )
     }
 

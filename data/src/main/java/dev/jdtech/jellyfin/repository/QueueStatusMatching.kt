@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.repository
 import dev.jdtech.jellyfin.api.pvr.RadarrMovie
 import dev.jdtech.jellyfin.api.pvr.RadarrQueueItem
 import dev.jdtech.jellyfin.api.pvr.PvrImage
+import dev.jdtech.jellyfin.api.pvr.PvrStatusMessage
 import dev.jdtech.jellyfin.api.pvr.SonarrQueueItem
 import dev.jdtech.jellyfin.api.pvr.SonarrSeries
 import dev.jdtech.jellyfin.models.FindroidEpisode
@@ -146,7 +147,7 @@ private fun SonarrQueueItem.toQueueStatus(): QueueStatus =
         size = size,
         sizeleft = sizeleft,
         timeleft = timeleft,
-        errorMessage = errorMessage,
+        errorMessage = errorMessage ?: statusMessages.toDisplayText(),
     )
 
 private fun RadarrQueueItem.toQueueStatus(): QueueStatus =
@@ -158,8 +159,24 @@ private fun RadarrQueueItem.toQueueStatus(): QueueStatus =
         size = size,
         sizeleft = sizeleft,
         timeleft = timeleft,
-        errorMessage = errorMessage,
+        errorMessage = errorMessage ?: statusMessages.toDisplayText(),
     )
+
+/**
+ * Sonarr/Radarr's `statusMessages` mixes bare top-level reasons (e.g. "One or more episodes
+ * expected in this release were not imported or missing from the release", `messages` empty)
+ * with per-file import diagnostics (`title` = filename, `messages` = details for that file).
+ * The bare reasons are what's worth surfacing as the queue item's status text; the per-file
+ * breakdown is too verbose for a one-line summary and is only used as a fallback.
+ */
+private fun List<PvrStatusMessage>.toDisplayText(): String? {
+    val reasons = filter { it.messages.isEmpty() }.mapNotNull { it.title?.takeIf(String::isNotBlank) }
+    if (reasons.isNotEmpty()) return reasons.joinToString("; ")
+    val first = firstOrNull() ?: return null
+    return listOfNotNull(first.title?.takeIf(String::isNotBlank), first.messages.firstOrNull())
+        .joinToString(": ")
+        .takeIf { it.isNotBlank() }
+}
 
 private fun buildQueueStatus(
     source: PvrSource,

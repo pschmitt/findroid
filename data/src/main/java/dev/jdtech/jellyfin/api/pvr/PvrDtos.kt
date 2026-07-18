@@ -42,6 +42,15 @@ data class RadarrMovie(
 
 @Serializable data class SonarrEpisode(val episodeNumber: Int = 0)
 
+/**
+ * Per-file/per-reason breakdown Sonarr/Radarr attach to a queue item's tracked download (import
+ * blocked reasons, per-file import results, ...). `messages` is empty for a bare top-level reason
+ * (e.g. "One or more episodes expected in this release were not imported or missing from the
+ * release") and non-empty for a per-file entry, where `title` is the filename.
+ */
+@Serializable
+data class PvrStatusMessage(val title: String? = null, val messages: List<String> = emptyList())
+
 @Serializable
 data class SonarrQueueItem(
     val id: Int,
@@ -58,6 +67,7 @@ data class SonarrQueueItem(
     val timeleft: String? = null,
     val estimatedCompletionTime: String? = null,
     val errorMessage: String? = null,
+    val statusMessages: List<PvrStatusMessage> = emptyList(),
 )
 
 @Serializable
@@ -87,6 +97,7 @@ data class RadarrQueueItem(
     val timeleft: String? = null,
     val estimatedCompletionTime: String? = null,
     val errorMessage: String? = null,
+    val statusMessages: List<PvrStatusMessage> = emptyList(),
 )
 
 @Serializable

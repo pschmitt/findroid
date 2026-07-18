@@ -203,3 +203,20 @@ Status: **done** (2026-07-18). All four items shipped and merged.
 Status: in progress (2026-07-18) - automation enabled; the manual "review and
 selectively pull in upstream dependency updates" item is still open and requires
 human judgment.
+
+## FINDROID-8: PVR queue status detail
+
+- [x] Sonarr/Radarr queue rows showing "Warning" with no further detail: root-caused
+      via the live Sonarr API (`/api/v3/queue`) - a season-pack release can finish
+      importing every file it contains and still get flagged
+      `trackedDownloadState=importBlocked` because Sonarr expected more episodes in
+      the release than it found. The detailed reason lives in the queue item's
+      `statusMessages` array (bare top-level reasons plus a noisy per-file import
+      breakdown), which `SonarrQueueItem`/`RadarrQueueItem` weren't modeling at all -
+      only a flat `errorMessage` (frequently `null` for warnings). Added
+      `PvrStatusMessage`/`statusMessages` to both DTOs and a fallback in
+      `QueueStatusMatching.kt` that surfaces the bare top-level reason (or the first
+      per-file detail if none exists) when `errorMessage` is absent, so queue rows
+      now show Sonarr/Radarr's real explanation instead of a generic label.
+
+Status: **done** (2026-07-18).
