@@ -69,7 +69,7 @@ class SeerrRepositoryImpl(
                     overview = details.overview?.takeIf { it.isNotBlank() },
                     posterUrl = details.posterPath?.toPosterUrl(),
                     backdropUrl = details.backdropPath?.toBackdropUrl(),
-                    trailerUrl = details.relatedVideos.firstTrailerUrl(),
+                    trailerUrl = details.relatedVideos.firstTrailerUrl(seasonNumber = null),
                     genres = details.genres.map { it.name }.filter { it.isNotBlank() },
                     runtimeMinutes = details.runtime?.takeIf { it > 0 },
                     numberOfSeasons = null,
@@ -118,7 +118,7 @@ class SeerrRepositoryImpl(
                     overview = details.overview?.takeIf { it.isNotBlank() },
                     posterUrl = details.posterPath?.toPosterUrl(),
                     backdropUrl = details.backdropPath?.toBackdropUrl(),
-                    trailerUrl = details.relatedVideos.firstTrailerUrl(),
+                    trailerUrl = details.relatedVideos.firstTrailerUrl(seasonNumber = seasonNumber),
                     genres = details.genres.map { it.name }.filter { it.isNotBlank() },
                     runtimeMinutes = null,
                     numberOfSeasons = details.numberOfSeasons?.takeIf { it > 0 },
@@ -243,15 +243,28 @@ class SeerrRepositoryImpl(
         this?.requests?.filter { it.status != REQUEST_STATUS_DECLINED }?.map { it.id }.orEmpty()
 
     /**
-     * TMDB lists every kind of video (teasers, clips, featurettes, ...) with no reliable ordering
-     * - prefer an explicit "Trailer", falling back to the first YouTube video at all so there's
-     * still something to play if TMDB only tagged it as a "Teaser" or similar.
+     * TMDB has no structured per-season video scoping - `relatedVideos` is a flat bag of
+     * trailers/teasers/clips for the whole series, confirmed live against Jellyseerr's season and
+     * episode detail endpoints, which carry no video data at all. When [seasonNumber] is given
+     * (viewing a season or an episode in it), the only available signal that a video belongs to
+     * that season is its free-text `name` (e.g. "Season 3 Official Trailer") - [seasonNameMatch]
+     * is a best-effort match on that, tried before falling back to the show-wide pick. TMDB also
+     * lists every kind of video (teasers, clips, featurettes, ...) with no reliable ordering, so
+     * within each candidate pool an explicit "Trailer" is preferred, falling back to the first
+     * YouTube video at all so there's still something to play if none is tagged "Trailer".
      */
-    private fun List<SeerrRelatedVideo>.firstTrailerUrl(): String? {
+    private fun List<SeerrRelatedVideo>.firstTrailerUrl(seasonNumber: Int?): String? {
         val youtubeVideos = filter { it.site.equals("YouTube", ignoreCase = true) && it.url != null }
-        return youtubeVideos.firstOrNull { it.type.equals("Trailer", ignoreCase = true) }?.url
-            ?: youtubeVideos.firstOrNull()?.url
+        if (seasonNumber != null) {
+            val seasonNameMatch = Regex("""(?i)\bseason\s*0*$seasonNumber\b|\bs0*$seasonNumber\b""")
+            val seasonScoped = youtubeVideos.filter { it.name?.let(seasonNameMatch::containsMatchIn) == true }
+            seasonScoped.bestMatch()?.let { return it }
+        }
+        return youtubeVideos.bestMatch()
     }
+
+    private fun List<SeerrRelatedVideo>.bestMatch(): String? =
+        firstOrNull { it.type.equals("Trailer", ignoreCase = true) }?.url ?: firstOrNull()?.url
 
     private suspend fun <T> runAction(block: suspend (SeerrApi) -> T): Result<T> {
         val api =

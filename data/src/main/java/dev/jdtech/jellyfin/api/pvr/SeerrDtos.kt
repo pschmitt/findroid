@@ -113,6 +113,9 @@ data class SeerrRelatedVideo(
     val url: String? = null,
     val site: String? = null,
     val type: String? = null,
+    // TMDB has no structured per-season/episode video scoping - this free-text name (e.g. "Season
+    // 3 Official Trailer") is the only hint a video belongs to a specific season, when it exists.
+    val name: String? = null,
 )
 
 @Serializable

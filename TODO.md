@@ -266,5 +266,14 @@ Status: **done** (2026-07-18).
       YouTube video if TMDB didn't tag one as a trailer). Opens the same way
       library-item trailers already do (`LocalUriHandler.openUri`, i.e. the
       YouTube app or a browser) - no new playback mechanism needed.
+- [x] Season/episode views showed a series-wide trailer rather than something
+      scoped to that season - confirmed live that this isn't a wiring bug:
+      Jellyseerr's season and episode detail endpoints carry no video data at
+      all, so `relatedVideos` on the show-level endpoint is the only source,
+      and TMDB doesn't tag those videos by season. Added a best-effort
+      improvement: when a season is in view, prefer a video whose free-text
+      `name` mentions that season number (e.g. "Season 3 Official Trailer")
+      before falling back to the show-wide pick - helps for shows with
+      clearly-named season trailers, a no-op otherwise.
 
 Status: **done** (2026-07-18).
