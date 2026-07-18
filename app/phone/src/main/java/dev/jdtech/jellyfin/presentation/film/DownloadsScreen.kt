@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -706,7 +707,8 @@ private fun DownloadsEmptyState(onGoToHomeClick: () -> Unit, modifier: Modifier 
 }
 
 /**
- * Storage at a glance: on-device space used by downloads, plus a single PVR-side number - see
+ * Storage at a glance: on-device space used (with a highlighted sub-segment for what this app's
+ * own downloads occupy), plus a single PVR-side number - see
  * [dev.jdtech.jellyfin.models.PvrDiskSpaceResult] for why Sonarr/Radarr never both get a row, and
  * why there's no Jellyfin-server number at all (the server API has no storage endpoint).
  */
@@ -723,11 +725,23 @@ private fun DownloadsStorageSummaryCard(
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
         ) {
             deviceStorage?.let { device ->
+                // The bar reflects the *whole device's* used space (system + every other app),
+                // not just what this app downloaded - localUsedBytes is only highlighted as a
+                // sub-segment within that, so the bar answers "how full is my phone" rather than
+                // silently implying Findroid's downloads are the only thing using space.
+                val deviceUsedBytes = (device.totalBytes - device.availableBytes).coerceAtLeast(0L)
                 StorageUsageBar(
                     iconRes = CoreR.drawable.ic_smartphone,
                     label = stringResource(CoreR.string.storage_summary_on_device),
-                    usedBytes = localUsedBytes,
+                    usedBytes = deviceUsedBytes,
                     totalBytes = device.totalBytes,
+                    highlightBytes = localUsedBytes.coerceAtMost(deviceUsedBytes),
+                    highlightCaption =
+                        if (localUsedBytes > 0) {
+                            stringResource(CoreR.string.storage_downloads_caption, formatBinaryFileSize(localUsedBytes))
+                        } else {
+                            null
+                        },
                 )
             }
             pvrStorage?.let { pvr ->
@@ -742,7 +756,12 @@ private fun DownloadsStorageSummaryCard(
     }
 }
 
-/** One storage row: icon/label/"X of Y used" header, plus a color-coded usage bar below it. */
+/**
+ * One storage row: icon/label/"X of Y used" header, plus a color-coded usage bar below it.
+ * [highlightBytes] carves out a visually distinct sub-segment of [usedBytes] (e.g. "of the total
+ * space used, this much is this app's own downloads") instead of a single flat fill color; omit
+ * it (or pass 0) for a plain single-color bar.
+ */
 @Composable
 private fun StorageUsageBar(
     iconRes: Int,
@@ -750,15 +769,24 @@ private fun StorageUsageBar(
     usedBytes: Long,
     totalBytes: Long,
     modifier: Modifier = Modifier,
+    highlightBytes: Long = 0L,
+    highlightCaption: String? = null,
 ) {
     val fraction =
         if (totalBytes > 0) (usedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
-    val barColor =
+    // The highlighted sub-segment (e.g. this app's own downloads) uses the warning-tiered color -
+    // it's the one part of "used space" the user can act on from this screen, so it's worth
+    // calling out the same way the bar already warns about a nearly-full device. The rest of the
+    // used space (other apps/system) gets a neutral, still-visible-against-the-track color.
+    val warningColor =
         when {
             fraction >= 0.9f -> MaterialTheme.colorScheme.error
             fraction >= 0.7f -> MaterialTheme.colorScheme.tertiary
             else -> MaterialTheme.colorScheme.primary
         }
+    val otherUsedColor = MaterialTheme.colorScheme.outline
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -780,13 +808,40 @@ private fun StorageUsageBar(
             )
         }
         Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
-        LinearProgressIndicator(
-            progress = { fraction },
-            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-            color = barColor,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            drawStopIndicator = {},
-        )
+        val otherUsedBytes = (usedBytes - highlightBytes).coerceAtLeast(0L)
+        val freeBytes = (totalBytes - usedBytes).coerceAtLeast(0L)
+        Row(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(trackColor)
+        ) {
+            if (highlightBytes > 0) {
+                Box(modifier = Modifier.weight(highlightBytes.toFloat()).fillMaxHeight().background(warningColor))
+            }
+            if (otherUsedBytes > 0) {
+                Box(modifier = Modifier.weight(otherUsedBytes.toFloat()).fillMaxHeight().background(otherUsedColor))
+            }
+            if (freeBytes > 0) {
+                Box(modifier = Modifier.weight(freeBytes.toFloat()).fillMaxHeight())
+            }
+        }
+        if (highlightCaption != null) {
+            Spacer(modifier = Modifier.height(MaterialTheme.spacings.extraSmall))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier =
+                        Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(warningColor)
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.extraSmall))
+                Text(
+                    text = highlightCaption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

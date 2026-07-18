@@ -277,3 +277,17 @@ Status: **done** (2026-07-18).
       clearly-named season trailers, a no-op otherwise.
 
 Status: **done** (2026-07-18).
+
+## FINDROID-11: On-device storage bar shows real device usage
+
+- [x] The "On this device" storage bar showed this app's own downloads as the
+      "used" portion against total device capacity, silently implying nothing
+      else was using space. Now uses the device's actual used space
+      (`total - available` from `StatFs`, already tracked by
+      `DeviceStorageStats`) as the bar's used portion, with this app's own
+      downloads carved out as a distinct highlighted sub-segment within it
+      (plus a small color-coded caption below, e.g. "1.2 GiB used by
+      downloads") - the server storage row is unchanged, since there's no
+      equivalent "ours vs. other" split available for it.
+
+Status: **done** (2026-07-18).
