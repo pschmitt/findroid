@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -260,6 +261,13 @@ private fun SeerrMediaScreenLayout(
                                     onClick = { onAction(SeerrMediaAction.OnRequest) },
                                     enabled = !state.isSubmitting,
                                 ) {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_seerr),
+                                        contentDescription = null,
+                                        tint = Color.Unspecified,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                                     // Seerr has no per-episode requesting, so a season or episode
                                     // view always ends up requesting the season - make that
                                     // explicit rather than implying the whole show is requested.

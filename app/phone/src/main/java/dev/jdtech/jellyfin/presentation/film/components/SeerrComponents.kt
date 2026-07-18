@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
@@ -88,6 +89,13 @@ fun SeerrResultRow(
             requestedThisSession -> SeerrStatusChip(status = null)
             item.status == SeerrMediaStatus.NOT_REQUESTED && onRequest != null ->
                 Button(onClick = onRequest) {
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_seerr),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                     Text(text = stringResource(CoreR.string.discover_request))
                 }
             item.status != SeerrMediaStatus.NOT_REQUESTED -> SeerrStatusChip(status = item.status)
