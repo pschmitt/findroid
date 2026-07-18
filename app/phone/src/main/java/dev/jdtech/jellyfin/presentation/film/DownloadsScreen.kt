@@ -102,6 +102,7 @@ import dev.jdtech.jellyfin.utils.DeviceStorageStats
 import dev.jdtech.jellyfin.utils.DownloadProgress
 import dev.jdtech.jellyfin.utils.ObserveAsEvents
 import dev.jdtech.jellyfin.utils.formatBinaryFileSize
+import dev.jdtech.jellyfin.utils.formatBinaryUsagePair
 import dev.jdtech.jellyfin.utils.formatDownloadSpeed
 import dev.jdtech.jellyfin.utils.formatEta
 import java.util.UUID
@@ -459,20 +460,10 @@ private fun DownloadsScreenLayout(
         contentWindowInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout),
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            // Only show the empty state when there is truly nothing to display - no local
-            // downloads, no PVR queue entries/errors (which render in the list below), and
-            // not while the initial load is still in flight.
-            if (
-                state.isEmpty &&
-                    !state.isLoading &&
-                    state.pvrQueueGroups.isEmpty() &&
-                    state.pvrErrors.isEmpty()
-            ) {
-                DownloadsEmptyState(
-                    onGoToHomeClick = onGoToHomeClick,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-            }
+            // The empty state is declared *after* the list below, not before - a Box stacks
+            // children in declaration order, so an empty state declared first would sit
+            // underneath the (still full-size, even with zero items) PullToRefreshBox/LazyColumn
+            // and never receive taps, making its "Go to Home" button appear completely dead.
             PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (state.deviceStorage != null || state.diskSpace.storage != null) {
@@ -663,6 +654,20 @@ private fun DownloadsScreenLayout(
                 }
                 }
             }
+            // Only show the empty state when there is truly nothing to display - no local
+            // downloads, no PVR queue entries/errors (which render in the list above), and not
+            // while the initial load is still in flight.
+            if (
+                state.isEmpty &&
+                    !state.isLoading &&
+                    state.pvrQueueGroups.isEmpty() &&
+                    state.pvrErrors.isEmpty()
+            ) {
+                DownloadsEmptyState(
+                    onGoToHomeClick = onGoToHomeClick,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
         }
     }
 }
@@ -768,12 +773,7 @@ private fun StorageUsageBar(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text =
-                    stringResource(
-                        CoreR.string.storage_used_of_total,
-                        formatBinaryFileSize(usedBytes),
-                        formatBinaryFileSize(totalBytes),
-                    ),
+                text = formatBinaryUsagePair(usedBytes, totalBytes),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

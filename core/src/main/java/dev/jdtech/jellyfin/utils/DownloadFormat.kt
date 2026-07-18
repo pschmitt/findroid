@@ -18,6 +18,28 @@ fun formatBinaryFileSize(bytes: Long): String {
     return "%.2f %s".format(value, units[unitIndex])
 }
 
+/**
+ * Compact "used / total" pair for a storage usage bar, e.g. "2.81 / 4 TiB" - both numbers share
+ * the total's unit and trailing zeros are trimmed (unlike calling [formatBinaryFileSize] on each
+ * side independently, which produced verbose, redundant-unit text like "2.81 TiB of 4.00 TiB").
+ */
+fun formatBinaryUsagePair(usedBytes: Long, totalBytes: Long): String {
+    if (totalBytes <= 0) return formatBinaryFileSize(usedBytes)
+    val units = arrayOf("B", "KiB", "MiB", "GiB", "TiB", "PiB")
+    var divisor = 1.0
+    var unitIndex = 0
+    while (totalBytes / divisor >= 1024.0 && unitIndex < units.lastIndex) {
+        divisor *= 1024.0
+        unitIndex++
+    }
+    val used = trimTrailingZeros(usedBytes / divisor)
+    val total = trimTrailingZeros(totalBytes / divisor)
+    return "$used / $total ${units[unitIndex]}"
+}
+
+private fun trimTrailingZeros(value: Double): String =
+    "%.2f".format(value).trimEnd('0').trimEnd('.')
+
 /** Formats a transfer rate the same way across the download notification and the Downloads page. */
 fun formatDownloadSpeed(bytesPerSecond: Long): String {
     return "${formatBinaryFileSize(bytesPerSecond.coerceAtLeast(0))}/s"
