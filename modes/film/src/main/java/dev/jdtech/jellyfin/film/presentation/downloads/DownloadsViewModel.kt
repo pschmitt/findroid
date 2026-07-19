@@ -85,7 +85,13 @@ constructor(
             }
         viewModelScope.launch {
             downloader.getDeleteProgressFlow().collect { progress ->
+                val wasRunning = _state.value.deleteProgress != null
                 _state.update { it.copy(deleteProgress = progress) }
+                // Reconcile with the DB once the batch actually finishes - e.g. a failed
+                // deletion should bring its item back rather than leave it optimistically
+                // gone forever. Not needed on every tick: deleteItems()/clearAllDownloads()
+                // already remove the selection from the list instantly.
+                if (wasRunning && progress == null) refreshDownloads()
             }
         }
         viewModelScope.launch {
@@ -307,11 +313,24 @@ constructor(
     }
 
     fun deleteItems(ids: List<UUID>) {
-        viewModelScope.launch {
-            downloader.deleteItems(ids)
-            _state.update { it.copy(selectedIds = it.selectedIds - ids.toSet()) }
-            refreshDownloads()
+        // Remove from the list instantly - the actual file/DB deletion runs in the background
+        // via DeleteDownloadsWorker (see Downloader.deleteItems), which can take a while for a
+        // large batch. Waiting for it before updating the UI (the old behaviour) is what made
+        // bulk deletion feel choppy: the row would sit there until the next periodic refresh
+        // caught up, then several rows would vanish at once.
+        val idsSet = ids.toSet()
+        _state.update { state ->
+            state.copy(
+                movies = state.movies.filterNot { it.id in idsSet },
+                showGroups =
+                    state.showGroups.mapNotNull { group ->
+                        val remaining = group.episodes.filterNot { it.id in idsSet }
+                        remaining.takeIf { it.isNotEmpty() }?.let { group.copy(episodes = it) }
+                    },
+                selectedIds = state.selectedIds - idsSet,
+            )
         }
+        viewModelScope.launch { downloader.deleteItems(ids) }
     }
 
     /** Moves the current selection to a different storage volume - see [Downloader.migrateItems]. */
@@ -520,13 +539,16 @@ constructor(
                     database.getMoviesByServerId(serverId).map { it.id } +
                         database.getEpisodesByServerId(serverId).map { it.id }
                 }
+            // Same optimistic-removal reasoning as deleteItems(): clear the list instantly
+            // rather than waiting on the background worker.
+            _state.update {
+                it.copy(movies = emptyList(), showGroups = emptyList(), selectedIds = emptySet())
+            }
             downloader.deleteItems(itemIds)
 
             if (alsoRemoveRules) {
                 autoDownloadRuleRepository.deleteAllRules(serverId, userId)
             }
-
-            refreshDownloads()
         }
     }
 

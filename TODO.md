@@ -402,21 +402,56 @@ Status: **done** (2026-07-19).
 ## FINDROID-16: Migrate selected downloads between storage volumes
 
 - [x] The External storage row reused the same phone icon as Internal - gave
-      it a distinct icon (`ic_database`) so the two are visually
-      distinguishable at a glance, not just by label text.
+      it a distinct literal SD-card icon (`ic_sd_card`, converted from
+      Lucide Lab's `card-sd`) so the two are visually distinguishable at a
+      glance, not just by label text.
 - [x] Added a way to move specific selected downloads (not everything on a
       volume) to a different storage location: long-press to select
       movies/episodes on the Downloads screen (existing multi-select), then a
-      new "migrate" icon in the top bar (before the trash icon) opens a
-      storage picker and moves just the selection there. Only shown when more
-      than one storage volume actually exists (`state.deviceStorages.size > 1`)
-      - meaningless on a device with no external/removable storage.
-      `Downloader.migrateItems()`/`moveItems()` mirror the existing
-      `deleteItems()`/`deleteItem()` pair (a new `MigrateDownloadsWorker`,
-      backed by WorkManager so it survives the app being backgrounded, same as
-      bulk-delete) - the selection-scoped counterpart to the existing
-      whole-volume `moveDownloads()` used when the download-location
-      preference changes in Settings. Progress shown via a bottom card
-      mirroring the existing delete-progress one.
+      new "migrate" icon (`ic_arrow_right_left` - the original
+      `ic_arrow_down_up` doubled as the library sort icon elsewhere and read
+      as a filter control here) in the top bar (before the trash icon) opens
+      a confirmation dialog and moves just the selection. Only shown when
+      more than one storage volume actually exists
+      (`state.deviceStorages.size > 1`) - meaningless on a device with no
+      external/removable storage. `Downloader.migrateItems()`/`moveItems()`
+      mirror the existing `deleteItems()`/`deleteItem()` pair (a new
+      `MigrateDownloadsWorker`, backed by WorkManager so it survives the app
+      being backgrounded, same as bulk-delete) - the selection-scoped
+      counterpart to the existing whole-volume `moveDownloads()` used when
+      the download-location preference changes in Settings. Progress shown
+      via a bottom card mirroring the existing delete-progress one.
+- [x] Reworked the migrate dialog from a generic `StorageSelectionDialog`
+      picker into a dedicated `MigrateDownloadsDialog` confirmation: since
+      the selection's current volume is never offered as its own
+      destination, and there are normally only two volumes total, "pick a
+      destination" always collapsed to one meaningful choice anyway - so the
+      dialog now states the move outright ("Move N item(s) (X) from Internal
+      to External?") instead of asking. Shows the destination's
+      `StorageUsageBar` widget (same one used on the Downloads screen) with
+      *projected* post-move usage, highlighting exactly the incoming bytes -
+      a preview of the move's impact, not just today's usage.
+
+Status: **done** (2026-07-19).
+
+## FINDROID-17: Optimistic bulk-deletion UI on the Downloads screen
+
+- [x] Bulk/single/group deletion (`DownloadsViewModel.deleteItems()`) used to
+      wait for `Downloader.deleteItems()` (which just enqueues
+      `DeleteDownloadsWorker`) and then immediately call `refreshDownloads()`
+      - re-querying the DB before the background worker had actually deleted
+      anything, then relying on the 3s periodic poll to eventually catch up
+      once it had. That's what made bulk deletion feel "choppy": rows sat in
+      the list until the next poll, then several vanished at once. Fixed by
+      removing selected items from `movies`/`showGroups` in local state
+      instantly and letting `DeleteDownloadsWorker` run in the background
+      unobserved; `clearAllDownloads()` got the same treatment (clears the
+      list instantly instead of waiting on `refreshDownloads()`).
+- [x] To still reconcile with the DB in case of a partial failure (an item
+      that didn't actually delete shouldn't stay gone from the list forever),
+      `getDeleteProgressFlow()`'s collector now calls `refreshDownloads()`
+      once a batch transitions from running to finished - the same
+      finish-triggered-refresh pattern already used for migrate's
+      `moveProgress`.
 
 Status: **done** (2026-07-19).

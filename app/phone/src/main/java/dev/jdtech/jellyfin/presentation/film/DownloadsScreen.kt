@@ -96,7 +96,6 @@ import dev.jdtech.jellyfin.presentation.film.components.Direction
 import dev.jdtech.jellyfin.presentation.film.components.ItemPoster
 import dev.jdtech.jellyfin.presentation.film.components.ManualImportSheet
 import dev.jdtech.jellyfin.presentation.film.components.PvrErrorBanner
-import dev.jdtech.jellyfin.presentation.film.components.StorageSelectionDialog
 import dev.jdtech.jellyfin.presentation.film.components.ToggleOptionRow
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
@@ -183,6 +182,12 @@ fun DownloadsScreen(
                 .filter { it.id in state.selectedIds }
                 .sumOf { it.sources.firstOrNull { s -> s.type == FindroidSourceType.LOCAL }?.size ?: 0L }
         }
+    val selectedLocalPaths =
+        remember(allItems, state.selectedIds) {
+            allItems
+                .filter { it.id in state.selectedIds }
+                .mapNotNull { it.sources.firstOrNull { s -> s.type == FindroidSourceType.LOCAL }?.path }
+        }
 
     DownloadsScreenLayout(
         state = state,
@@ -243,25 +248,29 @@ fun DownloadsScreen(
         )
     }
 
-    if (migrateDialogOpen) {
-        val locations =
-            remember(state.deviceStorages) {
-                state.deviceStorages.map { storage ->
-                    val locationLabel =
-                        androidContext.getString(
-                            if (storage.isRemovable) CoreR.string.external else CoreR.string.internal
-                        )
-                    androidContext.getString(
-                        CoreR.string.storage_name,
-                        locationLabel,
-                        storage.availableBytes / 1_000_000,
-                    )
-                }
+    if (migrateDialogOpen && state.deviceStorages.size > 1) {
+        // The selection normally lives entirely on one volume, so there's exactly one sensible
+        // destination - the other one. Falls back to index 0 if nothing matched (shouldn't
+        // happen: the migrate button is only shown once there's more than one volume) and skips
+        // whichever volume the selection is already on, so this never offers "migrate" to the
+        // same storage the files are already sitting on.
+        val fromIndex =
+            remember(state.deviceStorages, selectedLocalPaths) {
+                state.deviceStorages
+                    .indexOfFirst { storage -> selectedLocalPaths.any { it.startsWith(storage.path) } }
+                    .let { if (it >= 0) it else 0 }
             }
-        StorageSelectionDialog(
-            storageLocations = locations,
-            onSelect = { index ->
-                viewModel.migrateSelected(index)
+        val toIndex =
+            remember(state.deviceStorages, fromIndex) {
+                state.deviceStorages.indices.firstOrNull { it != fromIndex } ?: fromIndex
+            }
+        MigrateDownloadsDialog(
+            itemCount = state.selectedIds.size,
+            sizeBytes = selectedSizeBytes,
+            fromStorage = state.deviceStorages[fromIndex],
+            toStorage = state.deviceStorages[toIndex],
+            onConfirm = {
+                viewModel.migrateSelected(toIndex)
                 migrateDialogOpen = false
             },
             onDismiss = { migrateDialogOpen = false },
@@ -482,7 +491,7 @@ private fun DownloadsScreenLayout(
                     if (selectionMode && state.deviceStorages.size > 1) {
                         IconButton(onClick = onMigrateClick) {
                             Icon(
-                                painter = painterResource(CoreR.drawable.ic_arrow_down_up),
+                                painter = painterResource(CoreR.drawable.ic_arrow_right_left),
                                 contentDescription = stringResource(CoreR.string.migrate_selected_downloads),
                             )
                         }
@@ -800,7 +809,7 @@ private fun DownloadsStorageSummaryCard(
                 // than silently implying Findroid's downloads are the only thing using space.
                 val deviceUsedBytes = (device.totalBytes - device.availableBytes).coerceAtLeast(0L)
                 StorageUsageBar(
-                    iconRes = if (device.isRemovable) CoreR.drawable.ic_database else CoreR.drawable.ic_smartphone,
+                    iconRes = if (device.isRemovable) CoreR.drawable.ic_sd_card else CoreR.drawable.ic_smartphone,
                     label =
                         if (deviceStorages.size > 1) {
                             stringResource(
@@ -1565,6 +1574,81 @@ private fun SwipeToDeleteContainer(
             content()
         }
     }
+}
+
+/**
+ * Confirmation for migrating the current selection to the device's other storage volume. Not a
+ * picker - the source volume (wherever the selected files already live) is never offered as a
+ * destination, and in practice there's only one other volume (internal vs. external), so once
+ * that's excluded there's nothing left to actually choose between.
+ */
+@Composable
+private fun MigrateDownloadsDialog(
+    itemCount: Int,
+    sizeBytes: Long,
+    fromStorage: DeviceStorageStats,
+    toStorage: DeviceStorageStats,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val fromLabel = stringResource(if (fromStorage.isRemovable) CoreR.string.external else CoreR.string.internal)
+    val toLabel = stringResource(if (toStorage.isRemovable) CoreR.string.external else CoreR.string.internal)
+    val toUsedBytes = (toStorage.totalBytes - toStorage.availableBytes).coerceAtLeast(0L)
+    // What the destination will look like right after the move, not just its usage today - the
+    // whole point of a preview here is showing the impact of the move before committing to it.
+    val projectedUsedBytes = (toUsedBytes + sizeBytes).coerceAtMost(toStorage.totalBytes)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(painter = painterResource(CoreR.drawable.ic_arrow_right_left), contentDescription = null)
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.migrate_storage_title))
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text =
+                        stringResource(
+                            CoreR.string.migrate_storage_message,
+                            itemCount,
+                            formatBinaryFileSize(sizeBytes),
+                            fromLabel,
+                            toLabel,
+                        )
+                )
+                Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
+                StorageUsageBar(
+                    iconRes = if (toStorage.isRemovable) CoreR.drawable.ic_sd_card else CoreR.drawable.ic_smartphone,
+                    label = toLabel,
+                    usedBytes = projectedUsedBytes,
+                    totalBytes = toStorage.totalBytes,
+                    highlightBytes = sizeBytes.coerceAtMost(projectedUsedBytes),
+                    highlightCaption =
+                        stringResource(
+                            CoreR.string.migrate_storage_incoming_caption,
+                            formatBinaryFileSize(sizeBytes),
+                        ),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Icon(painter = painterResource(CoreR.drawable.ic_arrow_right_left), contentDescription = null)
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.move))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Icon(painter = painterResource(CoreR.drawable.ic_x), contentDescription = null)
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.cancel))
+            }
+        },
+    )
 }
 
 @Composable
