@@ -183,6 +183,7 @@ private fun MovieScreenLayout(
                             item = movie,
                             onClick = { onAction(MovieAction.Play(startFromBeginning = false)) },
                             enabled = movie.canPlay,
+                            isDeleting = downloaderState.isDeleting,
                             modifier = Modifier.align(Alignment.Center),
                         )
                         Column(

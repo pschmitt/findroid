@@ -165,7 +165,9 @@ fun ItemButtonsBar(
             }
             trailingContent()
             if (downloaderState != null && !downloaderState.isDownloading) {
-                if (item.isDownloaded()) {
+                // While isDeleting, neither branch shows - the delete tile disappears rather than
+                // risk a second tap queuing another delete of a file that's already going away.
+                if (item.isDownloaded() && !downloaderState.isDeleting) {
                     // Size/path details live in the confirmation dialog this opens.
                     ItemActionButton(
                         icon = painterResource(CoreR.drawable.ic_trash),
@@ -173,7 +175,10 @@ fun ItemButtonsBar(
                         onClick = { deleteDownloadDialogOpen = true },
                         contentColor = MaterialTheme.colorScheme.error,
                     )
-                } else if (item.canDownload || item is FindroidShow || item is FindroidSeason) {
+                } else if (
+                    !downloaderState.isDeleting &&
+                        (item.canDownload || item is FindroidShow || item is FindroidSeason)
+                ) {
                     ItemActionButton(
                         icon = painterResource(CoreR.drawable.ic_download),
                         label = stringResource(CoreR.string.download),

@@ -12,6 +12,7 @@ data class DownloaderState(
     val etaSeconds: Long = -1L,
     val downloadedBytes: Long = 0L,
     val totalBytes: Long = 0L,
+    val isDeleting: Boolean = false,
 ) {
     val isDownloading: Boolean
         get() =

@@ -24,6 +24,11 @@ data class DownloadsState(
     val downloadProgress: Map<UUID, DownloadProgress> = emptyMap(),
     val deleteProgress: DeleteProgress? = null,
     val moveProgress: MigrateProgress? = null,
+    // Items included in the migrate batch(es) currently in flight - MigrateDownloadsWorker only
+    // reports an aggregate done/total count (see moveProgress), not which specific item it's on,
+    // so every id in a batch is marked "moving" for that batch's whole duration rather than
+    // pinpointing the exact one being copied right now.
+    val migratingIds: Set<UUID> = emptySet(),
     val pvrQueueGroups: List<PvrQueueGroup> = emptyList(),
     val pvrErrors: List<PvrFetchError> = emptyList(),
     // (source, queueItemId) pairs, since Sonarr and Radarr each have their own queue-row id

@@ -36,6 +36,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Icon
@@ -577,6 +578,7 @@ private fun DownloadsScreenLayout(
                                     )
                                 },
                                 deviceStorages = state.deviceStorages,
+                                isMigrating = movie.id in state.migratingIds,
                             )
                         }
                     }
@@ -594,6 +596,7 @@ private fun DownloadsScreenLayout(
                                 status != DownloadManager.STATUS_SUCCESSFUL
                             } == true
                         }
+                    val hasMigratingEpisode = group.episodes.any { it.id in state.migratingIds }
                     val groupCollapsed = group.seriesId in collapsedGroupIds
                     stickyHeader {
                         ShowGroupHeader(
@@ -611,7 +614,7 @@ private fun DownloadsScreenLayout(
                                     if (groupCollapsed) collapsedGroupIds - group.seriesId
                                     else collapsedGroupIds + group.seriesId
                             },
-                            swipeEnabled = !selectionMode && !hasActiveDownload,
+                            swipeEnabled = !selectionMode && !hasActiveDownload && !hasMigratingEpisode,
                             onSwipeDeleteRequest = { onSwipeDeleteGroupRequest(group) },
                             deviceStorages = state.deviceStorages,
                         )
@@ -648,6 +651,7 @@ private fun DownloadsScreenLayout(
                                 )
                             },
                             deviceStorages = state.deviceStorages,
+                            isMigrating = episode.id in state.migratingIds,
                         )
                     }
                 }
@@ -1195,6 +1199,7 @@ private fun DownloadRow(
     onDownloadAction: (DownloadAction) -> Unit,
     onSwipeDeleteRequest: () -> Unit,
     deviceStorages: List<DeviceStorageStats> = emptyList(),
+    isMigrating: Boolean = false,
 ) {
     val activeProgress = progress?.takeIf { it.status != DownloadManager.STATUS_SUCCESSFUL }
     val isPending = activeProgress?.status == DownloadManager.STATUS_PENDING
@@ -1205,14 +1210,23 @@ private fun DownloadRow(
     val storageIcon = remember(localSource?.path, deviceStorages) {
         storageIconFor(localSource?.path, deviceStorages)
     }
-    val swipeEnabled = activeProgress == null && !selectionMode
+    val swipeEnabled = activeProgress == null && !selectionMode && !isMigrating
 
     val content: @Composable () -> Unit = {
         Row(
             modifier =
                 Modifier.fillMaxWidth()
                     .combinedClickable(
-                        onClick = { if (selectionMode) onToggleSelection() else onClick() },
+                        onClick = {
+                            when {
+                                selectionMode -> onToggleSelection()
+                                // The file's mid-copy to another volume right now - its DB path
+                                // is about to change and the bytes at the old one may already be
+                                // gone, so opening it for playback is unsafe until that settles.
+                                isMigrating -> {}
+                                else -> onClick()
+                            }
+                        },
                         onLongClick = onLongClick,
                     )
                     .padding(
@@ -1233,50 +1247,64 @@ private fun DownloadRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                if (activeProgress != null) {
-                    Text(
-                        text =
-                            when {
-                                isPending -> stringResource(CoreR.string.download_queued)
-                                isPaused -> stringResource(CoreR.string.download_paused)
-                                isVerifying -> stringResource(CoreR.string.download_verifying)
-                                activeProgress.percent >= 0 ->
-                                    stringResource(
-                                        CoreR.string.download_progress_status,
-                                        activeProgress.percent,
-                                        formatDownloadSpeed(activeProgress.speedBytesPerSecond),
-                                        formatEta(activeProgress.etaSeconds),
-                                    )
-                                else -> stringResource(CoreR.string.download_downloading)
-                            },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (!isPending) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { activeProgress.percent.coerceAtLeast(0) / 100f },
-                            // 4.dp, not 3 - Material3's default end-of-track "stop indicator" dot
-                            // is itself 4.dp, so a shorter track clips it into invisibility.
-                            modifier = Modifier.fillMaxWidth().height(4.dp),
-                        )
-                    }
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        storageIcon?.let { icon ->
-                            Icon(
-                                painter = painterResource(icon),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(14.dp),
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                        }
+                when {
+                    activeProgress != null -> {
                         Text(
-                            text = formatBinaryFileSize(sizeBytes),
+                            text =
+                                when {
+                                    isPending -> stringResource(CoreR.string.download_queued)
+                                    isPaused -> stringResource(CoreR.string.download_paused)
+                                    isVerifying -> stringResource(CoreR.string.download_verifying)
+                                    activeProgress.percent >= 0 ->
+                                        stringResource(
+                                            CoreR.string.download_progress_status,
+                                            activeProgress.percent,
+                                            formatDownloadSpeed(activeProgress.speedBytesPerSecond),
+                                            formatEta(activeProgress.etaSeconds),
+                                        )
+                                    else -> stringResource(CoreR.string.download_downloading)
+                                },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (!isPending) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { activeProgress.percent.coerceAtLeast(0) / 100f },
+                                // 4.dp, not 3 - Material3's default end-of-track "stop indicator"
+                                // dot is itself 4.dp, so a shorter track clips it into invisibility.
+                                modifier = Modifier.fillMaxWidth().height(4.dp),
+                            )
+                        }
+                    }
+                    isMigrating -> {
+                        Text(
+                            text = stringResource(CoreR.string.download_row_migrating),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        // Indeterminate - MigrateDownloadsWorker only reports an aggregate
+                        // done/total for the whole batch, not this item's own progress.
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp))
+                    }
+                    else -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            storageIcon?.let { icon ->
+                                Icon(
+                                    painter = painterResource(icon),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = formatBinaryFileSize(sizeBytes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -1321,6 +1349,13 @@ private fun DownloadRow(
                             contentDescription = stringResource(CoreR.string.download_action_cancel),
                         )
                     }
+                }
+                // No play button while the file is mid-move - see the onClick guard above for why.
+                isMigrating -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp).padding(2.dp),
+                        strokeWidth = 2.dp,
+                    )
                 }
                 item.isDownloaded() -> {
                     IconButton(onClick = onClick) {

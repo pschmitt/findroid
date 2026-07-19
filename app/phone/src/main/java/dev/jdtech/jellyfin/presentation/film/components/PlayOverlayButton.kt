@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.presentation.film.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -37,6 +38,10 @@ fun PlayOverlayButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    // The downloaded file backing this item is actively being deleted - its bytes may already be
+    // gone from disk before the DB (and therefore item.isDownloaded()) catches up, so playback
+    // needs blocking here rather than trusting that flag alone.
+    isDeleting: Boolean = false,
 ) {
     val runtimeMinutesLeft by
         remember(item.playbackPositionTicks) {
@@ -50,7 +55,7 @@ fun PlayOverlayButton(
     ) {
         FilledIconButton(
             onClick = onClick,
-            enabled = enabled,
+            enabled = enabled && !isDeleting,
             modifier = Modifier.size(64.dp),
             colors =
                 IconButtonDefaults.filledIconButtonColors(
@@ -58,11 +63,19 @@ fun PlayOverlayButton(
                     contentColor = Color.White,
                 ),
         ) {
-            Icon(
-                painter = painterResource(CoreR.drawable.ic_play),
-                contentDescription = stringResource(CoreR.string.play),
-                modifier = Modifier.size(32.dp),
-            )
+            if (isDeleting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_play),
+                    contentDescription = stringResource(CoreR.string.play),
+                    modifier = Modifier.size(32.dp),
+                )
+            }
         }
         if (item.playbackPositionTicks > 0) {
             Text(

@@ -84,10 +84,12 @@ constructor(private val downloader: Downloader, private val appPreferences: AppP
 
     private fun deleteDownload(item: FindroidItem) {
         viewModelScope.launch {
+            _state.emit(DownloaderState(isDeleting = true))
             downloader.deleteItem(
                 item = item,
                 source = item.sources.first { it.type == FindroidSourceType.LOCAL },
             )
+            _state.emit(DownloaderState())
             eventsChannel.send(DownloaderEvent.Deleted)
         }
     }

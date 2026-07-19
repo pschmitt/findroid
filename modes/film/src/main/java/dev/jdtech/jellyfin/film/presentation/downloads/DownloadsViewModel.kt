@@ -98,9 +98,14 @@ constructor(
             downloader.getMigrateProgressFlow().collect { progress ->
                 val wasRunning = _state.value.moveProgress != null
                 _state.update { it.copy(moveProgress = progress) }
-                // Storage usage shifted between volumes - refresh the summary bars once the
-                // batch actually finishes, not on every intermediate progress tick.
-                if (wasRunning && progress == null) refreshStorage()
+                if (wasRunning && progress == null) {
+                    // Storage usage shifted between volumes - refresh the summary bars. Also
+                    // re-fetch the items themselves: their LOCAL source path just changed, which
+                    // is what the per-row Internal/External icon is resolved from.
+                    _state.update { it.copy(migratingIds = emptySet()) }
+                    refreshStorage()
+                    refreshDownloads()
+                }
             }
         }
         viewModelScope.launch {
@@ -337,10 +342,13 @@ constructor(
     fun migrateSelected(toStorageIndex: Int) {
         val ids = _state.value.selectedIds.toList()
         if (ids.isEmpty()) return
-        viewModelScope.launch {
-            downloader.migrateItems(ids, toStorageIndex)
-            _state.update { it.copy(selectedIds = it.selectedIds - ids.toSet()) }
+        // Mark these ids as moving right away, not after migrateItems() returns - it only
+        // enqueues MigrateDownloadsWorker (fast), so waiting on it first would leave a beat where
+        // the selection's cleared but no "moving" indicator has appeared yet.
+        _state.update {
+            it.copy(selectedIds = it.selectedIds - ids.toSet(), migratingIds = it.migratingIds + ids)
         }
+        viewModelScope.launch { downloader.migrateItems(ids, toStorageIndex) }
     }
 
     fun onDownloadAction(itemId: UUID, action: DownloadAction) {

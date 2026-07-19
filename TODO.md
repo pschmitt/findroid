@@ -498,3 +498,35 @@ Status: **done** (2026-07-19).
       move nothing.
 
 Status: **done** (2026-07-19).
+
+## FINDROID-20: Per-item "currently moving/deleting" indicators
+
+- [x] Downloads screen: items included in an in-flight migrate batch
+      (`DownloadsState.migratingIds`, set the moment `migrateSelected()` is
+      called - not after the worker finishes enqueuing, so there's no gap
+      before the indicator appears) now show a "Moving…" status + an
+      indeterminate progress bar in place of their file size, and a spinner
+      instead of the play button. `MigrateDownloadsWorker` only reports an
+      aggregate done/total for the whole batch, not which item it's on right
+      now, so every id in the batch is marked "moving" for the batch's whole
+      duration rather than pinpointing the exact one being copied. Tapping a
+      migrating row, and swiping to delete it (or its show group), are both
+      disabled while it's mid-move.
+- [x] Considered doing the same (row stays, shows "Deleting…", play button
+      hidden) for the Downloads screen's own delete flow, but that list
+      already removes rows instantly on delete (FINDROID-17) - there's no
+      row left to put an indicator on, and reverting that would undo the
+      "less choppy" fix. Scoped instead to the movie/episode *detail page*'s
+      own single-item delete button (`ItemButtonsBar`/`PlayOverlayButton`),
+      which isn't a list and doesn't disappear: added
+      `DownloaderState.isDeleting`, set by `DownloaderViewModel.deleteDownload()`
+      for the duration of the (non-worker, inline suspend) `Downloader.deleteItem()`
+      call. While true, `PlayOverlayButton` disables itself and shows a
+      spinner instead of the play icon (its `isDownloaded()`-based
+      enablement can't be trusted mid-delete: the bytes may already be gone
+      from disk before the DB catches up), and `ItemButtonsBar`'s delete
+      tile itself disappears to prevent a second tap queuing another delete.
+      Movie/Episode screens only - Show/Season's delete affordance is a
+      different, already-bulk flow with no single "this file" semantics.
+
+Status: **done** (2026-07-19).

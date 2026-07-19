@@ -189,6 +189,7 @@ private fun EpisodeScreenLayout(
                             item = episode,
                             onClick = { onAction(EpisodeAction.Play(startFromBeginning = false)) },
                             enabled = episode.canPlay,
+                            isDeleting = downloaderState.isDeleting,
                             modifier = Modifier.align(Alignment.Center),
                         )
                         if (state.videoMetadata != null) {
