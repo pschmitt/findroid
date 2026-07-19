@@ -564,3 +564,21 @@ Status: **done** (2026-07-19).
       doesn't need re-downloading one row at a time.
 
 Status: **done** (2026-07-19).
+
+## FINDROID-22: Storage indicator on the movie/episode detail page
+
+- [x] Reused the Downloads screen's "icon + size" row caption on the
+      movie/episode detail page itself: a new shared `LocalStorageIndicator`
+      composable (`app/phone/.../components/LocalStorageIndicator.kt`), shown
+      right below `ItemButtonsBar` whenever the item has a completed local
+      download. Resolves Internal/External via a new
+      `isPathOnRemovableStorage(context, path)` helper in
+      `core/.../utils/DownloadStorage.kt` - the inverse of the existing
+      `resolveDownloadStorageIndex()` (path -> volume type, instead of
+      preference -> volume index).
+- [x] Also broken-aware for free: passes `item.isDownloadBroken()` through,
+      so a vanished local file shows the same error-tinted "File missing"
+      caption here as it does in the Downloads list, rather than a
+      confusing "0 B" on the one screen that didn't get that treatment.
+
+Status: **done** (2026-07-19).

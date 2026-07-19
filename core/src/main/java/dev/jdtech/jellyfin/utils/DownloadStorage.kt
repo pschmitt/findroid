@@ -19,3 +19,15 @@ fun resolveDownloadStorageIndex(context: Context, locationPreference: String): I
         else -> -1
     }
 }
+
+/**
+ * The inverse lookup: which storage volume a downloaded file's [path] actually lives on, as
+ * removable (SD card/USB) or not. Returns null if [path] doesn't match any currently mounted
+ * app-storage volume (e.g. its volume isn't mounted right now).
+ */
+fun isPathOnRemovableStorage(context: Context, path: String): Boolean? {
+    val storageLocation =
+        context.getExternalFilesDirs(null).firstOrNull { it != null && path.startsWith(it.path) }
+            ?: return null
+    return Environment.isExternalStorageRemovable(storageLocation)
+}

@@ -57,6 +57,7 @@ import dev.jdtech.jellyfin.film.presentation.episode.EpisodeState
 import dev.jdtech.jellyfin.film.presentation.episode.EpisodeViewModel
 import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSourceType
+import dev.jdtech.jellyfin.models.isDownloadBroken
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.film.components.ActorsRow
 import dev.jdtech.jellyfin.presentation.film.components.PvrSearchButton
@@ -65,6 +66,7 @@ import dev.jdtech.jellyfin.presentation.film.components.ItemButtonsBar
 import dev.jdtech.jellyfin.presentation.film.components.ItemHeader
 import dev.jdtech.jellyfin.presentation.film.components.ItemMetaRow
 import dev.jdtech.jellyfin.presentation.film.components.ItemTopBar
+import dev.jdtech.jellyfin.presentation.film.components.LocalStorageIndicator
 import dev.jdtech.jellyfin.presentation.film.components.OverviewText
 import dev.jdtech.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.jdtech.jellyfin.presentation.film.components.ReleasePickerSheet
@@ -335,6 +337,16 @@ private fun EpisodeScreenLayout(
                             }
                         },
                     )
+                    downloadedSource?.let { source ->
+                        if (!source.path.endsWith(".download")) {
+                            Spacer(Modifier.height(MaterialTheme.spacings.small))
+                            LocalStorageIndicator(
+                                path = source.path,
+                                sizeBytes = source.size,
+                                isBroken = episode.isDownloadBroken(),
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(MaterialTheme.spacings.medium))
                     if (infoDialogOpen && state.videoMetadata != null) {
                         InfoDialog(
