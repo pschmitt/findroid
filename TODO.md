@@ -455,3 +455,46 @@ Status: **done** (2026-07-19).
       `moveProgress`.
 
 Status: **done** (2026-07-19).
+
+## FINDROID-18: End-of-track "stop indicator" dots on every progress/usage bar
+
+- [x] The custom-drawn `StorageUsageBar` (used for the Internal/External/PVR
+      rows on the Downloads screen) never had a Material3 stop-indicator dot
+      to begin with - it's hand-rolled with `Row`/`Box`, not a real
+      `LinearProgressIndicator`, so the earlier stop-indicator revert
+      (removing `drawStopIndicator = {}` from real `LinearProgressIndicator`
+      call sites) didn't touch it at all. Added a hand-drawn 4.dp circle at
+      the track's trailing edge to match.
+- [x] Four *real* `LinearProgressIndicator`s (delete-progress, move-progress,
+      per-item download-progress, PVR queue status) were forcing
+      `.height(3.dp)` - one dp short of Material3 1.4's own stop-indicator
+      size (`LinearProgressIndicatorTokens.StopSize = 4.dp`), which clipped
+      the dot into invisibility even though the code was otherwise using the
+      default (undocumented from the outside - confirmed by reading
+      Material3's actual token values). Bumped all four to `.height(4.dp)`.
+
+Status: **done** (2026-07-19).
+
+## FINDROID-19: Per-item storage icon + reactive migrate destination picker
+
+- [x] Downloads screen episode/movie rows and show-group headers now show a
+      small Internal/External icon next to their file size
+      (`storageIconFor()`, gated on `deviceStorages.size > 1` same as
+      everywhere else) - resolved from the downloaded file's actual on-disk
+      path against each known volume's root, same attribution logic already
+      used for the storage summary card. A show group only gets an icon when
+      every episode agrees on the same volume; a split group (e.g. partially
+      migrated) shows none rather than a misleading one.
+- [x] `MigrateDownloadsDialog` no longer assumes a single "obvious" other
+      destination: when the current selection is already split across more
+      than one volume, either direction is a legitimate choice (e.g.
+      consolidate onto internal vs. onto external), so it now shows a
+      destination picker (radio rows) in that case only - a homogeneous
+      selection stays a plain confirmation. Picking a destination is fully
+      reactive: only sources not already on the chosen target actually move,
+      so the item count/size/projected-usage preview recompute live as the
+      user switches targets, and the confirm button disables itself
+      ("Everything selected is already on X") if the chosen target would
+      move nothing.
+
+Status: **done** (2026-07-19).

@@ -10,6 +10,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -182,11 +184,11 @@ fun DownloadsScreen(
                 .filter { it.id in state.selectedIds }
                 .sumOf { it.sources.firstOrNull { s -> s.type == FindroidSourceType.LOCAL }?.size ?: 0L }
         }
-    val selectedLocalPaths =
+    val selectedLocalSources =
         remember(allItems, state.selectedIds) {
             allItems
                 .filter { it.id in state.selectedIds }
-                .mapNotNull { it.sources.firstOrNull { s -> s.type == FindroidSourceType.LOCAL }?.path }
+                .mapNotNull { it.sources.firstOrNull { s -> s.type == FindroidSourceType.LOCAL } }
         }
 
     DownloadsScreenLayout(
@@ -249,27 +251,10 @@ fun DownloadsScreen(
     }
 
     if (migrateDialogOpen && state.deviceStorages.size > 1) {
-        // The selection normally lives entirely on one volume, so there's exactly one sensible
-        // destination - the other one. Falls back to index 0 if nothing matched (shouldn't
-        // happen: the migrate button is only shown once there's more than one volume) and skips
-        // whichever volume the selection is already on, so this never offers "migrate" to the
-        // same storage the files are already sitting on.
-        val fromIndex =
-            remember(state.deviceStorages, selectedLocalPaths) {
-                state.deviceStorages
-                    .indexOfFirst { storage -> selectedLocalPaths.any { it.startsWith(storage.path) } }
-                    .let { if (it >= 0) it else 0 }
-            }
-        val toIndex =
-            remember(state.deviceStorages, fromIndex) {
-                state.deviceStorages.indices.firstOrNull { it != fromIndex } ?: fromIndex
-            }
         MigrateDownloadsDialog(
-            itemCount = state.selectedIds.size,
-            sizeBytes = selectedSizeBytes,
-            fromStorage = state.deviceStorages[fromIndex],
-            toStorage = state.deviceStorages[toIndex],
-            onConfirm = {
+            selectedSources = selectedLocalSources,
+            deviceStorages = state.deviceStorages,
+            onConfirm = { toIndex ->
                 viewModel.migrateSelected(toIndex)
                 migrateDialogOpen = false
             },
@@ -591,6 +576,7 @@ private fun DownloadsScreenLayout(
                                         source?.size,
                                     )
                                 },
+                                deviceStorages = state.deviceStorages,
                             )
                         }
                     }
@@ -627,6 +613,7 @@ private fun DownloadsScreenLayout(
                             },
                             swipeEnabled = !selectionMode && !hasActiveDownload,
                             onSwipeDeleteRequest = { onSwipeDeleteGroupRequest(group) },
+                            deviceStorages = state.deviceStorages,
                         )
                     }
                     if (groupCollapsed) return@forEach
@@ -660,6 +647,7 @@ private fun DownloadsScreenLayout(
                                     source?.size,
                                 )
                             },
+                            deviceStorages = state.deviceStorages,
                         )
                     }
                 }
@@ -895,22 +883,31 @@ private fun StorageUsageBar(
         Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
         val otherUsedBytes = (usedBytes - highlightBytes).coerceAtLeast(0L)
         val freeBytes = (totalBytes - usedBytes).coerceAtLeast(0L)
-        Row(
-            modifier =
-                Modifier.fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(trackColor)
-        ) {
-            if (highlightBytes > 0) {
-                Box(modifier = Modifier.weight(highlightBytes.toFloat()).fillMaxHeight().background(warningColor))
+        Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+            Row(
+                modifier =
+                    Modifier.fillMaxSize().clip(RoundedCornerShape(3.dp)).background(trackColor)
+            ) {
+                if (highlightBytes > 0) {
+                    Box(modifier = Modifier.weight(highlightBytes.toFloat()).fillMaxHeight().background(warningColor))
+                }
+                if (otherUsedBytes > 0) {
+                    Box(modifier = Modifier.weight(otherUsedBytes.toFloat()).fillMaxHeight().background(otherUsedColor))
+                }
+                if (freeBytes > 0) {
+                    Box(modifier = Modifier.weight(freeBytes.toFloat()).fillMaxHeight())
+                }
             }
-            if (otherUsedBytes > 0) {
-                Box(modifier = Modifier.weight(otherUsedBytes.toFloat()).fillMaxHeight().background(otherUsedColor))
-            }
-            if (freeBytes > 0) {
-                Box(modifier = Modifier.weight(freeBytes.toFloat()).fillMaxHeight())
-            }
+            // This bar is hand-drawn (not a real LinearProgressIndicator), so it doesn't get
+            // Material3's default end-of-track "stop indicator" dot for free - draw the same
+            // marker by hand so every progress/usage bar in the app looks consistent.
+            Box(
+                modifier =
+                    Modifier.align(Alignment.CenterEnd)
+                        .size(4.dp)
+                        .clip(CircleShape)
+                        .background(warningColor)
+            )
         }
         if (highlightCaption != null) {
             Spacer(modifier = Modifier.height(MaterialTheme.spacings.extraSmall))
@@ -928,6 +925,19 @@ private fun StorageUsageBar(
             }
         }
     }
+}
+
+/**
+ * Which storage volume a downloaded file's [path] actually lives on, as an icon - only
+ * meaningful once there's more than one volume to distinguish between (matches the gating
+ * already used for the "Internal"/"External" labels and the migrate action). Returns null for a
+ * single-volume device (nothing to disambiguate) or when [path] doesn't match any known volume
+ * (e.g. still resolving).
+ */
+private fun storageIconFor(path: String?, deviceStorages: List<DeviceStorageStats>): Int? {
+    if (path == null || deviceStorages.size <= 1) return null
+    val storage = deviceStorages.firstOrNull { path.startsWith(it.path) } ?: return null
+    return if (storage.isRemovable) CoreR.drawable.ic_sd_card else CoreR.drawable.ic_smartphone
 }
 
 @Composable
@@ -953,7 +963,9 @@ private fun DeleteProgressCard(progress: DeleteProgress, onDismiss: () -> Unit) 
                     progress = {
                         if (progress.total > 0) progress.done / progress.total.toFloat() else 0f
                     },
-                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    // 4.dp, not 3 - Material3's default end-of-track "stop indicator" dot is
+                    // itself 4.dp, so a shorter track clips it into invisibility.
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
                 )
             }
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
@@ -990,7 +1002,9 @@ private fun MoveProgressCard(progress: MigrateProgress, onDismiss: () -> Unit) {
                     progress = {
                         if (progress.total > 0) progress.done / progress.total.toFloat() else 0f
                     },
-                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    // 4.dp, not 3 - Material3's default end-of-track "stop indicator" dot is
+                    // itself 4.dp, so a shorter track clips it into invisibility.
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
                 )
             }
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
@@ -1069,12 +1083,25 @@ private fun ShowGroupHeader(
     onToggleCollapsed: () -> Unit = {},
     swipeEnabled: Boolean = false,
     onSwipeDeleteRequest: () -> Unit = {},
+    deviceStorages: List<DeviceStorageStats> = emptyList(),
 ) {
     val downloadedSizeBytes =
         remember(group.episodes) {
             group.episodes.sumOf { episode ->
                 episode.sources.firstOrNull { it.type == FindroidSourceType.LOCAL }?.size ?: 0L
             }
+        }
+    // Only set when every episode agrees on the same volume - a show split across storage
+    // locations (e.g. some episodes migrated, some not yet) has no single icon to show truthfully.
+    val groupStorageIcon =
+        remember(group.episodes, deviceStorages) {
+            group.episodes
+                .mapNotNull { episode ->
+                    episode.sources.firstOrNull { it.type == FindroidSourceType.LOCAL }?.path
+                }
+                .map { storageIconFor(it, deviceStorages) }
+                .distinct()
+                .singleOrNull()
         }
 
     SwipeToDeleteContainer(enabled = swipeEnabled, onSwipeDeleteRequest = onSwipeDeleteRequest) {
@@ -1105,11 +1132,22 @@ private fun ShowGroupHeader(
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (downloadedSizeBytes > 0) {
-                        Text(
-                            text = formatBinaryFileSize(downloadedSizeBytes),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            groupStorageIcon?.let { icon ->
+                                Icon(
+                                    painter = painterResource(icon),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = formatBinaryFileSize(downloadedSizeBytes),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
                 if (!selectionMode && canForce) {
@@ -1156,12 +1194,17 @@ private fun DownloadRow(
     onToggleSelection: () -> Unit,
     onDownloadAction: (DownloadAction) -> Unit,
     onSwipeDeleteRequest: () -> Unit,
+    deviceStorages: List<DeviceStorageStats> = emptyList(),
 ) {
     val activeProgress = progress?.takeIf { it.status != DownloadManager.STATUS_SUCCESSFUL }
     val isPending = activeProgress?.status == DownloadManager.STATUS_PENDING
     val isPaused = activeProgress?.status == DownloadManager.STATUS_PAUSED
     val isVerifying = activeProgress?.status == DownloadProgress.STATUS_VERIFYING
-    val sizeBytes = item.sources.firstOrNull { it.type == FindroidSourceType.LOCAL }?.size ?: 0L
+    val localSource = item.sources.firstOrNull { it.type == FindroidSourceType.LOCAL }
+    val sizeBytes = localSource?.size ?: 0L
+    val storageIcon = remember(localSource?.path, deviceStorages) {
+        storageIconFor(localSource?.path, deviceStorages)
+    }
     val swipeEnabled = activeProgress == null && !selectionMode
 
     val content: @Composable () -> Unit = {
@@ -1213,15 +1256,28 @@ private fun DownloadRow(
                         Spacer(modifier = Modifier.height(4.dp))
                         LinearProgressIndicator(
                             progress = { activeProgress.percent.coerceAtLeast(0) / 100f },
-                            modifier = Modifier.fillMaxWidth().height(3.dp),
+                            // 4.dp, not 3 - Material3's default end-of-track "stop indicator" dot
+                            // is itself 4.dp, so a shorter track clips it into invisibility.
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
                         )
                     }
                 } else {
-                    Text(
-                        text = formatBinaryFileSize(sizeBytes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        storageIcon?.let { icon ->
+                            Icon(
+                                painter = painterResource(icon),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = formatBinaryFileSize(sizeBytes),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
@@ -1407,7 +1463,9 @@ private fun PvrQueueRow(
                 Spacer(modifier = Modifier.height(4.dp))
                 LinearProgressIndicator(
                     progress = { status.percent.coerceIn(0, 100) / 100f },
-                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    // 4.dp, not 3 - Material3's default end-of-track "stop indicator" dot is
+                    // itself 4.dp, so a shorter track clips it into invisibility.
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
                 )
             }
         }
@@ -1577,22 +1635,59 @@ private fun SwipeToDeleteContainer(
 }
 
 /**
- * Confirmation for migrating the current selection to the device's other storage volume. Not a
- * picker - the source volume (wherever the selected files already live) is never offered as a
- * destination, and in practice there's only one other volume (internal vs. external), so once
- * that's excluded there's nothing left to actually choose between.
+ * Confirmation for migrating the current selection to another storage volume. Usually a plain
+ * confirmation - the selection normally lives entirely on one volume, so there's exactly one
+ * sensible destination (the other one), which is never offered as its own destination. But when
+ * the selection is already split across more than one volume, either direction is a legitimate
+ * choice (e.g. consolidate onto internal vs. onto external), so this lets the user pick - and
+ * reacts live to that choice, since which sources actually need to move (and how many/how big)
+ * depends on which volume is already "home" for a given item.
  */
 @Composable
 private fun MigrateDownloadsDialog(
-    itemCount: Int,
-    sizeBytes: Long,
-    fromStorage: DeviceStorageStats,
-    toStorage: DeviceStorageStats,
-    onConfirm: () -> Unit,
+    selectedSources: List<FindroidSource>,
+    deviceStorages: List<DeviceStorageStats>,
+    onConfirm: (toStorageIndex: Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val fromLabel = stringResource(if (fromStorage.isRemovable) CoreR.string.external else CoreR.string.internal)
+    val presentIndices =
+        remember(selectedSources, deviceStorages) {
+            deviceStorages.indices.filter { index ->
+                selectedSources.any { it.path.startsWith(deviceStorages[index].path) }
+            }
+        }
+    val isMixed = presentIndices.size > 1
+
+    var selectedTargetIndex by
+        remember(selectedSources, deviceStorages) {
+            // Default to whichever volume already holds the *most* of the selection - migrating
+            // then consolidates the smaller group into it, moving fewer items than the other way
+            // around. Irrelevant when the selection isn't mixed: there's only one non-source
+            // volume anyway.
+            mutableStateOf(
+                deviceStorages.indices
+                    .maxByOrNull { index ->
+                        selectedSources.count { it.path.startsWith(deviceStorages[index].path) }
+                    } ?: 0
+            )
+        }
+
+    val toStorage = deviceStorages[selectedTargetIndex]
     val toLabel = stringResource(if (toStorage.isRemovable) CoreR.string.external else CoreR.string.internal)
+    val fromIndex =
+        deviceStorages.indices.firstOrNull { it != selectedTargetIndex } ?: selectedTargetIndex
+    val fromLabel =
+        stringResource(if (deviceStorages[fromIndex].isRemovable) CoreR.string.external else CoreR.string.internal)
+
+    // Only sources not already on the destination actually move - with a mixed selection,
+    // switching the destination changes which items those are, hence the count/size below.
+    val toMoveSources =
+        remember(selectedSources, selectedTargetIndex, deviceStorages) {
+            selectedSources.filterNot { it.path.startsWith(toStorage.path) }
+        }
+    val itemCount = toMoveSources.size
+    val sizeBytes = toMoveSources.sumOf { it.size }
+
     val toUsedBytes = (toStorage.totalBytes - toStorage.availableBytes).coerceAtLeast(0L)
     // What the destination will look like right after the move, not just its usage today - the
     // whole point of a preview here is showing the impact of the move before committing to it.
@@ -1609,16 +1704,49 @@ private fun MigrateDownloadsDialog(
         },
         text = {
             Column {
-                Text(
-                    text =
-                        stringResource(
-                            CoreR.string.migrate_storage_message,
-                            itemCount,
-                            formatBinaryFileSize(sizeBytes),
-                            fromLabel,
-                            toLabel,
-                        )
-                )
+                if (isMixed) {
+                    Text(
+                        text = stringResource(CoreR.string.migrate_storage_choose_destination),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
+                    deviceStorages.forEachIndexed { index, storage ->
+                        val label =
+                            stringResource(if (storage.isRemovable) CoreR.string.external else CoreR.string.internal)
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .clickable { selectedTargetIndex = index }
+                                    .padding(vertical = MaterialTheme.spacings.extraSmall),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = index == selectedTargetIndex,
+                                onClick = { selectedTargetIndex = index },
+                            )
+                            Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                            Text(text = label)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
+                }
+                if (itemCount > 0) {
+                    Text(
+                        text =
+                            stringResource(
+                                CoreR.string.migrate_storage_message,
+                                itemCount,
+                                formatBinaryFileSize(sizeBytes),
+                                fromLabel,
+                                toLabel,
+                            )
+                    )
+                } else {
+                    Text(
+                        text = stringResource(CoreR.string.migrate_storage_nothing_to_move, toLabel),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                 StorageUsageBar(
                     iconRes = if (toStorage.isRemovable) CoreR.drawable.ic_sd_card else CoreR.drawable.ic_smartphone,
@@ -1627,15 +1755,19 @@ private fun MigrateDownloadsDialog(
                     totalBytes = toStorage.totalBytes,
                     highlightBytes = sizeBytes.coerceAtMost(projectedUsedBytes),
                     highlightCaption =
-                        stringResource(
-                            CoreR.string.migrate_storage_incoming_caption,
-                            formatBinaryFileSize(sizeBytes),
-                        ),
+                        if (sizeBytes > 0) {
+                            stringResource(
+                                CoreR.string.migrate_storage_incoming_caption,
+                                formatBinaryFileSize(sizeBytes),
+                            )
+                        } else {
+                            null
+                        },
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(onClick = { onConfirm(selectedTargetIndex) }, enabled = itemCount > 0) {
                 Icon(painter = painterResource(CoreR.drawable.ic_arrow_right_left), contentDescription = null)
                 Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                 Text(text = stringResource(CoreR.string.move))

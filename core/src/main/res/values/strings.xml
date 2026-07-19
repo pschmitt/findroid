@@ -117,7 +117,9 @@
     <string name="migrate_downloads_progress">Moving %1$d of %2$d</string>
     <string name="migrate_selected_downloads">Move to another storage location</string>
     <string name="migrate_storage_title">Migrate storage</string>
+    <string name="migrate_storage_choose_destination">The selection is already split across both locations - choose a destination</string>
     <string name="migrate_storage_message">Move %1$d item(s) (%2$s) from %3$s to %4$s?</string>
+    <string name="migrate_storage_nothing_to_move">Everything selected is already on %1$s</string>
     <string name="migrate_storage_incoming_caption">%1$s incoming</string>
     <string name="move">Move</string>
     <string name="preparing_download">Preparing download</string>
