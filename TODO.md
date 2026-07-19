@@ -365,3 +365,20 @@ Status: **done** (2026-07-18).
       (mid disk-scan/import) can legitimately take a while to answer.
 
 Status: **done** (2026-07-19).
+
+## FINDROID-15: Downloads storage summary ignores external storage
+
+- [x] The Downloads screen's "On this device" storage bar only ever showed
+      storage index 0 (internal), even on a device where the configured
+      download location is external/removable storage (e.g. an SD card on
+      the Mi Pad 4) - meaning downloads were shown as if they were sitting on
+      internal storage even when they physically weren't. `Downloader` now
+      exposes stats for every mounted app-storage volume
+      (`getAllStorageStats()`, replacing the single-index `getStorageStats()`),
+      each carrying its root path and whether it's removable. The Downloads
+      screen renders one usage bar per volume (labeled "Internal"/"External"
+      once there's more than one) and attributes each local download to the
+      *correct* volume by matching its file path's prefix against each
+      volume's root, instead of assuming everything is on index 0.
+
+Status: **done** (2026-07-19).

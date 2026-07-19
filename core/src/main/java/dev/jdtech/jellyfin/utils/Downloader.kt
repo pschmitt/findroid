@@ -67,7 +67,9 @@ interface Downloader {
     // work info for the shared "deleteDownloads" work chain.
     fun getDeleteProgressFlow(): Flow<DeleteProgress?>
 
-    // Total/available bytes on storageIndex's volume (see downloadItem's storageIndex), for a
-    // storage-usage summary UI. Null if that volume isn't mounted.
-    fun getStorageStats(storageIndex: Int = 0): DeviceStorageStats?
+    // Stats for every mounted app-storage volume (internal, plus any external/removable SD
+    // card/USB storage), in getExternalFilesDirs() order - for a storage-usage summary UI that
+    // covers everywhere a download could actually live, not just index 0. A volume that fails to
+    // read (unmounted, StatFs error) is simply omitted rather than the whole list failing.
+    fun getAllStorageStats(): List<DeviceStorageStats>
 }

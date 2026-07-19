@@ -29,7 +29,11 @@ data class DownloadsState(
     val selectedPvrQueueIds: Set<Pair<PvrSource, Int>> = emptySet(),
     val manualImport: ManualImportSheetState? = null,
     val diskSpace: PvrDiskSpaceResult = PvrDiskSpaceResult(),
-    val deviceStorage: DeviceStorageStats? = null,
+    // Every mounted app-storage volume (internal, plus external/removable if present) - see
+    // Downloader.getAllStorageStats(). Not just one: a device with an SD card configured as the
+    // download location needs its usage shown there, not folded into (or worse, mistaken for)
+    // internal storage.
+    val deviceStorages: List<DeviceStorageStats> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = movies.isEmpty() && showGroups.isEmpty()

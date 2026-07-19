@@ -128,8 +128,8 @@ constructor(
             _state.update { it.copy(diskSpace = diskSpace) }
         }
         viewModelScope.launch {
-            val deviceStorage = withContext(Dispatchers.IO) { downloader.getStorageStats() }
-            _state.update { it.copy(deviceStorage = deviceStorage) }
+            val deviceStorages = withContext(Dispatchers.IO) { downloader.getAllStorageStats() }
+            _state.update { it.copy(deviceStorages = deviceStorages) }
         }
     }
 

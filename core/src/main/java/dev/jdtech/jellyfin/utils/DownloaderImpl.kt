@@ -491,23 +491,26 @@ class DownloaderImpl(
         }
     }
 
-    override fun getStorageStats(storageIndex: Int): DeviceStorageStats? {
+    override fun getAllStorageStats(): List<DeviceStorageStats> {
         // No Environment.getExternalStorageState() gate here, unlike downloadItem()'s pre-write
         // check above - that API is meant for the classic public external storage root, and is
         // unreliable for an app-specific getExternalFilesDirs() subdirectory (spuriously reports
         // not-mounted here on some devices). ItemButtonsBar's storage-picker calls StatFs the same
         // direct way for the same reason.
-        return try {
-            val storageLocation =
-                context.getExternalFilesDirs(null).getOrNull(storageIndex) ?: return null
-            val stats = StatFs(storageLocation.path)
-            DeviceStorageStats(
-                totalBytes = stats.blockCountLong * stats.blockSizeLong,
-                availableBytes = stats.availableBlocksLong * stats.blockSizeLong,
-            )
-        } catch (e: Exception) {
-            Timber.w(e, "Failed to read device storage stats")
-            null
+        return context.getExternalFilesDirs(null).mapNotNull { storageLocation ->
+            if (storageLocation == null) return@mapNotNull null
+            try {
+                val stats = StatFs(storageLocation.path)
+                DeviceStorageStats(
+                    path = storageLocation.path,
+                    totalBytes = stats.blockCountLong * stats.blockSizeLong,
+                    availableBytes = stats.availableBlocksLong * stats.blockSizeLong,
+                    isRemovable = Environment.isExternalStorageRemovable(storageLocation),
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to read device storage stats for %s", storageLocation.path)
+                null
+            }
         }
     }
 

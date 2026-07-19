@@ -84,6 +84,7 @@ import dev.jdtech.jellyfin.film.presentation.downloads.PvrQueueGroup
 import dev.jdtech.jellyfin.film.presentation.downloads.DownloadsEvent
 import dev.jdtech.jellyfin.film.presentation.downloads.PvrQueueUiItem
 import dev.jdtech.jellyfin.models.FindroidItem
+import dev.jdtech.jellyfin.models.FindroidSource
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.PvrServiceDiskSpace
 import dev.jdtech.jellyfin.models.PvrSource
@@ -353,12 +354,13 @@ private fun DownloadsScreenLayout(
             (state.movies.map { it.id } + state.showGroups.flatMap { it.episodes }.map { it.id })
                 .toSet()
         }
-    val totalLocalSizeBytes =
+    val localSources =
         remember(state.movies, state.showGroups) {
-            (state.movies + state.showGroups.flatMap { it.episodes }).sumOf {
-                it.sources.firstOrNull { s -> s.type == FindroidSourceType.LOCAL }?.size ?: 0L
+            (state.movies + state.showGroups.flatMap { it.episodes }).mapNotNull {
+                it.sources.firstOrNull { s -> s.type == FindroidSourceType.LOCAL }
             }
         }
+    val totalLocalSizeBytes = remember(localSources) { localSources.sumOf { it.size } }
     val allSelected = allIds.isNotEmpty() && state.selectedIds.containsAll(allIds)
     val selectionMode = state.selectedIds.isNotEmpty()
     val pvrQueueKeys =
@@ -468,11 +470,11 @@ private fun DownloadsScreenLayout(
             // and never receive taps, making its "Go to Home" button appear completely dead.
             PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                if (state.deviceStorage != null || state.diskSpace.storage != null) {
+                if (state.deviceStorages.isNotEmpty() || state.diskSpace.storage != null) {
                     item {
                         DownloadsStorageSummaryCard(
-                            localUsedBytes = totalLocalSizeBytes,
-                            deviceStorage = state.deviceStorage,
+                            localSources = localSources,
+                            deviceStorages = state.deviceStorages,
                             pvrStorage = state.diskSpace.storage,
                         )
                     }
@@ -714,8 +716,8 @@ private fun DownloadsEmptyState(onGoToHomeClick: () -> Unit, modifier: Modifier 
  */
 @Composable
 private fun DownloadsStorageSummaryCard(
-    localUsedBytes: Long,
-    deviceStorage: DeviceStorageStats?,
+    localSources: List<FindroidSource>,
+    deviceStorages: List<DeviceStorageStats>,
     pvrStorage: PvrServiceDiskSpace?,
     modifier: Modifier = Modifier,
 ) {
@@ -730,15 +732,31 @@ private fun DownloadsStorageSummaryCard(
             modifier = Modifier.padding(MaterialTheme.spacings.default),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
         ) {
-            deviceStorage?.let { device ->
-                // The bar reflects the *whole device's* used space (system + every other app),
+            deviceStorages.forEach { device ->
+                // Which local downloads actually live on *this* volume - a device where the
+                // configured download location is external/removable storage (an SD card) must
+                // not have its downloads' size shown against internal storage just because that
+                // happens to be index 0; matching by path against this volume's own root is what
+                // makes that attribution correct regardless of where downloads actually landed.
+                val localUsedBytes =
+                    remember(localSources, device.path) {
+                        localSources.filter { it.path.startsWith(device.path) }.sumOf { it.size }
+                    }
+                // The bar reflects the *whole volume's* used space (system + every other app),
                 // not just what this app downloaded - localUsedBytes is only highlighted as a
-                // sub-segment within that, so the bar answers "how full is my phone" rather than
-                // silently implying Findroid's downloads are the only thing using space.
+                // sub-segment within that, so the bar answers "how full is this storage" rather
+                // than silently implying Findroid's downloads are the only thing using space.
                 val deviceUsedBytes = (device.totalBytes - device.availableBytes).coerceAtLeast(0L)
                 StorageUsageBar(
                     iconRes = CoreR.drawable.ic_smartphone,
-                    label = stringResource(CoreR.string.storage_summary_on_device),
+                    label =
+                        if (deviceStorages.size > 1) {
+                            stringResource(
+                                if (device.isRemovable) CoreR.string.external else CoreR.string.internal
+                            )
+                        } else {
+                            stringResource(CoreR.string.storage_summary_on_device)
+                        },
                     usedBytes = deviceUsedBytes,
                     totalBytes = device.totalBytes,
                     highlightBytes = localUsedBytes.coerceAtMost(deviceUsedBytes),

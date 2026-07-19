@@ -47,5 +47,5 @@ class FakeDownloader : Downloader {
 
     override fun getDeleteProgressFlow(): Flow<DeleteProgress?> = error("not used")
 
-    override fun getStorageStats(storageIndex: Int): DeviceStorageStats? = error("not used")
+    override fun getAllStorageStats(): List<DeviceStorageStats> = error("not used")
 }
