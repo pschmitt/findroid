@@ -20,9 +20,15 @@ internal object PvrHttpClient {
 
     private val baseClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            // Sonarr/Radarr occasionally take a while to answer the queue/series endpoints
+            // during their own busy periods (a scheduled disk scan, an import in progress) -
+            // generous enough that a momentarily-slow-but-alive instance doesn't trip a timeout
+            // and get mistaken for actually being down. QueueStatusRepositoryImpl also tolerates a
+            // couple of consecutive failures before surfacing an error, so this isn't the only
+            // layer of resilience.
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
             .addInterceptor(LoggingInterceptor())
             .build()
     }

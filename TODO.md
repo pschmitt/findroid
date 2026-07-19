@@ -350,3 +350,18 @@ Status: **done** (2026-07-18).
       instead of using the dedicated `icon` parameter.
 
 Status: **done** (2026-07-18).
+
+## FINDROID-14: PVR unavailable banner was too trigger-happy
+
+- [x] The Downloads screen's "Sonarr/Radarr unavailable" banner appeared on a
+      single failed poll - no grace period, and the failed poll also silently
+      wiped whatever queue entries were already showing for that service.
+      Added: (1) a one-time retry with a short delay inside the same fetch
+      attempt, for a quick transient blip; (2) tolerance for a few consecutive
+      failed polls (reusing the last known-good queue meanwhile) before
+      actually surfacing the error - with the Downloads screen's 10s poll
+      cadence that's ~20-30s of grace beyond the retry. Also bumped Sonarr/
+      Radarr's HTTP read timeout (30s -> 45s) since a busy-but-alive instance
+      (mid disk-scan/import) can legitimately take a while to answer.
+
+Status: **done** (2026-07-19).

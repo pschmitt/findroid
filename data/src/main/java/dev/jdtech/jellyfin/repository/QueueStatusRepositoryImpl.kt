@@ -70,6 +70,17 @@ class QueueStatusRepositoryImpl(
     // be diffed against (nothing has "disappeared" before the first fetch).
     private var hasPolledOnce = false
 
+    // How many polls in a row have failed for each service, and what its queue looked like the
+    // last time a poll actually succeeded - see fetchSonarrSnapshot()/fetchRadarrSnapshot() for
+    // why: a single blip (Sonarr momentarily busy, a transient network hiccup) shouldn't flash an
+    // error banner and wipe the on-screen queue instantly. These are only ever touched by their
+    // own service's fetch function, and consecutive polls are serialized by refreshMutex, so
+    // there's no concurrent access to guard against.
+    private var sonarrConsecutiveFailures = 0
+    private var radarrConsecutiveFailures = 0
+    private var lastGoodSonarrEntries: List<PvrQueueEntry> = emptyList()
+    private var lastGoodRadarrEntries: List<PvrQueueEntry> = emptyList()
+
     override fun getQueueSnapshotFlow(): Flow<PvrQueueSnapshot> =
         _queueSnapshot.onStart { ensurePollingStarted() }
 
@@ -337,9 +348,9 @@ class QueueStatusRepositoryImpl(
         if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return PvrQueueSnapshot()
 
         return try {
-            val api = SonarrApi(baseUrl, apiKey)
-            val queue = api.getQueue()
-            val entries =
+            val entries = retryOnce {
+                val api = SonarrApi(baseUrl, apiKey)
+                val queue = api.getQueue()
                 if (queue.isEmpty()) {
                     emptyList()
                 } else {
@@ -347,12 +358,24 @@ class QueueStatusRepositoryImpl(
                     val (shows, episodesByShowId) = loadQueueReferencedShowsAndEpisodes(series, queue)
                     matchSonarr(series, queue, shows, episodesByShowId)
                 }
+            }
+            sonarrConsecutiveFailures = 0
+            lastGoodSonarrEntries = entries
             PvrQueueSnapshot(entries = entries, fetchedSources = setOf(PvrSource.SONARR))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Timber.w(e, "Failed to refresh Sonarr queue status")
-            PvrQueueSnapshot(errors = listOf(fetchError(PvrSource.SONARR, "Sonarr", e)))
+            sonarrConsecutiveFailures++
+            Timber.w(e, "Failed to refresh Sonarr queue status (%d in a row)", sonarrConsecutiveFailures)
+            // A blip that's still within tolerance keeps showing the last known-good queue
+            // instead of flashing an error banner and wiping the list after a single failed poll
+            // - fetchedSources stays empty so notifyFinishedDownloads doesn't diff against this
+            // reused data and misfire a "finished" notification.
+            if (sonarrConsecutiveFailures < FAILURE_THRESHOLD) {
+                PvrQueueSnapshot(entries = lastGoodSonarrEntries)
+            } else {
+                PvrQueueSnapshot(errors = listOf(fetchError(PvrSource.SONARR, "Sonarr", e)))
+            }
         }
     }
 
@@ -363,20 +386,46 @@ class QueueStatusRepositoryImpl(
         if (baseUrl.isNullOrBlank() || apiKey.isNullOrBlank()) return PvrQueueSnapshot()
 
         return try {
-            val api = RadarrApi(baseUrl, apiKey)
-            val queue = api.getQueue()
-            val entries =
+            val entries = retryOnce {
+                val api = RadarrApi(baseUrl, apiKey)
+                val queue = api.getQueue()
                 if (queue.isEmpty()) {
                     emptyList()
                 } else {
                     matchRadarr(api.getMovie(), queue, loadJellyfinMovies())
                 }
+            }
+            radarrConsecutiveFailures = 0
+            lastGoodRadarrEntries = entries
             PvrQueueSnapshot(entries = entries, fetchedSources = setOf(PvrSource.RADARR))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Timber.w(e, "Failed to refresh Radarr queue status")
-            PvrQueueSnapshot(errors = listOf(fetchError(PvrSource.RADARR, "Radarr", e)))
+            radarrConsecutiveFailures++
+            Timber.w(e, "Failed to refresh Radarr queue status (%d in a row)", radarrConsecutiveFailures)
+            if (radarrConsecutiveFailures < FAILURE_THRESHOLD) {
+                PvrQueueSnapshot(entries = lastGoodRadarrEntries)
+            } else {
+                PvrQueueSnapshot(errors = listOf(fetchError(PvrSource.RADARR, "Radarr", e)))
+            }
+        }
+    }
+
+    /**
+     * Retries [block] once after a short delay on any failure - absorbs a brief network hiccup
+     * within the same poll instead of waiting out a whole extra poll cycle (which, combined with
+     * the consecutive-failure tolerance above, is what actually keeps the error banner from
+     * appearing too eagerly).
+     */
+    private suspend fun <T> retryOnce(block: suspend () -> T): T {
+        return try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "PVR fetch failed, retrying once")
+            delay(RETRY_DELAY_MS)
+            block()
         }
     }
 
@@ -450,6 +499,13 @@ class QueueStatusRepositoryImpl(
         // Sonarr/Radarr - the WorkManager backstop has its own, coarser floor (see
         // QueueStatusScheduler), since WorkManager itself enforces a 15-minute minimum.
         const val MIN_POLL_INTERVAL_MINUTES = 1
+
+        // How many polls in a row must fail before a service is actually reported as unavailable
+        // - see fetchSonarrSnapshot()/fetchRadarrSnapshot(). With the Downloads screen's 10s
+        // foreground poll cadence, that's ~20-30s of tolerance on top of retryOnce()'s own delay
+        // before the error banner appears.
+        const val FAILURE_THRESHOLD = 3
+        const val RETRY_DELAY_MS = 2_000L
 
         val ACTIVE_STATUSES =
             setOf(QueueItemStatus.QUEUED, QueueItemStatus.DOWNLOADING, QueueItemStatus.IMPORTING)
