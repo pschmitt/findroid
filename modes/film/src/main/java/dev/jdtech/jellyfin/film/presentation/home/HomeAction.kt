@@ -21,4 +21,7 @@ sealed interface HomeAction {
     data object OnSettingsClick : HomeAction
 
     data object OnManageServers : HomeAction
+
+    /** Long-press drag reorder of a Home section, straight from the Home screen itself. */
+    data class OnReorderSections(val fromIndex: Int, val toIndex: Int) : HomeAction
 }

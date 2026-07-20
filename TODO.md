@@ -632,6 +632,21 @@ Status: **done** (2026-07-20).
       TV's two `SettingsScreen`/`SettingsSubScreen` event handlers just
       no-op the new `NavigateToHomeLayout` event, same treatment already
       given to phone-only Integrations settings.
+- [x] Follow-up: added long-press-drag reordering directly on Home itself
+      (not just the settings screen), using `sh.calvin.reorderable:reorderable`
+      (added to `app/phone` only). Each section gets a small floating grip
+      handle (new `ic_grip_vertical` icon, converted from Lucide) in the
+      left gutter rather than making the whole row a drag target - the
+      Suggestions row is itself a swipeable `HorizontalPager`, so a
+      long-press-anywhere modifier on the whole item would fight that
+      nested gesture; a dedicated handle sidesteps it and matches how the
+      library's own demos are built (handle icon, not whole-row-draggable).
+      `HomeAction.OnReorderSections(fromIndex, toIndex)` mutates
+      `HomeState.sectionOrder` and persists to the same `homeSectionOrder`
+      preference the settings screen writes, so either surface stays in
+      sync with the other. The settings screen's up/down buttons stay as
+      the accessible alternative - drag gestures don't work well with
+      TalkBack.
 
 Status: **done** (2026-07-20).
 

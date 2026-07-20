@@ -152,6 +152,7 @@ dependencies {
     implementation(libs.jellyfin.core)
     ksp(libs.kotlin.metadata.jvm)
     compileOnly(libs.libmpv)
+    implementation(libs.reorderable)
     implementation(libs.material)
     implementation(libs.media3.ffmpeg.decoder)
     implementation(libs.timber)

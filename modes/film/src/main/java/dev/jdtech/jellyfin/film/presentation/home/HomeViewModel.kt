@@ -21,6 +21,7 @@ import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.Downloader
 import dev.jdtech.jellyfin.utils.HomeSectionKeys
 import dev.jdtech.jellyfin.utils.homeSectionOrderFromString
+import dev.jdtech.jellyfin.utils.homeSectionOrderToString
 import dev.jdtech.jellyfin.utils.resolveHomeSectionOrder
 import dev.jdtech.jellyfin.utils.toView
 import java.util.UUID
@@ -292,7 +293,28 @@ constructor(
             is HomeAction.OnEnableOfflineMode -> {
                 appPreferences.setValue(appPreferences.offlineMode, true)
             }
+            is HomeAction.OnReorderSections -> {
+                reorderSections(action.fromIndex, action.toIndex)
+            }
             else -> Unit
         }
+    }
+
+    /**
+     * Applies a long-press drag move made directly on the Home screen: mutates the already-
+     * resolved [HomeState.sectionOrder] in place and persists it immediately, same as a move made
+     * from the "Customize home screen" settings screen - both write the same preference, so
+     * either surface stays in sync with the other.
+     */
+    private fun reorderSections(fromIndex: Int, toIndex: Int) {
+        val order = _state.value.sectionOrder
+        if (fromIndex !in order.indices || toIndex !in order.indices) return
+
+        val reordered = order.toMutableList()
+        val key = reordered.removeAt(fromIndex)
+        reordered.add(toIndex, key)
+
+        _state.value = _state.value.copy(sectionOrder = reordered)
+        appPreferences.setValue(appPreferences.homeSectionOrder, homeSectionOrderToString(reordered))
     }
 }

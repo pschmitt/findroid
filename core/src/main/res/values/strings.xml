@@ -270,6 +270,7 @@
     <string name="new_badge">NEW</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
+    <string name="reorder_section">Reorder section</string>
     <string name="download_scope_title">Download</string>
     <string name="download_scope_episode">This episode</string>
     <string name="download_scope_season">This season</string>
