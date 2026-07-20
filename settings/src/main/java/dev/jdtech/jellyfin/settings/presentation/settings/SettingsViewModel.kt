@@ -236,6 +236,21 @@ constructor(
                                                     backendPreference =
                                                         appPreferences.homeDiscover,
                                                 ),
+                                                PreferenceCategory(
+                                                    nameStringResource =
+                                                        R.string.settings_category_home_layout,
+                                                    descriptionStringRes =
+                                                        R.string.settings_home_layout_summary,
+                                                    iconDrawableId = R.drawable.ic_arrow_down_up,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    onClick = {
+                                                        viewModelScope.launch {
+                                                            eventsChannel.send(
+                                                                SettingsEvent.NavigateToHomeLayout
+                                                            )
+                                                        }
+                                                    },
+                                                ),
                                             ),
                                     ),
                                 ),

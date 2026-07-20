@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyHomeSection
@@ -62,6 +63,7 @@ import dev.jdtech.jellyfin.presentation.film.components.ServerSelectionBottomShe
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
+import dev.jdtech.jellyfin.utils.HomeSectionKeys
 import kotlinx.coroutines.launch
 
 @Composable
@@ -80,6 +82,13 @@ fun HomeScreen(
     val searchState by searchViewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(true) { viewModel.loadData() }
+
+    // Picks up a reorder made from the "Customize home screen" settings screen as soon as Home
+    // resumes - cheap (no network), unlike loadData() above which only runs once on first entry.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshSectionOrder()
+        onPauseOrDispose {}
+    }
 
     HomeScreenLayout(
         state = state,
@@ -140,57 +149,64 @@ private fun HomeScreenLayout(
                 contentPadding = PaddingValues(top = contentPaddingTop, bottom = paddingBottom),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium),
             ) {
-                state.suggestionsSection?.let { section ->
-                    item(key = section.id) {
-                        HomeCarousel(
-                            items = section.items,
-                            itemsPadding = itemsPadding,
-                            onAction = onAction,
-                        )
-                    }
-                }
-                state.resumeSection?.let { section ->
-                    item(key = section.id) {
-                        HomeSection(
-                            section = section.homeSection,
-                            itemsPadding = itemsPadding,
-                            onAction = onAction,
-                            modifier = Modifier.animateItem(),
-                        )
-                    }
-                }
-                state.nextUpSection?.let { section ->
-                    item(key = section.id) {
-                        HomeSection(
-                            section = section.homeSection,
-                            itemsPadding = itemsPadding,
-                            onAction = onAction,
-                            modifier = Modifier.animateItem(),
-                        )
-                    }
-                }
-                items(state.views, key = { it.id }) { view ->
-                    HomeView(
-                        view = view,
-                        itemsPadding = itemsPadding,
-                        onAction = onAction,
-                        modifier = Modifier.animateItem(),
-                    )
-                }
-                items(state.discoverSections, key = { it.titleRes }) { section ->
-                    HomeDiscoverSection(
-                        section = section,
-                        itemsPadding = itemsPadding,
-                        onAction = onAction,
-                        modifier = Modifier.animateItem(),
-                    )
-                }
-                if (state.activeDownloads.isNotEmpty()) {
-                    item(key = "active-pvr-downloads") {
-                        HomeDownloadProgress(
-                            entries = state.activeDownloads,
-                            modifier = Modifier.padding(itemsPadding),
-                        )
+                items(state.sectionOrder, key = { it }) { key ->
+                    when {
+                        key == HomeSectionKeys.SUGGESTIONS ->
+                            state.suggestionsSection?.let { section ->
+                                HomeCarousel(
+                                    items = section.items,
+                                    itemsPadding = itemsPadding,
+                                    onAction = onAction,
+                                )
+                            }
+                        key == HomeSectionKeys.CONTINUE_WATCHING ->
+                            state.resumeSection?.let { section ->
+                                HomeSection(
+                                    section = section.homeSection,
+                                    itemsPadding = itemsPadding,
+                                    onAction = onAction,
+                                    modifier = Modifier.animateItem(),
+                                )
+                            }
+                        key == HomeSectionKeys.NEXT_UP ->
+                            state.nextUpSection?.let { section ->
+                                HomeSection(
+                                    section = section.homeSection,
+                                    itemsPadding = itemsPadding,
+                                    onAction = onAction,
+                                    modifier = Modifier.animateItem(),
+                                )
+                            }
+                        key == HomeSectionKeys.ACTIVE_DOWNLOADS -> {
+                            if (state.activeDownloads.isNotEmpty()) {
+                                HomeDownloadProgress(
+                                    entries = state.activeDownloads,
+                                    modifier = Modifier.padding(itemsPadding),
+                                )
+                            }
+                        }
+                        key.startsWith("view:") ->
+                            state.views
+                                .firstOrNull { HomeSectionKeys.view(it.view.id) == key }
+                                ?.let { view ->
+                                    HomeView(
+                                        view = view,
+                                        itemsPadding = itemsPadding,
+                                        onAction = onAction,
+                                        modifier = Modifier.animateItem(),
+                                    )
+                                }
+                        key.startsWith("discover:") ->
+                            state.discoverSections
+                                .firstOrNull { HomeSectionKeys.discover(it.titleRes) == key }
+                                ?.let { section ->
+                                    HomeDiscoverSection(
+                                        section = section,
+                                        itemsPadding = itemsPadding,
+                                        onAction = onAction,
+                                        modifier = Modifier.animateItem(),
+                                    )
+                                }
                     }
                 }
             }

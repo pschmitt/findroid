@@ -19,6 +19,9 @@ import dev.jdtech.jellyfin.repository.SeerrRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.Downloader
+import dev.jdtech.jellyfin.utils.HomeSectionKeys
+import dev.jdtech.jellyfin.utils.homeSectionOrderFromString
+import dev.jdtech.jellyfin.utils.resolveHomeSectionOrder
 import dev.jdtech.jellyfin.utils.toView
 import java.util.UUID
 import javax.inject.Inject
@@ -84,6 +87,7 @@ constructor(
                 loadNextUpItems()
                 loadViews()
                 loadDiscover()
+                recomputeSectionOrder()
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
             }
@@ -92,6 +96,30 @@ constructor(
     }
 
     fun refresh() = loadData()
+
+    /**
+     * Cheap, network-free re-read of the persisted section order (see
+     * `core/.../utils/HomeSectionOrder.kt`) against whatever's already loaded - called when Home
+     * resumes so a reorder made from the "Customize home screen" settings screen takes effect
+     * immediately on returning, without a full [loadData] round trip.
+     */
+    fun refreshSectionOrder() {
+        recomputeSectionOrder()
+    }
+
+    private fun recomputeSectionOrder() {
+        val current = _state.value
+        val natural = buildList {
+            if (current.suggestionsSection != null) add(HomeSectionKeys.SUGGESTIONS)
+            if (current.resumeSection != null) add(HomeSectionKeys.CONTINUE_WATCHING)
+            if (current.nextUpSection != null) add(HomeSectionKeys.NEXT_UP)
+            addAll(current.views.map { HomeSectionKeys.view(it.view.id) })
+            addAll(current.discoverSections.map { HomeSectionKeys.discover(it.titleRes) })
+            add(HomeSectionKeys.ACTIVE_DOWNLOADS)
+        }
+        val persisted = homeSectionOrderFromString(appPreferences.getValue(appPreferences.homeSectionOrder))
+        _state.value = current.copy(sectionOrder = resolveHomeSectionOrder(natural, persisted))
+    }
 
     private suspend fun loadServerName(serverId: String) {
         val server = database.get(serverId)

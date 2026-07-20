@@ -20,6 +20,11 @@ data class HomeState(
     val views: List<HomeItem.ViewItem> = emptyList(),
     val discoverSections: List<HomeDiscoverSection> = emptyList(),
     val activeDownloads: List<PvrQueueEntry> = emptyList(),
+    // Fully resolved render order for the sections above - see `HomeSectionKeys`/
+    // `resolveHomeSectionOrder` (core/.../utils/HomeSectionOrder.kt). Recomputed whenever the
+    // underlying sections change and whenever Home resumes (to pick up a reorder made from the
+    // "Customize home screen" settings screen without a full data reload).
+    val sectionOrder: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val error: Exception? = null,
 )

@@ -1,0 +1,150 @@
+package dev.jdtech.jellyfin.presentation.settings.homelayout
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.film.presentation.homelayout.HomeLayoutRow
+import dev.jdtech.jellyfin.film.presentation.homelayout.HomeLayoutSettingsAction
+import dev.jdtech.jellyfin.film.presentation.homelayout.HomeLayoutSettingsState
+import dev.jdtech.jellyfin.film.presentation.homelayout.HomeLayoutSettingsViewModel
+import dev.jdtech.jellyfin.models.UiText
+import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
+import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.settings.R as SettingsR
+
+@Composable
+fun HomeLayoutSettingsScreen(
+    navigateBack: () -> Unit,
+    viewModel: HomeLayoutSettingsViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(true) { viewModel.load() }
+
+    HomeLayoutSettingsScreenLayout(
+        state = state,
+        onAction = viewModel::onAction,
+        navigateBack = navigateBack,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeLayoutSettingsScreenLayout(
+    state: HomeLayoutSettingsState,
+    onAction: (HomeLayoutSettingsAction) -> Unit,
+    navigateBack: () -> Unit,
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(text = stringResource(SettingsR.string.settings_category_home_layout))
+                },
+                navigationIcon = {
+                    IconButton(onClick = navigateBack) {
+                        Icon(
+                            painter = painterResource(CoreR.drawable.ic_arrow_left),
+                            contentDescription = null,
+                        )
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            items(state.rows, key = { it.key }) { row ->
+                val index = state.rows.indexOf(row)
+                HomeLayoutRowItem(
+                    row = row,
+                    canMoveUp = index > 0,
+                    canMoveDown = index < state.rows.lastIndex,
+                    onMoveUp = { onAction(HomeLayoutSettingsAction.OnMoveUp(index)) },
+                    onMoveDown = { onAction(HomeLayoutSettingsAction.OnMoveDown(index)) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeLayoutRowItem(
+    row: HomeLayoutRow,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = MaterialTheme.spacings.default, vertical = MaterialTheme.spacings.small),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(text = row.label.asString(), style = MaterialTheme.typography.bodyLarge)
+        Row {
+            IconButton(onClick = onMoveUp, enabled = canMoveUp) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_chevron_up),
+                    contentDescription = stringResource(CoreR.string.move_up),
+                )
+            }
+            IconButton(onClick = onMoveDown, enabled = canMoveDown) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_chevron_down),
+                    contentDescription = stringResource(CoreR.string.move_down),
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun HomeLayoutSettingsScreenLayoutPreview() {
+    FindroidTheme {
+        HomeLayoutSettingsScreenLayout(
+            state =
+                HomeLayoutSettingsState(
+                    rows =
+                        listOf(
+                            HomeLayoutRow("suggestions", UiText.DynamicString("Suggestions")),
+                            HomeLayoutRow(
+                                "continue_watching",
+                                UiText.DynamicString("Continue Watching"),
+                            ),
+                            HomeLayoutRow("next_up", UiText.DynamicString("Next Up")),
+                        )
+                ),
+            onAction = {},
+            navigateBack = {},
+        )
+    }
+}

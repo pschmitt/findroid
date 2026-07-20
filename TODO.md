@@ -598,6 +598,43 @@ Status: **done** (2026-07-19).
 
 Status: **done** (2026-07-20).
 
+## FINDROID-25: Reorder Home screen sections
+
+- [x] Every independently-rendered Home row - Suggestions, Continue Watching,
+      Next Up, each library's "Latest <library>" shelf, each Seerr Discover
+      row (Trending/Popular Movies/Popular Shows), and Pending downloads -
+      is now individually reorderable, not just movable as a fixed group.
+- [x] Added `HomeSectionKeys`/`resolveHomeSectionOrder()`
+      (`core/.../utils/HomeSectionOrder.kt`): each row gets a stable string
+      key (fixed for the singleton rows, `view:<libraryId>` /
+      `discover:<titleRes>` for the dynamic ones), and the merge function
+      keeps a persisted order's relative positions while appending any
+      brand-new key (a library added since, a section just enabled) at the
+      end instead of dropping it or jumping it to the front.
+- [x] `HomeState.sectionOrder` is the fully-resolved render order;
+      `HomeScreen`'s `LazyColumn` now iterates it and dispatches to the
+      matching composable per key, replacing the old fixed sequence of
+      `if/let` blocks.
+- [x] New "Customize home screen" settings screen
+      (`app/phone/.../settings/homelayout/`, backed by a
+      `HomeLayoutSettingsViewModel` in `modes/film` - it needs
+      `JellyfinRepository`/`PvrConfiguration`, which the `settings` module
+      itself can't depend on) lists every currently-enabled row with
+      up/down move buttons; each move persists immediately to a new
+      `homeSectionOrder` preference, no separate Save step.
+- [x] Reordering takes effect back on Home without a full reload: a
+      `LifecycleResumeEffect` calls a new, network-free
+      `HomeViewModel.refreshSectionOrder()` on resume, which just re-reads
+      the preference and re-merges against whatever's already loaded.
+- [x] TV shares `HomeState`/`SettingsEvent` with phone but doesn't get this
+      screen in this pass - the new `PreferenceCategory` entry is
+      phone-only (`supportedDeviceTypes = listOf(DeviceType.PHONE)`), and
+      TV's two `SettingsScreen`/`SettingsSubScreen` event handlers just
+      no-op the new `NavigateToHomeLayout` event, same treatment already
+      given to phone-only Integrations settings.
+
+Status: **done** (2026-07-20).
+
 ## FINDROID-24: "NEW" badge for recently-added library items
 
 - [x] The home page's "Latest <library>" sections show individual episodes

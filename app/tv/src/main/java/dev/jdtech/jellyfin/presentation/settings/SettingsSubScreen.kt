@@ -71,6 +71,8 @@ fun SettingsSubScreen(
             is SettingsEvent.NavigateToBackupSettings -> Unit
             // Integrations settings are phone-only for this pass - nothing for TV to react to.
             is SettingsEvent.NavigateToConnections -> Unit
+            // Home layout reordering is phone-only for this pass - nothing for TV to react to.
+            is SettingsEvent.NavigateToHomeLayout -> Unit
             is SettingsEvent.UpdateTheme -> Unit
             is SettingsEvent.LaunchIntent -> {
                 try {

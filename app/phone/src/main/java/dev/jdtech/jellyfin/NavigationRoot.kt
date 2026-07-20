@@ -60,6 +60,7 @@ import dev.jdtech.jellyfin.presentation.settings.AboutScreen
 import dev.jdtech.jellyfin.presentation.settings.SettingsFileEditScreen
 import dev.jdtech.jellyfin.presentation.settings.SettingsScreen
 import dev.jdtech.jellyfin.presentation.settings.backup.BackupSettingsScreen
+import dev.jdtech.jellyfin.presentation.settings.homelayout.HomeLayoutSettingsScreen
 import dev.jdtech.jellyfin.presentation.settings.integrations.IntegrationsSettingsScreen
 import dev.jdtech.jellyfin.presentation.setup.addresses.ServerAddressesScreen
 import dev.jdtech.jellyfin.presentation.setup.addserver.AddServerScreen
@@ -142,6 +143,8 @@ data class SeerrMediaRoute(
 @Serializable data object BackupSettingsRoute
 
 @Serializable data object ConnectionsRoute
+
+@Serializable data object HomeLayoutSettingsRoute
 
 @Serializable data object RestoreBackupRoute
 
@@ -748,8 +751,14 @@ fun NavigationRoot(
                     navigateToConnections = {
                         navController.safeNavigate(ConnectionsRoute)
                     },
+                    navigateToHomeLayout = {
+                        navController.safeNavigate(HomeLayoutSettingsRoute)
+                    },
                     navigateBack = { navController.safePopBackStack() },
                 )
+            }
+            composable<HomeLayoutSettingsRoute> {
+                HomeLayoutSettingsScreen(navigateBack = { navController.safePopBackStack() })
             }
             composable<BackupSettingsRoute> {
                 BackupSettingsScreen(
