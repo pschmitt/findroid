@@ -270,7 +270,9 @@
     <string name="new_badge">NEW</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
-    <string name="reorder_section">Reorder section</string>
+    <string name="home_layout_hide_section">Hide section</string>
+    <string name="home_layout_show_section">Show section</string>
+    <string name="home_layout_hidden_sections_title">Hidden sections</string>
     <string name="download_scope_title">Download</string>
     <string name="download_scope_episode">This episode</string>
     <string name="download_scope_season">This season</string>
@@ -288,6 +290,7 @@
     <string name="delete_selected_downloads_message">This will delete %1$d selected episode(s) from this device.</string>
     <string name="delete_show_downloads_message">This will delete %1$d downloaded episode(s) of %2$s from this device.</string>
     <string name="pvr_queue_section_title">Pending downloads</string>
+    <string name="pvr_queue_section_empty">No pending downloads</string>
     <string name="storage_summary_on_device">This Device</string>
     <string name="storage_summary_server">Server storage</string>
     <string name="storage_downloads_caption">%1$s used by downloads</string>

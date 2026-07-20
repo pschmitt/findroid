@@ -647,6 +647,31 @@ Status: **done** (2026-07-20).
       sync with the other. The settings screen's up/down buttons stay as
       the accessible alternative - drag gestures don't work well with
       TalkBack.
+- [x] Follow-up based on feedback: removed the persistent grip handle -
+      long-pressing a section's own title now starts the drag instead, via
+      a new `titleModifier` param threaded into `HomeCarousel`/`HomeSection`/
+      `HomeView`/`HomeDiscoverSection`/`HomeDownloadProgress`, applied to
+      just the title `Text` (not the whole row, so e.g. `HomeView`'s "view
+      all" arrow button stays independently clickable). Suggestions never
+      had a title before this - added one ("Suggestions") since long-press
+      needs somewhere non-scrolling to land, and it doubles as fixing the
+      "which section is this?" ambiguity when a row has no content.
+- [x] Fixed "Pending downloads" being completely invisible (no title, no
+      content, just an unlabeled drag target) whenever the PVR queue is
+      empty - `HomeDownloadProgress` now always renders its title, showing
+      a muted "No pending downloads" line in place of the queue cards when
+      there's nothing active, instead of the call site skipping the whole
+      composable.
+- [x] Sections can now be individually hidden and restored from "Customize
+      home screen", not just reordered: a new `homeHiddenSections`
+      preference (same comma-joined-keys format as `homeSectionOrder`)
+      holds the hidden set. Hiding a row just adds its key there - its
+      position in the order list is left untouched, so restoring drops it
+      right back where it was. `HomeViewModel.recomputeSectionOrder()`
+      filters hidden keys out before resolving Home's render order, so a
+      hidden section never appears there; the settings screen lists hidden
+      rows in their own "Hidden sections" group at the bottom with a
+      restore (+) button.
 
 Status: **done** (2026-07-20).
 

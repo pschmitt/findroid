@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -85,7 +86,38 @@ private fun HomeLayoutSettingsScreenLayout(
                     canMoveDown = index < state.rows.lastIndex,
                     onMoveUp = { onAction(HomeLayoutSettingsAction.OnMoveUp(index)) },
                     onMoveDown = { onAction(HomeLayoutSettingsAction.OnMoveDown(index)) },
+                    trailingIcon = CoreR.drawable.ic_eye_off,
+                    trailingIconDescription = stringResource(CoreR.string.home_layout_hide_section),
+                    onTrailingClick = { onAction(HomeLayoutSettingsAction.OnHide(row.key)) },
                 )
+            }
+            if (state.hiddenRows.isNotEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(CoreR.string.home_layout_hidden_sections_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier =
+                            Modifier.padding(
+                                horizontal = MaterialTheme.spacings.default,
+                                vertical = MaterialTheme.spacings.small,
+                            ),
+                    )
+                }
+                items(state.hiddenRows, key = { "hidden:${it.key}" }) { row ->
+                    HomeLayoutRowItem(
+                        row = row,
+                        canMoveUp = false,
+                        canMoveDown = false,
+                        onMoveUp = {},
+                        onMoveDown = {},
+                        showMoveButtons = false,
+                        trailingIcon = CoreR.drawable.ic_plus,
+                        trailingIconDescription = stringResource(CoreR.string.home_layout_show_section),
+                        onTrailingClick = { onAction(HomeLayoutSettingsAction.OnRestore(row.key)) },
+                        titleColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -98,7 +130,12 @@ private fun HomeLayoutRowItem(
     canMoveDown: Boolean,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
+    trailingIcon: Int,
+    trailingIconDescription: String,
+    onTrailingClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showMoveButtons: Boolean = true,
+    titleColor: Color = Color.Unspecified,
 ) {
     Row(
         modifier =
@@ -108,19 +145,24 @@ private fun HomeLayoutRowItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(text = row.label.asString(), style = MaterialTheme.typography.bodyLarge)
+        Text(text = row.label.asString(), style = MaterialTheme.typography.bodyLarge, color = titleColor)
         Row {
-            IconButton(onClick = onMoveUp, enabled = canMoveUp) {
-                Icon(
-                    painter = painterResource(CoreR.drawable.ic_chevron_up),
-                    contentDescription = stringResource(CoreR.string.move_up),
-                )
+            if (showMoveButtons) {
+                IconButton(onClick = onMoveUp, enabled = canMoveUp) {
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_chevron_up),
+                        contentDescription = stringResource(CoreR.string.move_up),
+                    )
+                }
+                IconButton(onClick = onMoveDown, enabled = canMoveDown) {
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_chevron_down),
+                        contentDescription = stringResource(CoreR.string.move_down),
+                    )
+                }
             }
-            IconButton(onClick = onMoveDown, enabled = canMoveDown) {
-                Icon(
-                    painter = painterResource(CoreR.drawable.ic_chevron_down),
-                    contentDescription = stringResource(CoreR.string.move_down),
-                )
+            IconButton(onClick = onTrailingClick) {
+                Icon(painter = painterResource(trailingIcon), contentDescription = trailingIconDescription)
             }
         }
     }

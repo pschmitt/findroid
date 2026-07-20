@@ -31,6 +31,13 @@ constructor(
     private val _state = MutableStateFlow(HomeLayoutSettingsState())
     val state = _state.asStateFlow()
 
+    /**
+     * Every known (key, label) pair regardless of hidden status - populated once by [load] (it's
+     * the only part of this screen that needs a repository round trip, for library names), then
+     * reused by [hide]/[restore] to recompute the visible/hidden split without refetching.
+     */
+    private var cachedLabels: LinkedHashMap<String, UiText> = LinkedHashMap()
+
     fun load() {
         viewModelScope.launch {
             _state.emit(_state.value.copy(isLoading = true))
@@ -82,13 +89,9 @@ constructor(
             labels[HomeSectionKeys.ACTIVE_DOWNLOADS] =
                 UiText.StringResource(CoreR.string.pvr_queue_section_title)
 
-            val natural = labels.keys.toList()
-            val persisted =
-                homeSectionOrderFromString(appPreferences.getValue(appPreferences.homeSectionOrder))
-            val order = resolveHomeSectionOrder(natural, persisted)
-            val rows = order.mapNotNull { key -> labels[key]?.let { HomeLayoutRow(key, it) } }
-
-            _state.emit(HomeLayoutSettingsState(rows = rows, isLoading = false))
+            cachedLabels = labels
+            recomputeRows()
+            _state.value = _state.value.copy(isLoading = false)
         }
     }
 
@@ -96,6 +99,8 @@ constructor(
         when (action) {
             is HomeLayoutSettingsAction.OnMoveUp -> move(action.index, action.index - 1)
             is HomeLayoutSettingsAction.OnMoveDown -> move(action.index, action.index + 1)
+            is HomeLayoutSettingsAction.OnHide -> hide(action.key)
+            is HomeLayoutSettingsAction.OnRestore -> restore(action.key)
         }
     }
 
@@ -112,5 +117,40 @@ constructor(
             appPreferences.homeSectionOrder,
             homeSectionOrderToString(reordered.map { it.key }),
         )
+    }
+
+    private fun hide(key: String) {
+        val hidden = currentHiddenKeys().toMutableList()
+        if (key !in hidden) hidden.add(key)
+        appPreferences.setValue(appPreferences.homeHiddenSections, homeSectionOrderToString(hidden))
+        recomputeRows()
+    }
+
+    private fun restore(key: String) {
+        val hidden = currentHiddenKeys().toMutableList()
+        hidden.remove(key)
+        appPreferences.setValue(appPreferences.homeHiddenSections, homeSectionOrderToString(hidden))
+        recomputeRows()
+    }
+
+    private fun currentHiddenKeys(): List<String> =
+        homeSectionOrderFromString(appPreferences.getValue(appPreferences.homeHiddenSections))
+
+    private fun recomputeRows() {
+        val hidden = currentHiddenKeys().toSet()
+        val natural = cachedLabels.keys.toList()
+
+        val visibleNatural = natural.filterNot { it in hidden }
+        val persisted =
+            homeSectionOrderFromString(appPreferences.getValue(appPreferences.homeSectionOrder))
+        val order = resolveHomeSectionOrder(visibleNatural, persisted)
+        val rows = order.mapNotNull { key -> cachedLabels[key]?.let { HomeLayoutRow(key, it) } }
+
+        val hiddenRows =
+            natural.filter { it in hidden }.mapNotNull { key ->
+                cachedLabels[key]?.let { HomeLayoutRow(key, it) }
+            }
+
+        _state.value = _state.value.copy(rows = rows, hiddenRows = hiddenRows)
     }
 }

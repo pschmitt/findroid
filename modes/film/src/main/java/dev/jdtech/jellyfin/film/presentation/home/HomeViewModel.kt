@@ -110,14 +110,19 @@ constructor(
 
     private fun recomputeSectionOrder() {
         val current = _state.value
-        val natural = buildList {
-            if (current.suggestionsSection != null) add(HomeSectionKeys.SUGGESTIONS)
-            if (current.resumeSection != null) add(HomeSectionKeys.CONTINUE_WATCHING)
-            if (current.nextUpSection != null) add(HomeSectionKeys.NEXT_UP)
-            addAll(current.views.map { HomeSectionKeys.view(it.view.id) })
-            addAll(current.discoverSections.map { HomeSectionKeys.discover(it.titleRes) })
-            add(HomeSectionKeys.ACTIVE_DOWNLOADS)
-        }
+        val hidden =
+            homeSectionOrderFromString(appPreferences.getValue(appPreferences.homeHiddenSections))
+                .toSet()
+        val natural =
+            buildList {
+                    if (current.suggestionsSection != null) add(HomeSectionKeys.SUGGESTIONS)
+                    if (current.resumeSection != null) add(HomeSectionKeys.CONTINUE_WATCHING)
+                    if (current.nextUpSection != null) add(HomeSectionKeys.NEXT_UP)
+                    addAll(current.views.map { HomeSectionKeys.view(it.view.id) })
+                    addAll(current.discoverSections.map { HomeSectionKeys.discover(it.titleRes) })
+                    add(HomeSectionKeys.ACTIVE_DOWNLOADS)
+                }
+                .filterNot { it in hidden }
         val persisted = homeSectionOrderFromString(appPreferences.getValue(appPreferences.homeSectionOrder))
         _state.value = current.copy(sectionOrder = resolveHomeSectionOrder(natural, persisted))
     }

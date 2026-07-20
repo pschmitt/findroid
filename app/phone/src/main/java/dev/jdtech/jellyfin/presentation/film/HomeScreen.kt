@@ -9,16 +9,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -34,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
@@ -167,91 +162,69 @@ private fun HomeScreenLayout(
             ) {
                 items(state.sectionOrder, key = { it }) { key ->
                     ReorderableItem(reorderableState, key = key) {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            when {
-                                key == HomeSectionKeys.SUGGESTIONS ->
-                                    state.suggestionsSection?.let { section ->
-                                        HomeCarousel(
-                                            items = section.items,
-                                            itemsPadding = itemsPadding,
-                                            onAction = onAction,
-                                        )
-                                    }
-                                key == HomeSectionKeys.CONTINUE_WATCHING ->
-                                    state.resumeSection?.let { section ->
-                                        HomeSection(
-                                            section = section.homeSection,
-                                            itemsPadding = itemsPadding,
-                                            onAction = onAction,
-                                        )
-                                    }
-                                key == HomeSectionKeys.NEXT_UP ->
-                                    state.nextUpSection?.let { section ->
-                                        HomeSection(
-                                            section = section.homeSection,
-                                            itemsPadding = itemsPadding,
-                                            onAction = onAction,
-                                        )
-                                    }
-                                key == HomeSectionKeys.ACTIVE_DOWNLOADS -> {
-                                    if (state.activeDownloads.isNotEmpty()) {
-                                        HomeDownloadProgress(
-                                            entries = state.activeDownloads,
-                                            modifier = Modifier.padding(itemsPadding),
-                                        )
-                                    }
-                                }
-                                key.startsWith("view:") ->
-                                    state.views
-                                        .firstOrNull { HomeSectionKeys.view(it.view.id) == key }
-                                        ?.let { view ->
-                                            HomeView(
-                                                view = view,
-                                                itemsPadding = itemsPadding,
-                                                onAction = onAction,
-                                            )
-                                        }
-                                key.startsWith("discover:") ->
-                                    state.discoverSections
-                                        .firstOrNull { HomeSectionKeys.discover(it.titleRes) == key }
-                                        ?.let { section ->
-                                            HomeDiscoverSection(
-                                                section = section,
-                                                itemsPadding = itemsPadding,
-                                                onAction = onAction,
-                                            )
-                                        }
-                            }
-
-                            // A small floating grip in the left gutter (outside where every
-                            // section's own content starts, at itemsPadding.start) rather than a
-                            // long-press applied to the whole row: sections like Suggestions are
-                            // themselves a swipeable pager, so wrapping the entire item in a
-                            // drag-anywhere modifier would fight that nested gesture. A dedicated
-                            // handle avoids the conflict and matches how this library's own demos
-                            // (drag handle icon, not whole-row) are built.
-                            Surface(
-                                modifier =
-                                    Modifier.align(Alignment.CenterStart)
-                                        .padding(start = MaterialTheme.spacings.small)
-                                        .size(32.dp)
-                                        .longPressDraggableHandle(),
-                                shape = CircleShape,
-                                color =
-                                    MaterialTheme.colorScheme.surfaceContainerHighest.copy(
-                                        alpha = 0.9f
-                                    ),
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        painter = painterResource(CoreR.drawable.ic_grip_vertical),
-                                        contentDescription =
-                                            stringResource(CoreR.string.reorder_section),
-                                        modifier = Modifier.size(18.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        // Long-press the section's own title to start dragging it, rather than a
+                        // persistent handle shown at all times - Suggestions is itself a swipeable
+                        // pager, so wrapping the whole item in a drag-anywhere modifier would fight
+                        // that nested gesture. Each section composable applies `titleModifier` to
+                        // just its title Text, leaving the rest of its content (posters, the
+                        // "view all" arrow, etc.) clickable/scrollable as normal.
+                        val titleModifier = Modifier.longPressDraggableHandle()
+                        when {
+                            key == HomeSectionKeys.SUGGESTIONS ->
+                                state.suggestionsSection?.let { section ->
+                                    HomeCarousel(
+                                        items = section.items,
+                                        itemsPadding = itemsPadding,
+                                        onAction = onAction,
+                                        titleModifier = titleModifier,
                                     )
                                 }
-                            }
+                            key == HomeSectionKeys.CONTINUE_WATCHING ->
+                                state.resumeSection?.let { section ->
+                                    HomeSection(
+                                        section = section.homeSection,
+                                        itemsPadding = itemsPadding,
+                                        onAction = onAction,
+                                        titleModifier = titleModifier,
+                                    )
+                                }
+                            key == HomeSectionKeys.NEXT_UP ->
+                                state.nextUpSection?.let { section ->
+                                    HomeSection(
+                                        section = section.homeSection,
+                                        itemsPadding = itemsPadding,
+                                        onAction = onAction,
+                                        titleModifier = titleModifier,
+                                    )
+                                }
+                            key == HomeSectionKeys.ACTIVE_DOWNLOADS ->
+                                HomeDownloadProgress(
+                                    entries = state.activeDownloads,
+                                    modifier = Modifier.padding(itemsPadding),
+                                    titleModifier = titleModifier,
+                                )
+                            key.startsWith("view:") ->
+                                state.views
+                                    .firstOrNull { HomeSectionKeys.view(it.view.id) == key }
+                                    ?.let { view ->
+                                        HomeView(
+                                            view = view,
+                                            itemsPadding = itemsPadding,
+                                            onAction = onAction,
+                                            titleModifier = titleModifier,
+                                        )
+                                    }
+                            key.startsWith("discover:") ->
+                                state.discoverSections
+                                    .firstOrNull { HomeSectionKeys.discover(it.titleRes) == key }
+                                    ?.let { section ->
+                                        HomeDiscoverSection(
+                                            section = section,
+                                            itemsPadding = itemsPadding,
+                                            onAction = onAction,
+                                            titleModifier = titleModifier,
+                                        )
+                                    }
                         }
                     }
                 }
@@ -331,7 +304,11 @@ private fun HomeScreenLayout(
 }
 
 @Composable
-private fun HomeDownloadProgress(entries: List<PvrQueueEntry>, modifier: Modifier = Modifier) {
+private fun HomeDownloadProgress(
+    entries: List<PvrQueueEntry>,
+    modifier: Modifier = Modifier,
+    titleModifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
@@ -339,9 +316,18 @@ private fun HomeDownloadProgress(entries: List<PvrQueueEntry>, modifier: Modifie
         Text(
             text = stringResource(CoreR.string.pvr_queue_section_title),
             style = MaterialTheme.typography.titleSmall,
+            modifier = titleModifier,
         )
-        entries.take(2).forEach { entry ->
-            PvrQueueDownloadCard(status = entry.status, title = entry.title)
+        if (entries.isEmpty()) {
+            Text(
+                text = stringResource(CoreR.string.pvr_queue_section_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            entries.take(2).forEach { entry ->
+                PvrQueueDownloadCard(status = entry.status, title = entry.title)
+            }
         }
     }
 }

@@ -6,5 +6,6 @@ data class HomeLayoutRow(val key: String, val label: UiText)
 
 data class HomeLayoutSettingsState(
     val rows: List<HomeLayoutRow> = emptyList(),
+    val hiddenRows: List<HomeLayoutRow> = emptyList(),
     val isLoading: Boolean = false,
 )

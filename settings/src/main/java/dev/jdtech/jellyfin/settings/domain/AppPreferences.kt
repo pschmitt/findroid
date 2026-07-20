@@ -22,6 +22,7 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val homeLatest = Preference<Boolean>("home_latest", true)
     val homeDiscover = Preference<Boolean>("home_discover", true)
     val homeSectionOrder = Preference<String?>("pref_home_section_order", null)
+    val homeHiddenSections = Preference<String?>("pref_home_hidden_sections", null)
     val dateFormat = Preference("pref_date_format", "system")
 
     // Player

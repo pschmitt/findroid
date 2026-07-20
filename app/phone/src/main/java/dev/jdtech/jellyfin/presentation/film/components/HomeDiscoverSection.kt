@@ -45,12 +45,13 @@ fun HomeDiscoverSection(
     itemsPadding: PaddingValues,
     onAction: (HomeAction) -> Unit,
     modifier: Modifier = Modifier,
+    titleModifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
         Box(modifier = Modifier.fillMaxWidth().height(42.dp).padding(itemsPadding)) {
             Text(
                 text = stringResource(section.titleRes),
-                modifier = Modifier.align(Alignment.CenterStart),
+                modifier = Modifier.align(Alignment.CenterStart).then(titleModifier),
                 style = MaterialTheme.typography.titleMedium,
             )
         }
