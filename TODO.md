@@ -785,7 +785,7 @@ Status: **done** (2026-07-20).
 
 ## FINDROID-28: Battery saver downloads, calendar caching/TZ bugs, settings grouping
 
-- [ ] Pause all active downloads when Android's battery saver turns on, resume
+- [x] Pause all active downloads when Android's battery saver turns on, resume
       them when it turns off. Implemented: `Downloader.pauseAllForBatterySaver()`/
       `resumeBatterySaverPausedDownloads()` (`core/.../utils/DownloaderImpl.kt`) -
       cancels/re-enqueues WorkManager unique work per source, tracked via a new
@@ -798,9 +798,12 @@ Status: **done** (2026-07-20).
       Gated behind a new "Pause on battery saver" toggle in Settings > Downloads
       (`pauseDownloadsOnBatterySaver`, default on). Phone only (TV has no
       downloads feature/WorkManager `Configuration.Provider` at all).
-      Verified: remote compile succeeded on rofl-13
-      (`:app:phone:compileLibreDebugKotlin`); release build + install on both
-      devices still pending as of this writing.
+      Verified: `BatterySaverReceiver` confirmed registered for
+      `android.os.action.POWER_SAVE_MODE_CHANGED` via `dumpsys package`, and
+      toggling battery saver on/off on-device (`dumpsys battery unplug` +
+      `settings put global low_power 1/0`) caused no crash. CI-signed release
+      build installed on both test devices (ASUS phone + Mi Pad 4), app
+      launches cleanly.
 - [x] Calendar view: re-fetches from scratch every time the screen opens -
       cache the result so reopening the tab doesn't always re-hit the
       Sonarr/Radarr/Jellyfin APIs. Implemented: new `CalendarCache`
@@ -915,7 +918,7 @@ Status: **done** (2026-07-20).
       is phone-only. Verified: remote `:app:phone:compileLibreDebugKotlin`,
       `:app:tv:compileLibreDebugKotlin` and `ktfmtCheck` on rofl-13.
 
-Status: calendar caching/airtime, settings-grouping/header-icon, and
-connections-redesign items all done (2026-07-21); battery saver downloads
-item's release build + install verification still pending as of this
-writing.
+Status: **done** (2026-07-21). All five items shipped: battery saver
+downloads, calendar caching/airtime fixes, settings grouping/header icons,
+and the Connections add-server/user redesign. CI-signed release build
+verified and installed on both test devices.
