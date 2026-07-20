@@ -782,3 +782,39 @@ Status: **done** (2026-07-20).
       without losing the pull gesture itself.
 
 Status: **done** (2026-07-20).
+
+## FINDROID-28: Battery saver downloads, calendar caching/TZ bugs, settings grouping
+
+- [ ] Pause all active downloads when Android's battery saver turns on, resume
+      them when it turns off. Implemented: `Downloader.pauseAllForBatterySaver()`/
+      `resumeBatterySaverPausedDownloads()` (`core/.../utils/DownloaderImpl.kt`) -
+      cancels/re-enqueues WorkManager unique work per source, tracked via a new
+      `sources.pausedByBatterySaver` column (Room DB bumped to v14) so only
+      downloads *this* feature paused get auto-resumed, not ones the user paused
+      manually. New `BatterySaverReceiver` (manifest-registered,
+      `android.os.action.POWER_SAVE_MODE_CHANGED`) plus a `BaseApplication`
+      startup check (the broadcast only fires on state *change*, so battery
+      saver already being on when the app launches needs an explicit check).
+      Gated behind a new "Pause on battery saver" toggle in Settings > Downloads
+      (`pauseDownloadsOnBatterySaver`, default on). Phone only (TV has no
+      downloads feature/WorkManager `Configuration.Provider` at all).
+      Verified: remote compile succeeded on rofl-13
+      (`:app:phone:compileLibreDebugKotlin`); release build + install on both
+      devices still pending as of this writing.
+- [ ] Calendar view: re-fetches from scratch every time the screen opens -
+      cache the result so reopening the tab doesn't always re-hit the
+      Sonarr/Radarr/Jellyfin APIs.
+- [ ] Calendar/episode airtime bugs reported by the user (currently airing
+      season): (1) a TBA episode only shows the date, not the exact airtime;
+      (2) opening a not-yet-released episode shows an airtime one day earlier
+      than the Calendar list did. Suspected timezone handling bug (e.g. a
+      date-only value parsed as UTC-midnight then rendered in local time,
+      landing on the previous local day) - needs investigation.
+- [ ] Settings > Downloads: the preference list is a long flat list - group
+      related settings (e.g. the auto-delete-watched toggle + its hours
+      input) under (sub)headings for readability.
+- [ ] Individual settings sub-screens (Downloads, Player, etc.) don't show an
+      icon in their header, unlike their entry row on the main Settings list -
+      add the same icon to each sub-screen's header for consistency.
+
+Status: not started - queued up next, in the order above.

@@ -89,6 +89,8 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val autoDownloadCheckIntervalMinutes =
         Preference("pref_downloads_auto_check_interval_minutes", 2 * 60)
     val maxParallelDownloads = Preference("pref_downloads_max_parallel", 2)
+    val pauseDownloadsOnBatterySaver =
+        Preference("pref_downloads_pause_on_battery_saver", true)
 
     // Backup
     val autoBackupEnabled = Preference("pref_backup_auto_enabled", false)

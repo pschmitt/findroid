@@ -52,6 +52,7 @@ import kotlin.Exception
 import kotlin.math.ceil
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
@@ -203,6 +204,27 @@ class DownloaderImpl(
     override suspend fun pauseDownload(downloadId: Long) {
         val sourceDto = database.getSourceByDownloadId(downloadId) ?: return
         workManager.cancelUniqueWork(sourceDto.id)
+    }
+
+    override suspend fun pauseAllForBatterySaver() {
+        for (sourceDto in database.getAllSources()) {
+            if (sourceDto.downloadId == null) continue
+            val workInfo =
+                workManager.getWorkInfosForUniqueWorkFlow(sourceDto.id).first().firstOrNull()
+            if (workInfo != null && !workInfo.state.isFinished) {
+                workManager.cancelUniqueWork(sourceDto.id)
+                database.setSourcePausedByBatterySaver(sourceDto.id, true)
+            }
+        }
+    }
+
+    override suspend fun resumeBatterySaverPausedDownloads() {
+        for (sourceDto in database.getAllSources()) {
+            val downloadId = sourceDto.downloadId
+            if (!sourceDto.pausedByBatterySaver || downloadId == null) continue
+            database.setSourcePausedByBatterySaver(sourceDto.id, false)
+            resumeDownload(downloadId)
+        }
     }
 
     override suspend fun forceDownload(downloadId: Long) {

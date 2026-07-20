@@ -25,6 +25,16 @@ interface Downloader {
 
     suspend fun resumeDownload(downloadId: Long): UiText?
 
+    // Cancels every download that's currently ENQUEUED/RUNNING (same mechanism as
+    // pauseDownload), and flags each one as paused-by-battery-saver so
+    // resumeBatterySaverPausedDownloads() resumes exactly those and not ones the user paused
+    // manually. Used by BatterySaverReceiver when Android's power-save mode turns on.
+    suspend fun pauseAllForBatterySaver()
+
+    // Resumes every download previously paused by pauseAllForBatterySaver(), clearing the flag
+    // as each one is re-enqueued. Used by BatterySaverReceiver when power-save mode turns off.
+    suspend fun resumeBatterySaverPausedDownloads()
+
     // Jumps a queued download to the front of the line, pausing one other running download to
     // make room for it. No-op if downloadId isn't currently queued (e.g. it already started).
     suspend fun forceDownload(downloadId: Long)

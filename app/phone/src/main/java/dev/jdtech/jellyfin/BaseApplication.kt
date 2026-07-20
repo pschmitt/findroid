@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin
 
 import android.app.Application
 import android.os.Build
+import android.os.PowerManager
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
@@ -30,6 +31,7 @@ import dev.jdtech.jellyfin.api.pvr.PvrAdvancedSettings
 import dev.jdtech.jellyfin.api.pvr.PvrCredentialKeys
 import dev.jdtech.jellyfin.api.pvr.PvrService
 import dev.jdtech.jellyfin.security.SecureCredentialStore
+import dev.jdtech.jellyfin.utils.Downloader
 import dev.jdtech.jellyfin.work.AutoBackupScheduler
 import dev.jdtech.jellyfin.work.AutoDeleteWatchedWorker
 import dev.jdtech.jellyfin.work.AutoDownloadWorker
@@ -39,6 +41,9 @@ import dev.jdtech.jellyfin.work.SyncWorker
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.time.ExperimentalTime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 import timber.log.Timber
 
@@ -49,6 +54,8 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
     @Inject lateinit var secureCredentialStore: SecureCredentialStore
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject lateinit var downloader: Downloader
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
@@ -110,6 +117,16 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
         scheduleAutoDeleteWatched(workManager)
         AutoBackupScheduler.schedule(applicationContext, appPreferences)
         QueueStatusScheduler.schedule(applicationContext, appPreferences)
+        pauseDownloadsIfBatterySaverAlreadyOn()
+    }
+
+    // BatterySaverReceiver only reacts to the moment power-save mode changes - if it was already
+    // on before the app process started, no broadcast fires to tell us, so check once at startup.
+    private fun pauseDownloadsIfBatterySaverAlreadyOn() {
+        if (!appPreferences.getValue(appPreferences.pauseDownloadsOnBatterySaver)) return
+        val powerManager = getSystemService(PowerManager::class.java) ?: return
+        if (!powerManager.isPowerSaveMode) return
+        CoroutineScope(Dispatchers.IO).launch { downloader.pauseAllForBatterySaver() }
     }
 
     @OptIn(ExperimentalCoilApi::class, ExperimentalTime::class)

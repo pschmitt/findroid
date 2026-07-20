@@ -128,6 +128,9 @@ interface ServerDatabaseDao {
     @Query("UPDATE sources SET path = :path WHERE id = :id")
     fun setSourcePath(id: String, path: String)
 
+    @Query("UPDATE sources SET pausedByBatterySaver = :paused WHERE id = :id")
+    fun setSourcePausedByBatterySaver(id: String, paused: Boolean)
+
     @Query("DELETE FROM sources WHERE id = :id") fun deleteSource(id: String)
 
     @Query("DELETE FROM movies WHERE id = :id") fun deleteMovie(id: UUID)

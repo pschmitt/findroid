@@ -803,6 +803,17 @@ constructor(
                                                         appPreferences.autoDeleteWatchedHours,
                                                     suffixRes = R.string.hours_suffix,
                                                 ),
+                                                PreferenceSwitch(
+                                                    nameStringResource =
+                                                        R.string.download_pause_on_battery_saver,
+                                                    descriptionStringRes =
+                                                        R.string
+                                                            .download_pause_on_battery_saver_summary,
+                                                    iconDrawableId = R.drawable.ic_battery,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences.pauseDownloadsOnBatterySaver,
+                                                ),
                                                 PreferenceIntInput(
                                                     nameStringResource =
                                                         R.string.auto_download_check_interval,

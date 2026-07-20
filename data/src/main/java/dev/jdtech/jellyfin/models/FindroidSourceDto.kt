@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.models
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -16,6 +17,10 @@ data class FindroidSourceDto(
     // storage move (see DownloaderImpl.moveFile). Null for remote sources and for local sources
     // downloaded before this field existed.
     val checksum: String? = null,
+    // True while this download was cancelled by BatterySaverReceiver rather than by the user, so
+    // it's the one resumed once battery saver turns back off - see
+    // DownloaderImpl.pauseAllForBatterySaver/resumeBatterySaverPausedDownloads.
+    @ColumnInfo(defaultValue = "0") val pausedByBatterySaver: Boolean = false,
 )
 
 fun FindroidSource.toFindroidSourceDto(itemId: UUID, path: String): FindroidSourceDto {

@@ -36,6 +36,8 @@
     <string name="mpv_player">mpv player</string>
     <string name="download_mobile_data">Download using mobile data</string>
     <string name="download_roaming">Download when roaming</string>
+    <string name="download_pause_on_battery_saver">Pause on battery saver</string>
+    <string name="download_pause_on_battery_saver_summary">Pause active downloads while battery saver is on, and resume them once it turns off</string>
     <string name="download_location">Download location</string>
     <string name="download_location_ask">Always ask</string>
     <string name="download_location_internal">Internal storage</string>
