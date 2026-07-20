@@ -33,6 +33,7 @@ data class FindroidMovie(
     override val chapters: List<FindroidChapter>,
     override val trickplayInfo: Map<String, FindroidTrickplayInfo>?,
     val tmdbId: String? = null,
+    override val dateCreated: LocalDateTime? = null,
 ) : FindroidItem, FindroidSources
 
 suspend fun BaseItemDto.toFindroidMovie(
@@ -70,6 +71,7 @@ suspend fun BaseItemDto.toFindroidMovie(
         trickplayInfo =
             trickplay?.mapValues { it.value[it.value.keys.max()]!!.toFindroidTrickplayInfo() },
         tmdbId = providerIds?.entries?.firstOrNull { it.key.equals("Tmdb", ignoreCase = true) }?.value,
+        dateCreated = dateCreated,
     )
 }
 

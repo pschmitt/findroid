@@ -36,6 +36,7 @@ data class FindroidEpisode(
     override val images: FindroidImages,
     override val chapters: List<FindroidChapter>,
     override val trickplayInfo: Map<String, FindroidTrickplayInfo>?,
+    override val dateCreated: DateTime? = null,
 ) : FindroidItem, FindroidSources
 
 suspend fun BaseItemDto.toFindroidEpisode(
@@ -76,6 +77,7 @@ suspend fun BaseItemDto.toFindroidEpisode(
             chapters = toFindroidChapters(),
             trickplayInfo =
                 trickplay?.mapValues { it.value[it.value.keys.max()]!!.toFindroidTrickplayInfo() },
+            dateCreated = dateCreated,
         )
     } catch (_: NullPointerException) {
         null

@@ -27,6 +27,7 @@ import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.QueueStatus
 import dev.jdtech.jellyfin.models.isDownloaded
+import dev.jdtech.jellyfin.models.isRecentlyAdded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 
@@ -65,6 +66,7 @@ fun ItemCard(
                     }
                     if (item.played) PlayedBadge()
                     item.unplayedItemCount?.takeIf { it > 0 }?.let { ItemCountBadge(it) }
+                    if (item.isRecentlyAdded()) NewBadge()
                 }
                 if (direction == Direction.HORIZONTAL) {
                     ProgressBar(

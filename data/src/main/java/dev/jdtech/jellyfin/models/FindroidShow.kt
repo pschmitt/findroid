@@ -33,6 +33,7 @@ data class FindroidShow(
     override val chapters: List<FindroidChapter> = emptyList(),
     val tvdbId: String? = null,
     val tmdbId: String? = null,
+    override val dateCreated: DateTime? = null,
 ) : FindroidItem
 
 fun BaseItemDto.toFindroidShow(jellyfinRepository: JellyfinRepository): FindroidShow {
@@ -60,6 +61,7 @@ fun BaseItemDto.toFindroidShow(jellyfinRepository: JellyfinRepository): Findroid
         images = toFindroidImages(jellyfinRepository),
         tvdbId = providerIds?.entries?.firstOrNull { it.key.equals("Tvdb", ignoreCase = true) }?.value,
         tmdbId = providerIds?.entries?.firstOrNull { it.key.equals("Tmdb", ignoreCase = true) }?.value,
+        dateCreated = dateCreated,
     )
 }
 

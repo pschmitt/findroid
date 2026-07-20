@@ -582,3 +582,35 @@ Status: **done** (2026-07-19).
       confusing "0 B" on the one screen that didn't get that treatment.
 
 Status: **done** (2026-07-19).
+
+## FINDROID-23: Downloads screen polish - section order and Sonarr badge
+
+- [x] Moved the "Pending downloads" (PVR queue) section up, right below the
+      storage usage summary card - it used to render last, after movies and
+      all show groups, which buried it at the bottom of a long list.
+- [x] Fixed the Sonarr/Radarr badge on each `PvrQueueRow` poster thumbnail
+      rendering as a plain solid-color circle instead of the actual logo:
+      `Icon()` applies its `tint` (defaulting to `LocalContentColor.current`)
+      across the whole vector, flattening a multi-color brand mark into a
+      silhouette of its dominant shape (the outer disc). Fixed with
+      `tint = Color.Unspecified`, the same fix already applied to the
+      identical badge in `SeerrMediaScreen.kt`'s `PvrSearchButtonLabel`.
+
+Status: **done** (2026-07-20).
+
+## FINDROID-24: "NEW" badge for recently-added library items
+
+- [x] The home page's "Latest <library>" sections show individual episodes
+      as well as movies/shows, with no way to tell a just-aired episode from
+      one added months ago. Added a `NewBadge` (`ItemCard`'s existing badge
+      row - alongside `DownloadedBadge`/`PlayedBadge`/`ItemCountBadge`) shown
+      whenever `FindroidItem.isRecentlyAdded()` (dateCreated within the last
+      7 days) is true.
+- [x] Added `dateCreated: DateTime?` to the `FindroidItem` interface (and
+      every implementer), wired from `BaseItemDto.dateCreated` in the
+      online mapping functions for `FindroidMovie`/`FindroidEpisode`/
+      `FindroidShow` - null for offline/DB-rebuilt items (not persisted in
+      Room, and not needed there since downloaded items don't show in the
+      "Latest" carousels anyway).
+
+Status: **done** (2026-07-20).

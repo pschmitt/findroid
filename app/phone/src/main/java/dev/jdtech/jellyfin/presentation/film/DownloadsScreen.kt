@@ -61,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -536,6 +537,60 @@ private fun DownloadsScreenLayout(
                         )
                     }
                 }
+                if (state.pvrQueueGroups.isNotEmpty() || state.pvrErrors.isNotEmpty()) {
+                    stickyHeader {
+                        SectionHeader(
+                            text = stringResource(CoreR.string.pvr_queue_section_title),
+                            onLongClick =
+                                if (pvrQueueKeys.isNotEmpty()) {
+                                    { onTogglePvrQueueSelectAll(!pvrAllSelected) }
+                                } else {
+                                    null
+                                },
+                            collapsed = pvrQueueCollapsed,
+                            onToggleCollapsed = { pvrQueueCollapsed = !pvrQueueCollapsed },
+                        )
+                    }
+                    if (!pvrQueueCollapsed) {
+                        if (state.pvrErrors.isNotEmpty()) {
+                            item {
+                                PvrErrorBanner(
+                                    errors = state.pvrErrors,
+                                    modifier =
+                                        Modifier.padding(
+                                            horizontal = MaterialTheme.spacings.default,
+                                            vertical = MaterialTheme.spacings.small,
+                                        ),
+                                )
+                            }
+                        }
+                        state.pvrQueueGroups.forEach { group ->
+                            items(items = group.items) { queueItem ->
+                                val key = group.source to queueItem.queueItemId
+                                PvrQueueRow(
+                                    queueItem = queueItem,
+                                    selectionMode = pvrSelectionMode,
+                                    checked = key in state.selectedPvrQueueIds,
+                                    onClick =
+                                        if (queueItem.item != null || queueItem.tmdbId != null) {
+                                            { queueItem.item?.let(onItemClick) ?: onPvrItemClick(queueItem, group.source) }
+                                        } else {
+                                            null
+                                        },
+                                    onLongClick = { onTogglePvrQueueSelection(group.source, queueItem.queueItemId) },
+                                    onToggleSelection = { onTogglePvrQueueSelection(group.source, queueItem.queueItemId) },
+                                    onRemove = { onPvrRemoveRequest(queueItem, group.source) },
+                                    onManageImport =
+                                        if (queueItem.status.downloadId != null) {
+                                            { onManageImport(queueItem, group.source) }
+                                        } else {
+                                            null
+                                        },
+                                )
+                            }
+                        }
+                    }
+                }
                 if (brokenCount > 0) {
                     item {
                         BrokenDownloadsBanner(
@@ -673,60 +728,6 @@ private fun DownloadsScreenLayout(
                             isMigrating = episode.id in state.migratingIds,
                             onRedownloadRequest = { onRedownloadRequest(episode) },
                         )
-                    }
-                }
-                if (state.pvrQueueGroups.isNotEmpty() || state.pvrErrors.isNotEmpty()) {
-                    stickyHeader {
-                        SectionHeader(
-                            text = stringResource(CoreR.string.pvr_queue_section_title),
-                            onLongClick =
-                                if (pvrQueueKeys.isNotEmpty()) {
-                                    { onTogglePvrQueueSelectAll(!pvrAllSelected) }
-                                } else {
-                                    null
-                                },
-                            collapsed = pvrQueueCollapsed,
-                            onToggleCollapsed = { pvrQueueCollapsed = !pvrQueueCollapsed },
-                        )
-                    }
-                    if (!pvrQueueCollapsed) {
-                        if (state.pvrErrors.isNotEmpty()) {
-                            item {
-                                PvrErrorBanner(
-                                    errors = state.pvrErrors,
-                                    modifier =
-                                        Modifier.padding(
-                                            horizontal = MaterialTheme.spacings.default,
-                                            vertical = MaterialTheme.spacings.small,
-                                        ),
-                                )
-                            }
-                        }
-                        state.pvrQueueGroups.forEach { group ->
-                            items(items = group.items) { queueItem ->
-                                val key = group.source to queueItem.queueItemId
-                                PvrQueueRow(
-                                    queueItem = queueItem,
-                                    selectionMode = pvrSelectionMode,
-                                    checked = key in state.selectedPvrQueueIds,
-                                    onClick =
-                                        if (queueItem.item != null || queueItem.tmdbId != null) {
-                                            { queueItem.item?.let(onItemClick) ?: onPvrItemClick(queueItem, group.source) }
-                                        } else {
-                                            null
-                                        },
-                                    onLongClick = { onTogglePvrQueueSelection(group.source, queueItem.queueItemId) },
-                                    onToggleSelection = { onTogglePvrQueueSelection(group.source, queueItem.queueItemId) },
-                                    onRemove = { onPvrRemoveRequest(queueItem, group.source) },
-                                    onManageImport =
-                                        if (queueItem.status.downloadId != null) {
-                                            { onManageImport(queueItem, group.source) }
-                                        } else {
-                                            null
-                                        },
-                                )
-                            }
-                        }
                     }
                 }
                 }
@@ -1577,6 +1578,10 @@ private fun PvrQueueRow(
                     } else {
                         "Radarr"
                     },
+                // Unspecified, not the default LocalContentColor tint - these are full-color
+                // brand logos, and Icon()'s automatic tint would flatten them into a solid
+                // silhouette of the outer circle (i.e. just a plain colored/white badge).
+                tint = Color.Unspecified,
                 modifier =
                     Modifier.align(Alignment.TopEnd)
                         .padding(MaterialTheme.spacings.extraSmall)

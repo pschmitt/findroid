@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.models
 
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import java.util.UUID
+import org.jellyfin.sdk.model.DateTime
 import org.jellyfin.sdk.model.api.BaseItemDto
 
 data class FindroidCollection(
@@ -20,6 +21,7 @@ data class FindroidCollection(
     val type: CollectionType,
     override val images: FindroidImages,
     override val chapters: List<FindroidChapter> = emptyList(),
+    override val dateCreated: DateTime? = null,
 ) : FindroidItem
 
 fun BaseItemDto.toFindroidCollection(jellyfinRepository: JellyfinRepository): FindroidCollection? {

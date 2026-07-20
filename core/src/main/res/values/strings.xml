@@ -267,6 +267,7 @@
     <string name="pause_all_downloads">Pause all downloads</string>
     <string name="resume_all_downloads">Resume all downloads</string>
     <string name="downloading_items_count">Downloading %1$d of %2$d episodes</string>
+    <string name="new_badge">NEW</string>
     <string name="download_scope_title">Download</string>
     <string name="download_scope_episode">This episode</string>
     <string name="download_scope_season">This season</string>

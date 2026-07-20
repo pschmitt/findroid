@@ -2,7 +2,9 @@ package dev.jdtech.jellyfin.models
 
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.repository.JellyfinRepository
+import java.time.LocalDateTime
 import java.util.UUID
+import org.jellyfin.sdk.model.DateTime
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 
@@ -21,6 +23,13 @@ interface FindroidItem {
     val unplayedItemCount: Int?
     val images: FindroidImages
     val chapters: List<FindroidChapter>
+
+    /**
+     * When this item was added to the Jellyfin library (server's `DateCreated`). Only populated
+     * for items mapped straight from a [BaseItemDto] (the online path) - null for items rebuilt
+     * from local DB rows (offline/download storage), where the server isn't there to ask.
+     */
+    val dateCreated: DateTime?
 }
 
 suspend fun BaseItemDto.toFindroidItem(
@@ -62,6 +71,15 @@ fun FindroidItem.isDownloadBroken(): Boolean {
     return sources
         .filter { it.type == FindroidSourceType.LOCAL && !it.path.endsWith(".download") }
         .any { it.size <= 0L }
+}
+
+/**
+ * Whether this item was added to the library within the last [days] days - drives the "NEW"
+ * badge on library carousels. Always false when [dateCreated] is unknown (offline items).
+ */
+fun FindroidItem.isRecentlyAdded(days: Long = 7): Boolean {
+    val addedAt = dateCreated ?: return false
+    return addedAt.isAfter(LocalDateTime.now().minusDays(days))
 }
 
 /**
