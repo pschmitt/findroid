@@ -672,6 +672,23 @@ Status: **done** (2026-07-20).
       hidden section never appears there; the settings screen lists hidden
       rows in their own "Hidden sections" group at the bottom with a
       restore (+) button.
+- [x] Follow-up: each row in "Customize home screen" now shows the
+  Sonarr/Radarr/Seerr brand icon(s) its content actually depends on -
+  Sonarr and/or Radarr (whichever is enabled) for "Pending downloads",
+  Seerr for the three Discover rows - reusing the `tint = Color.Unspecified`
+  fix from earlier in this file's history so the full-color logos don't
+  get flattened by `Icon()`'s default tint. Same icons were added to the
+  actual Home screen section titles too (new shared `SectionServiceIcons`
+  composable), not just the settings list.
+- [x] Follow-up: added a "Reset layout" action (top bar icon + confirm
+  dialog) to "Customize home screen" that clears both `homeSectionOrder`
+  and `homeHiddenSections`, restoring the default order and unhiding
+  everything in one tap.
+- [x] Follow-up: entering drag mode on Home now has a subtle "picked up"
+  animation - the dragged section scales up slightly, gains a soft shadow,
+  and picks up a faint surface tint (all `animate*AsState`-driven, so they
+  ease in/out rather than snapping), instead of just silently reordering
+  with no feedback that a drag started.
 
 Status: **done** (2026-07-20).
 
@@ -689,5 +706,40 @@ Status: **done** (2026-07-20).
       `FindroidShow` - null for offline/DB-rebuilt items (not persisted in
       Room, and not needed there since downloaded items don't show in the
       "Latest" carousels anyway).
+
+Status: **done** (2026-07-20).
+
+## FINDROID-26: Manual import failure - untruncated, copyable error details
+
+- [x] Reported bug: manually importing a finished-but-blocked Sonarr
+      download failed with a Sonarr-side "'Name' must not be empty"
+      validation error (`NotNullValidator`) for an episode Sonarr itself had
+      already flagged with the rejection "Episode has a TBA title and
+      recently aired" - i.e. Sonarr's own episode metadata wasn't fully
+      synced yet for a just-aired episode, and its manual-import command
+      validation trips on the missing title server-side. This is an
+      upstream Sonarr data-completeness issue (our request never sends an
+      episode title at all - Sonarr resolves it server-side from the
+      episode id), not something fixable from the request payload; the app
+      already surfaces Sonarr's own rejection reason before the user
+      proceeds.
+- [x] Fixed a real bug found while investigating: `SonarrApi`/`RadarrApi`/
+      `SeerrApi`'s `execute()` truncated every non-2xx response body to 200
+      characters (`body.take(200)`) before it even reached the error
+      message shown in the UI - independent of any UI-level clipping, the
+      full validation JSON (multiple error objects, `formattedMessage`,
+      etc.) was already gone by the time it got wrapped in a
+      `PvrApiException`. Bumped to 4000 characters, comfortably fitting any
+      realistic API error body while still bounding pathological ones (an
+      HTML error page).
+- [x] Added `MessageDetailsDialog` (`app/phone/.../components/ErrorDialog.kt`,
+      alongside the existing `ErrorDialog` for `Throwable`s) - a scrollable,
+      selectable full-text view with Copy (clipboard) and Share (Android
+      share sheet) buttons, for messages that don't fit the inline error
+      text they're normally shown in. Wired into `ManualImportSheet`'s
+      inline import-error text and `PvrErrorBanner` (PVR fetch-failure
+      banner on the Downloads screen and Calendar) - both are now
+      clickable, 2-line-clamped previews that open the full text on tap
+      instead of only ever showing a silently-clipped snippet.
 
 Status: **done** (2026-07-20).

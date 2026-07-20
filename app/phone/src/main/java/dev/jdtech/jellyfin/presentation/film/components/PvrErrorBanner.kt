@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.film.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,26 +12,37 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.models.PvrFetchError
 import dev.jdtech.jellyfin.models.PvrSource
+import dev.jdtech.jellyfin.presentation.components.MessageDetailsDialog
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 
 /**
  * Inline per-service fetch-failure banner for PVR-backed surfaces (Calendar, the Downloads
  * screen's queue section) - an unreachable Sonarr/Radarr should say so instead of masquerading as
- * an empty list. The messages already name the failing service (see `mapPvrSearchError`).
+ * an empty list. The messages already name the failing service (see `mapPvrSearchError`). Tapping
+ * a message opens the full text in a copyable dialog - some of these (an HTTP error body) run
+ * longer than fits on one or two lines here.
  */
 @Composable
 fun PvrErrorBanner(errors: List<PvrFetchError>, modifier: Modifier = Modifier) {
     if (errors.isEmpty()) return
+    var expandedMessage by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.extraSmall),
@@ -41,6 +53,7 @@ fun PvrErrorBanner(errors: List<PvrFetchError>, modifier: Modifier = Modifier) {
                     Modifier.fillMaxWidth()
                         .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.errorContainer)
+                        .clickable { expandedMessage = error.message }
                         .padding(MaterialTheme.spacings.small),
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
                 verticalAlignment = Alignment.CenterVertically,
@@ -55,9 +68,19 @@ fun PvrErrorBanner(errors: List<PvrFetchError>, modifier: Modifier = Modifier) {
                     text = error.message,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
+    }
+
+    expandedMessage?.let { message ->
+        MessageDetailsDialog(
+            title = stringResource(CoreR.string.error_details_title),
+            message = message,
+            onDismissRequest = { expandedMessage = null },
+        )
     }
 }
 

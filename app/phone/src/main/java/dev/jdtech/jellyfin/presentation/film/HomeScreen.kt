@@ -2,10 +2,15 @@ package dev.jdtech.jellyfin.presentation.film
 
 import android.app.Activity
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -29,6 +34,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.isTraversalGroup
@@ -61,6 +69,7 @@ import dev.jdtech.jellyfin.presentation.film.components.HomeHeader
 import dev.jdtech.jellyfin.presentation.film.components.HomeSection
 import dev.jdtech.jellyfin.presentation.film.components.HomeView
 import dev.jdtech.jellyfin.presentation.film.components.PvrQueueDownloadCard
+import dev.jdtech.jellyfin.presentation.film.components.SectionServiceIcons
 import dev.jdtech.jellyfin.presentation.film.components.ServerSelectionBottomSheet
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
@@ -161,7 +170,7 @@ private fun HomeScreenLayout(
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium),
             ) {
                 items(state.sectionOrder, key = { it }) { key ->
-                    ReorderableItem(reorderableState, key = key) {
+                    ReorderableItem(reorderableState, key = key) { isDragging ->
                         // Long-press the section's own title to start dragging it, rather than a
                         // persistent handle shown at all times - Suggestions is itself a swipeable
                         // pager, so wrapping the whole item in a drag-anywhere modifier would fight
@@ -169,7 +178,38 @@ private fun HomeScreenLayout(
                         // just its title Text, leaving the rest of its content (posters, the
                         // "view all" arrow, etc.) clickable/scrollable as normal.
                         val titleModifier = Modifier.longPressDraggableHandle()
-                        when {
+
+                        // Subtle "picked up" feedback while dragging - a slight scale/elevation
+                        // lift plus a faint tint, so entering reorder mode reads as a distinct
+                        // state rather than the section just silently moving on its own.
+                        val scale by
+                            animateFloatAsState(
+                                targetValue = if (isDragging) 1.02f else 1f,
+                                label = "sectionDragScale",
+                            )
+                        val elevation by
+                            animateDpAsState(
+                                targetValue = if (isDragging) 6.dp else 0.dp,
+                                label = "sectionDragElevation",
+                            )
+                        val tint by
+                            animateColorAsState(
+                                targetValue =
+                                    if (isDragging) {
+                                        MaterialTheme.colorScheme.surfaceContainerHigh
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                label = "sectionDragTint",
+                            )
+
+                        Box(
+                            modifier =
+                                Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+                                    .shadow(elevation, shape = MaterialTheme.shapes.medium)
+                                    .background(tint, shape = MaterialTheme.shapes.medium)
+                        ) {
+                            when {
                             key == HomeSectionKeys.SUGGESTIONS ->
                                 state.suggestionsSection?.let { section ->
                                     HomeCarousel(
@@ -202,6 +242,7 @@ private fun HomeScreenLayout(
                                     entries = state.activeDownloads,
                                     modifier = Modifier.padding(itemsPadding),
                                     titleModifier = titleModifier,
+                                    serviceIcons = state.pvrServiceIcons,
                                 )
                             key.startsWith("view:") ->
                                 state.views
@@ -225,6 +266,7 @@ private fun HomeScreenLayout(
                                             titleModifier = titleModifier,
                                         )
                                     }
+                            }
                         }
                     }
                 }
@@ -308,16 +350,20 @@ private fun HomeDownloadProgress(
     entries: List<PvrQueueEntry>,
     modifier: Modifier = Modifier,
     titleModifier: Modifier = Modifier,
+    serviceIcons: List<Int> = emptyList(),
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
     ) {
-        Text(
-            text = stringResource(CoreR.string.pvr_queue_section_title),
-            style = MaterialTheme.typography.titleSmall,
-            modifier = titleModifier,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(CoreR.string.pvr_queue_section_title),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = titleModifier,
+            )
+            SectionServiceIcons(serviceIcons)
+        }
         if (entries.isEmpty()) {
             Text(
                 text = stringResource(CoreR.string.pvr_queue_section_empty),

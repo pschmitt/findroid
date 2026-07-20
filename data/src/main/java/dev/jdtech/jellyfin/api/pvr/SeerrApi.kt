@@ -157,7 +157,7 @@ class SeerrApi(private val baseUrl: String, private val apiKey: String) {
         client.newCall(request).execute().use { response ->
             val body = response.body.string()
             if (!response.isSuccessful) {
-                val snippet = body.take(200).ifBlank { "(empty body)" }
+                val snippet = body.take(4000).ifBlank { "(empty body)" }
                 throw PvrApiException(
                     "Seerr request to $url failed with HTTP ${response.code}: $snippet",
                     httpCode = response.code,

@@ -65,6 +65,8 @@
     <string name="sort_by">Sort by</string>
     <string name="sort_order">Sort order</string>
     <string name="close">Close</string>
+    <string name="copy">Copy</string>
+    <string name="error_details_title">Error details</string>
     <string name="info">Info</string>
     <string name="more_options">More options</string>
     <string name="share">Share</string>
@@ -273,6 +275,9 @@
     <string name="home_layout_hide_section">Hide section</string>
     <string name="home_layout_show_section">Show section</string>
     <string name="home_layout_hidden_sections_title">Hidden sections</string>
+    <string name="home_layout_reset">Reset layout</string>
+    <string name="home_layout_reset_confirm_title">Reset home screen layout?</string>
+    <string name="home_layout_reset_confirm_message">This restores the default order and unhides any hidden sections.</string>
     <string name="download_scope_title">Download</string>
     <string name="download_scope_episode">This episode</string>
     <string name="download_scope_season">This season</string>

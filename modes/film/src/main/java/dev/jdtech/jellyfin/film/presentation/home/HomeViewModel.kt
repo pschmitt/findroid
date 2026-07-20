@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.backup.BackupDownloadedItemKind
 import dev.jdtech.jellyfin.backup.decodePendingRestoreDownloads
 import dev.jdtech.jellyfin.backup.encodePendingRestoreDownloads
+import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.film.R as FilmR
 import dev.jdtech.jellyfin.models.CollectionType
@@ -88,6 +89,7 @@ constructor(
                 loadNextUpItems()
                 loadViews()
                 loadDiscover()
+                loadPvrServiceIcons()
                 recomputeSectionOrder()
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
@@ -288,6 +290,15 @@ constructor(
         }
 
         _state.emit(_state.value.copy(discoverSections = sections))
+    }
+
+    private suspend fun loadPvrServiceIcons() {
+        val icons =
+            buildList {
+                if (appPreferences.getValue(appPreferences.sonarrEnabled)) add(CoreR.drawable.ic_sonarr)
+                if (appPreferences.getValue(appPreferences.radarrEnabled)) add(CoreR.drawable.ic_radarr)
+            }
+        _state.emit(_state.value.copy(pvrServiceIcons = icons))
     }
 
     fun onAction(action: HomeAction) {

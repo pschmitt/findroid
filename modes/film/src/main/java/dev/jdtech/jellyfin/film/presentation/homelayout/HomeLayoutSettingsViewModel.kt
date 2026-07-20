@@ -31,29 +31,33 @@ constructor(
     private val _state = MutableStateFlow(HomeLayoutSettingsState())
     val state = _state.asStateFlow()
 
+    /** A label plus the PVR/Seerr brand icons that row's content actually depends on. */
+    private data class SectionInfo(val label: UiText, val serviceIcons: List<Int> = emptyList())
+
     /**
-     * Every known (key, label) pair regardless of hidden status - populated once by [load] (it's
+     * Every known (key, info) pair regardless of hidden status - populated once by [load] (it's
      * the only part of this screen that needs a repository round trip, for library names), then
      * reused by [hide]/[restore] to recompute the visible/hidden split without refetching.
      */
-    private var cachedLabels: LinkedHashMap<String, UiText> = LinkedHashMap()
+    private var cachedLabels: LinkedHashMap<String, SectionInfo> = LinkedHashMap()
 
     fun load() {
         viewModelScope.launch {
             _state.emit(_state.value.copy(isLoading = true))
 
-            val labels = LinkedHashMap<String, UiText>()
+            val labels = LinkedHashMap<String, SectionInfo>()
 
             if (appPreferences.getValue(appPreferences.homeSuggestions)) {
                 labels[HomeSectionKeys.SUGGESTIONS] =
-                    UiText.StringResource(FilmR.string.home_section_suggestions)
+                    SectionInfo(UiText.StringResource(FilmR.string.home_section_suggestions))
             }
             if (appPreferences.getValue(appPreferences.homeContinueWatching)) {
                 labels[HomeSectionKeys.CONTINUE_WATCHING] =
-                    UiText.StringResource(FilmR.string.continue_watching)
+                    SectionInfo(UiText.StringResource(FilmR.string.continue_watching))
             }
             if (appPreferences.getValue(appPreferences.homeNextUp)) {
-                labels[HomeSectionKeys.NEXT_UP] = UiText.StringResource(FilmR.string.next_up)
+                labels[HomeSectionKeys.NEXT_UP] =
+                    SectionInfo(UiText.StringResource(FilmR.string.next_up))
             }
             if (appPreferences.getValue(appPreferences.homeLatest)) {
                 try {
@@ -66,9 +70,11 @@ constructor(
                         .forEach { view ->
                             val id = view.id
                             labels[HomeSectionKeys.view(id)] =
-                                UiText.StringResource(
-                                    FilmR.string.latest_library,
-                                    view.name.orEmpty(),
+                                SectionInfo(
+                                    UiText.StringResource(
+                                        FilmR.string.latest_library,
+                                        view.name.orEmpty(),
+                                    )
                                 )
                         }
                 } catch (e: Exception) {
@@ -79,15 +85,31 @@ constructor(
                 appPreferences.getValue(appPreferences.homeDiscover) &&
                     pvrConfiguration.isSeerrConfigured()
             ) {
+                // The Discover rows are always Seerr-backed content, regardless of media type -
+                // Radarr/Sonarr only come into it once a specific title is actually requested.
+                val seerrIcons = listOf(CoreR.drawable.ic_seerr)
                 labels[HomeSectionKeys.discover(FilmR.string.home_discover_trending)] =
-                    UiText.StringResource(FilmR.string.home_discover_trending)
+                    SectionInfo(UiText.StringResource(FilmR.string.home_discover_trending), seerrIcons)
                 labels[HomeSectionKeys.discover(FilmR.string.home_discover_popular_movies)] =
-                    UiText.StringResource(FilmR.string.home_discover_popular_movies)
+                    SectionInfo(
+                        UiText.StringResource(FilmR.string.home_discover_popular_movies),
+                        seerrIcons,
+                    )
                 labels[HomeSectionKeys.discover(FilmR.string.home_discover_popular_shows)] =
-                    UiText.StringResource(FilmR.string.home_discover_popular_shows)
+                    SectionInfo(
+                        UiText.StringResource(FilmR.string.home_discover_popular_shows),
+                        seerrIcons,
+                    )
             }
+            // The PVR queue mixes Sonarr and Radarr entries directly (not through Seerr), so it
+            // only wears the icon(s) for whichever of those two are actually configured.
+            val pvrIcons =
+                buildList {
+                    if (appPreferences.getValue(appPreferences.sonarrEnabled)) add(CoreR.drawable.ic_sonarr)
+                    if (appPreferences.getValue(appPreferences.radarrEnabled)) add(CoreR.drawable.ic_radarr)
+                }
             labels[HomeSectionKeys.ACTIVE_DOWNLOADS] =
-                UiText.StringResource(CoreR.string.pvr_queue_section_title)
+                SectionInfo(UiText.StringResource(CoreR.string.pvr_queue_section_title), pvrIcons)
 
             cachedLabels = labels
             recomputeRows()
@@ -101,6 +123,7 @@ constructor(
             is HomeLayoutSettingsAction.OnMoveDown -> move(action.index, action.index + 1)
             is HomeLayoutSettingsAction.OnHide -> hide(action.key)
             is HomeLayoutSettingsAction.OnRestore -> restore(action.key)
+            is HomeLayoutSettingsAction.OnResetLayout -> resetLayout()
         }
     }
 
@@ -144,13 +167,23 @@ constructor(
         val persisted =
             homeSectionOrderFromString(appPreferences.getValue(appPreferences.homeSectionOrder))
         val order = resolveHomeSectionOrder(visibleNatural, persisted)
-        val rows = order.mapNotNull { key -> cachedLabels[key]?.let { HomeLayoutRow(key, it) } }
+        val rows =
+            order.mapNotNull { key ->
+                cachedLabels[key]?.let { HomeLayoutRow(key, it.label, it.serviceIcons) }
+            }
 
         val hiddenRows =
             natural.filter { it in hidden }.mapNotNull { key ->
-                cachedLabels[key]?.let { HomeLayoutRow(key, it) }
+                cachedLabels[key]?.let { HomeLayoutRow(key, it.label, it.serviceIcons) }
             }
 
         _state.value = _state.value.copy(rows = rows, hiddenRows = hiddenRows)
+    }
+
+    /** Clears both the persisted order and the hidden set, back to the default layout. */
+    private fun resetLayout() {
+        appPreferences.setValue(appPreferences.homeSectionOrder, null)
+        appPreferences.setValue(appPreferences.homeHiddenSections, null)
+        recomputeRows()
     }
 }

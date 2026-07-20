@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,11 +50,17 @@ fun HomeDiscoverSection(
 ) {
     Column(modifier = modifier) {
         Box(modifier = Modifier.fillMaxWidth().height(42.dp).padding(itemsPadding)) {
-            Text(
-                text = stringResource(section.titleRes),
-                modifier = Modifier.align(Alignment.CenterStart).then(titleModifier),
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Row(
+                modifier = Modifier.align(Alignment.CenterStart),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(section.titleRes),
+                    modifier = titleModifier,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                SectionServiceIcons(listOf(CoreR.drawable.ic_seerr))
+            }
         }
         Spacer(modifier = Modifier.height(MaterialTheme.spacings.extraSmall))
         LazyRow(

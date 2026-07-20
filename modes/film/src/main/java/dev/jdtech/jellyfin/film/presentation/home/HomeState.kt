@@ -20,6 +20,10 @@ data class HomeState(
     val views: List<HomeItem.ViewItem> = emptyList(),
     val discoverSections: List<HomeDiscoverSection> = emptyList(),
     val activeDownloads: List<PvrQueueEntry> = emptyList(),
+    // The Sonarr/Radarr brand icons (drawable ids) for whichever of those two are actually
+    // enabled - shown next to the "Pending downloads" title, same idea as the service icons in
+    // "Customize home screen".
+    val pvrServiceIcons: List<Int> = emptyList(),
     // Fully resolved render order for the sections above - see `HomeSectionKeys`/
     // `resolveHomeSectionOrder` (core/.../utils/HomeSectionOrder.kt). Recomputed whenever the
     // underlying sections change and whenever Home resumes (to pick up a reorder made from the

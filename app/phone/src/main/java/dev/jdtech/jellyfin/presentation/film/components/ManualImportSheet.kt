@@ -40,6 +40,7 @@ import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.film.presentation.downloads.ManualImportSheetState
 import dev.jdtech.jellyfin.models.ManualImportCandidate
 import dev.jdtech.jellyfin.models.PvrSource
+import dev.jdtech.jellyfin.presentation.components.MessageDetailsDialog
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.formatBinaryFileSize
@@ -61,6 +62,7 @@ fun ManualImportSheet(
     sheetState: SheetState = rememberModalBottomSheetState(),
 ) {
     var showRejectConfirm by remember { mutableStateOf(false) }
+    var showErrorDetails by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismissRequest, sheetState = sheetState) {
         // The candidate list is wrapped in its own weighted, non-filling Box so it only claims
@@ -148,7 +150,9 @@ fun ManualImportSheet(
                             text = errorMessage,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.weight(1f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).clickable { showErrorDetails = true },
                         )
                     } else {
                         Spacer(modifier = Modifier.weight(1f))
@@ -176,6 +180,15 @@ fun ManualImportSheet(
                 onReject(removeFromClient, blocklist)
             },
             onDismiss = { showRejectConfirm = false },
+        )
+    }
+
+    val detailsMessage = state.error
+    if (showErrorDetails && detailsMessage != null) {
+        MessageDetailsDialog(
+            title = stringResource(CoreR.string.error_details_title),
+            message = detailsMessage,
+            onDismissRequest = { showErrorDetails = false },
         )
     }
 }
