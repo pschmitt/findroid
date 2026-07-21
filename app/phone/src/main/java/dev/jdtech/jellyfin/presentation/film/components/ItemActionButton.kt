@@ -10,6 +10,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,9 +32,11 @@ import dev.jdtech.jellyfin.presentation.theme.spacings
  * with a short label underneath, so every action - restart, trailer, download, PVR search - shares
  * the exact same silhouette. Pass [checked] to turn the tile into a toggle (the checked container
  * color marks the "on" state), [contentColor] to tint the icon (e.g. error red for a destructive
- * delete), and [menu] to anchor an [androidx.compose.material3.DropdownMenu] to the button for
- * actions that open one. The visible label doubles as the accessible name, so the icon itself
- * carries no content description.
+ * delete), [iconTint] to override the icon's own tint independently of the button's content color
+ * (e.g. `Color.Unspecified` to preserve a full-color brand icon like Sonarr/Radarr's logo, which
+ * would otherwise get flattened to a silhouette), and [menu] to anchor an
+ * [androidx.compose.material3.DropdownMenu] to the button for actions that open one. The visible
+ * label doubles as the accessible name, so the icon itself carries no content description.
  */
 @Composable
 fun ItemActionButton(
@@ -43,6 +46,7 @@ fun ItemActionButton(
     modifier: Modifier = Modifier,
     checked: Boolean? = null,
     contentColor: Color? = null,
+    iconTint: Color? = null,
     menu: @Composable () -> Unit = {},
 ) {
     Column(
@@ -56,7 +60,11 @@ fun ItemActionButton(
                     onCheckedChange = { onClick() },
                     modifier = Modifier.size(48.dp),
                 ) {
-                    Icon(painter = icon, contentDescription = null)
+                    Icon(
+                        painter = icon,
+                        contentDescription = null,
+                        tint = iconTint ?: LocalContentColor.current,
+                    )
                 }
             } else {
                 FilledTonalIconButton(
@@ -67,7 +75,11 @@ fun ItemActionButton(
                             IconButtonDefaults.filledTonalIconButtonColors(contentColor = color)
                         } ?: IconButtonDefaults.filledTonalIconButtonColors(),
                 ) {
-                    Icon(painter = icon, contentDescription = null)
+                    Icon(
+                        painter = icon,
+                        contentDescription = null,
+                        tint = iconTint ?: LocalContentColor.current,
+                    )
                 }
             }
             menu()

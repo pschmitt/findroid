@@ -185,7 +185,7 @@ fun ItemButtonsBar(
                     // Size/path details live in the confirmation dialog this opens.
                     ItemActionButton(
                         icon = painterResource(CoreR.drawable.ic_trash),
-                        label = stringResource(CoreR.string.delete),
+                        label = stringResource(CoreR.string.delete_download),
                         onClick = { deleteDownloadDialogOpen = true },
                         contentColor = MaterialTheme.colorScheme.error,
                     )

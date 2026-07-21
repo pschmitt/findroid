@@ -1117,3 +1117,27 @@ Two follow-ups on FINDROID-31's missing-season placeholder cards:
 Status: **done** (2026-07-21). Verified via remote
 `:app:phone:compileLibreDebugKotlin`/`:app:tv:compileLibreDebugKotlin`,
 `:data:testDebugUnitTest`, and `ktfmtCheck` (forced rerun) on rofl-13.
+
+## FINDROID-34: PVR search button brand icon + clearer "Delete download" label
+
+- [x] `PvrSearchButton` (Episode/Movie detail pages, Season screen episode
+      rows, Calendar upcoming-episode rows) used a generic magnifier icon
+      regardless of which service it searches. Added a required `service:
+      PvrSource` param and switched to the actual Sonarr/Radarr brand icon
+      (`ic_sonarr`/`ic_radarr`, full color via `tint = Color.Unspecified` -
+      same fix already applied elsewhere in the app so brand logos don't
+      get flattened to a silhouette by `Icon()`'s default tint). Needed a
+      new `iconTint` param on `ItemActionButton` itself to override the
+      icon's tint independently of the tile's `contentColor` (which
+      controls the tonal container/label, not the icon glyph). All 4 call
+      sites now pass `PvrSource.SONARR` (episode-related) or
+      `PvrSource.RADARR` (movie).
+- [x] User feedback: the detail-page "Delete" button was ambiguous - not
+      clear whether it removes the item from Jellyfin or just the local
+      download. Relabeled to the existing `delete_download` string
+      ("Delete download"), already used elsewhere in the app (Downloads
+      screen swipe-to-delete) for the exact same action.
+
+Status: **done** (2026-07-21). Verified via remote
+`:app:phone:compileLibreDebugKotlin` and `ktfmtCheck` (forced rerun) on
+rofl-13.

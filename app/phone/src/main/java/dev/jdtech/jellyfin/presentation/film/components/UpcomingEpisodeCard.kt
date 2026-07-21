@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.UpcomingEpisode
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
@@ -101,6 +102,7 @@ fun UpcomingEpisodeCard(
         }
         if (onSearchAutomatic != null && onSearchManual != null) {
             PvrSearchButton(
+                service = PvrSource.SONARR,
                 onAutomaticSearch = onSearchAutomatic,
                 onManualSearch = onSearchManual,
                 modifier = Modifier.align(Alignment.CenterVertically),

@@ -49,6 +49,7 @@ import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
 import dev.jdtech.jellyfin.film.presentation.movie.MovieState
 import dev.jdtech.jellyfin.film.presentation.movie.MovieViewModel
 import dev.jdtech.jellyfin.models.FindroidSourceType
+import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.isDownloadBroken
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.film.components.ActorsRow
@@ -294,6 +295,7 @@ private fun MovieScreenLayout(
                         trailingContent = {
                             if (movie.tmdbId != null && state.radarrConfigured) {
                                 PvrSearchButton(
+                                    service = PvrSource.RADARR,
                                     onAutomaticSearch = {
                                         onAction(MovieAction.SearchMovieAutomatic)
                                     },

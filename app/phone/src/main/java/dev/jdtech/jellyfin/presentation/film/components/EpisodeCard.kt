@@ -27,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.models.FindroidEpisode
+import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.QueueStatus
 import dev.jdtech.jellyfin.models.isDownloaded
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -112,6 +113,7 @@ fun EpisodeCard(
         }
         if (onSearchAutomatic != null && onSearchManual != null) {
             PvrSearchButton(
+                service = PvrSource.SONARR,
                 onAutomaticSearch = onSearchAutomatic,
                 onManualSearch = onSearchManual,
                 modifier = Modifier.align(Alignment.CenterVertically),

@@ -59,6 +59,7 @@ import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.isDownloadBroken
 import dev.jdtech.jellyfin.models.isDownloaded
+import dev.jdtech.jellyfin.models.PvrSource
 import dev.jdtech.jellyfin.models.isMarkedForAutoDeletion
 import dev.jdtech.jellyfin.presentation.film.components.ActorsRow
 import dev.jdtech.jellyfin.presentation.film.components.PvrSearchButton
@@ -350,6 +351,7 @@ private fun EpisodeScreenLayout(
                         trailingContent = {
                             if (state.seriesTvdbId != null && state.sonarrConfigured) {
                                 PvrSearchButton(
+                                    service = PvrSource.SONARR,
                                     onAutomaticSearch = {
                                         onAction(EpisodeAction.SearchEpisodeAutomatic)
                                     },
