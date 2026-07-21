@@ -949,3 +949,43 @@ verified and installed on both test devices.
 Status: **done** (2026-07-21). Verified via remote compile + `ktfmtCheck`
 on rofl-13; CI-signed release build installed on all three connected
 devices (ASUS phone, Pixel 5, Mi Pad 4).
+
+## FINDROID-30: Scheduled auto-backup failing silently forever
+
+- [x] User reported Settings > Backup & Restore showing "Backup interval:
+      1 day" but "Last backup" stuck 5 days stale, while the manual "Back
+      up now" button worked fine. Root cause: `AutoBackupWorker.doWork()`
+      had several silent failure points - a missing `autoBackupFolderUri`,
+      a `DocumentFile.fromTreeUri()` that returned null (e.g. a stale SAF
+      tree grant after the parent document was moved/deleted/revoked), and
+      a null `folder.createFile()` - each just did `return Result.failure()`
+      with zero logging. A generic `catch` block did log via `Timber.e` and
+      returned `Result.retry()`, but that's invisible in a release build
+      nobody checks logcat on. Since this is a periodic unique work item,
+      `Result.failure()`/`Result.retry()` never cancels the schedule -
+      WorkManager just keeps retrying on the same cadence and failing the
+      same way indefinitely, with nothing ever surfaced to the user.
+- [x] Added `Timber.w`/`Timber.e` logging at every failure branch in
+      `AutoBackupWorker.doWork()`, including the folder URI where relevant,
+      so a diagnosis is at least possible via logcat/bugreport.
+- [x] Added `AppPreferences.autoBackupLastError` (`Preference<String?>`,
+      key `pref_backup_last_error`) that the worker sets to a short
+      human-readable reason on every failure path and clears (`null`) on
+      success, mirroring how `lastBackupTimestamp` is already
+      read/written from this same `CoroutineWorker`. Persisting it means
+      it survives process death and is available the next time the user
+      opens Settings, not just while the worker happens to be running.
+- [x] Surfaced it in `BackupSettingsScreen`: when `lastBackupError` is
+      set, an error-colored banner (same `errorContainer`
+      background/icon-+-text/tap-to-expand pattern as `PvrErrorBanner`)
+      shows next to "Last backup", reusing the existing
+      `MessageDetailsDialog` for the full copyable/shareable text. New
+      string `backup_auto_error` ("Automatic backup failed: %1$s"). The
+      manual "Back up now" button's existing snackbar-based error flow
+      (`BackupSettingsEvent.BackupNowError`) was left untouched - this is
+      specifically for the background/scheduled path, which previously had
+      no feedback mechanism at all.
+- [x] TV has no Backup & Restore screen, so no TV-side changes were needed.
+
+Status: **done** (2026-07-21). Verified via remote
+`:app:phone:compileLibreDebugKotlin` and `ktfmtCheck` on rofl-13.

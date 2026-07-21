@@ -38,6 +38,7 @@ constructor(
                 autoBackupFolderUri = appPreferences.getValue(appPreferences.autoBackupFolderUri),
                 autoBackupPassword = appPreferences.getValue(appPreferences.autoBackupPassword),
                 lastBackupTimestamp = appPreferences.getValue(appPreferences.lastBackupTimestamp),
+                lastBackupError = appPreferences.getValue(appPreferences.autoBackupLastError),
             )
     }
 
