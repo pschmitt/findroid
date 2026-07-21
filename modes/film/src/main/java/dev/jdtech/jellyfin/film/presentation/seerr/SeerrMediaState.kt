@@ -3,10 +3,16 @@ package dev.jdtech.jellyfin.film.presentation.seerr
 import dev.jdtech.jellyfin.models.SeerrMediaDetail
 import dev.jdtech.jellyfin.models.QueueStatus
 import dev.jdtech.jellyfin.core.presentation.search.ReleasePickerState
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.UUID
 
 data class SeerrMediaState(
     val detail: SeerrMediaDetail? = null,
+    // Sonarr-derived, already timezone-localized air date/time, passed in from the Season
+    // screen's upcoming-episode row when known - see SeerrMediaViewModel.loadDetail.
+    val knownAirDate: LocalDate? = null,
+    val knownAirTime: LocalTime? = null,
     val isLoading: Boolean = false,
     // A request/cancel round-trip is in flight - disables the action button meanwhile.
     val isSubmitting: Boolean = false,

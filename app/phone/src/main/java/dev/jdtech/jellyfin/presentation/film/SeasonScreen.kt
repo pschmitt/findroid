@@ -81,7 +81,15 @@ fun SeasonScreen(
     navigateHome: () -> Unit,
     navigateToItem: (item: FindroidItem) -> Unit,
     navigateToSeries: (seriesId: UUID) -> Unit,
-    navigateToSeerr: (tmdbId: Int, seasonNumber: Int, episodeNumber: Int, sonarrEpisodeId: Int) -> Unit,
+    navigateToSeerr:
+        (
+            tmdbId: Int,
+            seasonNumber: Int,
+            episodeNumber: Int,
+            sonarrEpisodeId: Int,
+            airDate: String?,
+            airTime: String?,
+        ) -> Unit,
     navigateToSettings: () -> Unit,
     viewModel: SeasonViewModel = hiltViewModel(),
 ) {
@@ -126,6 +134,8 @@ fun SeasonScreen(
                         action.seasonNumber,
                         action.episodeNumber,
                         action.sonarrEpisodeId,
+                        action.airDate?.toString(),
+                        action.airTime?.toString(),
                     )
                 else -> Unit
             }
@@ -337,6 +347,8 @@ private fun SeasonScreenLayout(
                                             seasonNumber = episode.seasonNumber,
                                             episodeNumber = episode.episodeNumber,
                                             sonarrEpisodeId = episode.episodeId,
+                                            airDate = episode.airDate,
+                                            airTime = episode.airTime,
                                         )
                                     )
                                 }

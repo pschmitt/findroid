@@ -13,6 +13,8 @@ import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.repository.SeerrRepository
 import dev.jdtech.jellyfin.repository.SonarrSearchRepository
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Job
@@ -59,6 +61,8 @@ constructor(
     private var seasonNumber: Int? = null
     private var episodeNumber: Int? = null
     private var sonarrEpisodeId: Int? = null
+    private var airDate: LocalDate? = null
+    private var airTime: LocalTime? = null
     private var releasePickerSource: PvrSource? = null
     private var queueStatusJob: Job? = null
 
@@ -68,18 +72,24 @@ constructor(
         seasonNumber: Int? = null,
         episodeNumber: Int? = null,
         sonarrEpisodeId: Int? = null,
+        airDate: LocalDate? = null,
+        airTime: LocalTime? = null,
     ) {
         this.tmdbId = tmdbId
         this.mediaType = mediaType
         this.seasonNumber = seasonNumber
         this.episodeNumber = episodeNumber
         this.sonarrEpisodeId = sonarrEpisodeId
+        this.airDate = airDate
+        this.airTime = airTime
         observeQueueStatus(mediaType, tmdbId, sonarrEpisodeId)
         viewModelScope.launch {
             _state.value =
                 _state.value.copy(
                     isLoading = true,
                     error = null,
+                    knownAirDate = airDate,
+                    knownAirTime = airTime,
                     pvrSearchConfigured =
                         when (mediaType) {
                             SeerrMediaType.MOVIE -> pvrConfiguration.isRadarrConfigured()
@@ -181,7 +191,15 @@ constructor(
             is SeerrMediaAction.DismissReleasePicker ->
                 _state.value = _state.value.copy(releasePicker = null)
             is SeerrMediaAction.OnRetryClick ->
-                loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber, sonarrEpisodeId)
+                loadDetail(
+                    tmdbId,
+                    mediaType,
+                    seasonNumber,
+                    episodeNumber,
+                    sonarrEpisodeId,
+                    airDate,
+                    airTime,
+                )
             else -> Unit
         }
     }
@@ -272,6 +290,8 @@ constructor(
                             seasonNumber,
                             episodeNumber,
                             sonarrEpisodeId,
+                            airDate,
+                            airTime,
                         )
                     },
                     onFailure = { e ->
@@ -308,6 +328,8 @@ constructor(
                 seasonNumber,
                 episodeNumber,
                 sonarrEpisodeId,
+                airDate,
+                airTime,
             )
             _state.value = _state.value.copy(isSubmitting = false)
         }

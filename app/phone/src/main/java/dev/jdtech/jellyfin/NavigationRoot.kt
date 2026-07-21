@@ -118,6 +118,11 @@ data class SeerrMediaRoute(
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val sonarrEpisodeId: Int? = null,
+    // ISO-8601 strings (LocalDate.toString()/LocalTime.toString()) - already timezone-localized
+    // air date/time known from Sonarr, when navigated here from a Season screen upcoming-episode
+    // row. Null when not known (e.g. reached via search/Home discovery instead).
+    val airDate: String? = null,
+    val airTime: String? = null,
 )
 
 @Serializable data object FavoritesRoute
@@ -595,6 +600,8 @@ fun NavigationRoot(
                     seasonNumber = route.seasonNumber,
                     episodeNumber = route.episodeNumber,
                     sonarrEpisodeId = route.sonarrEpisodeId,
+                    airDate = route.airDate?.let { java.time.LocalDate.parse(it) },
+                    airTime = route.airTime?.let { java.time.LocalTime.parse(it) },
                     navigateToShow = { showId ->
                         if (showId != null) {
                             navController.safeNavigate(ShowRoute(showId = showId.toString()))
@@ -684,7 +691,7 @@ fun NavigationRoot(
                             launchSingleTop = true
                         }
                     },
-                    navigateToSeerr = { tmdbId, seasonNumber, episodeNumber, sonarrEpisodeId ->
+                    navigateToSeerr = { tmdbId, seasonNumber, episodeNumber, sonarrEpisodeId, airDate, airTime ->
                         navController.safeNavigate(
                             SeerrMediaRoute(
                                 tmdbId = tmdbId,
@@ -692,6 +699,8 @@ fun NavigationRoot(
                                 seasonNumber = seasonNumber,
                                 episodeNumber = episodeNumber,
                                 sonarrEpisodeId = sonarrEpisodeId,
+                                airDate = airDate,
+                                airTime = airTime,
                             )
                         )
                     },

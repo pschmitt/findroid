@@ -72,6 +72,10 @@ import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
 import dev.jdtech.jellyfin.utils.ObserveAsEvents
+import dev.jdtech.jellyfin.utils.formatCalendarDate
+import dev.jdtech.jellyfin.utils.formatCalendarTime
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.UUID
 
 /**
@@ -85,6 +89,10 @@ fun SeerrMediaScreen(
     seasonNumber: Int? = null,
     episodeNumber: Int? = null,
     sonarrEpisodeId: Int? = null,
+    // Sonarr-derived, already timezone-localized air date/time - see NavigationRoot's
+    // SeerrMediaRoute doc. Null when this screen was reached some other way (e.g. search).
+    airDate: LocalDate? = null,
+    airTime: LocalTime? = null,
     navigateToShow: (UUID?) -> Unit = {},
     navigateToSeason: (Int, UUID?) -> Unit = { _, _ -> },
     navigateBack: () -> Unit,
@@ -97,7 +105,7 @@ fun SeerrMediaScreen(
     var lastActionWasCancel by remember { mutableStateOf(false) }
 
     LaunchedEffect(tmdbId, mediaType, seasonNumber, episodeNumber, sonarrEpisodeId) {
-        viewModel.loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber, sonarrEpisodeId)
+        viewModel.loadDetail(tmdbId, mediaType, seasonNumber, episodeNumber, sonarrEpisodeId, airDate, airTime)
     }
 
     ObserveAsEvents(viewModel.events) { event ->
@@ -194,7 +202,7 @@ private fun SeerrMediaScreenLayout(
                         )
                         Spacer(Modifier.height(MaterialTheme.spacings.small))
                         Text(
-                            text = seerrMetaLine(detail),
+                            text = seerrMetaLine(detail, state.knownAirDate, state.knownAirTime),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -545,8 +553,20 @@ private fun SeerrBackdrop(detail: SeerrMediaDetail) {
 
 /** "2014 · Movie · 1h 49m · Comedy, Drama" - skips whatever the payload doesn't have. */
 @Composable
-private fun seerrMetaLine(detail: SeerrMediaDetail): String {
+private fun seerrMetaLine(
+    detail: SeerrMediaDetail,
+    knownAirDate: LocalDate?,
+    knownAirTime: LocalTime?,
+): String {
     detail.episode?.let { episode ->
+        // Prefer the already timezone-localized Sonarr air date/time (matches what the Season
+        // screen's upcoming-episode row just showed) over Seerr/TMDB's plain, unlocalized
+        // air_date string, which can land on a different calendar day - see SeasonAction.
+        val airDateText =
+            knownAirDate?.let { date ->
+                formatCalendarDate(date) +
+                    (knownAirTime?.let { time -> ", ${formatCalendarTime(time)}" } ?: "")
+            } ?: episode.airDate?.take(10)
         return listOf(
                 detail.season?.title ?: detail.title,
                 stringResource(
@@ -555,7 +575,7 @@ private fun seerrMetaLine(detail: SeerrMediaDetail): String {
                     episode.episodeNumber,
                     episode.title,
                 ),
-                episode.airDate?.take(10),
+                airDateText,
             )
             .filterNotNull()
             .joinToString(" · ")

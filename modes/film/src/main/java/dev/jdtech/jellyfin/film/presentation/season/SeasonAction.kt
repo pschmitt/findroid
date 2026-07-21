@@ -3,6 +3,8 @@ package dev.jdtech.jellyfin.film.presentation.season
 import dev.jdtech.jellyfin.api.pvr.PvrRelease
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.jdtech.jellyfin.models.FindroidItem
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.UUID
 
 sealed interface SeasonAction {
@@ -39,6 +41,11 @@ sealed interface SeasonAction {
         val seasonNumber: Int,
         val episodeNumber: Int,
         val sonarrEpisodeId: Int,
+        // Sonarr-derived, already timezone-localized air date/time (from UpcomingEpisode), so the
+        // Seerr detail screen shows the same value this row just did instead of re-deriving one
+        // from TMDB's plain, unlocalized air_date - see SeerrMediaScreen's seerrMetaLine.
+        val airDate: LocalDate? = null,
+        val airTime: LocalTime? = null,
     ) : SeasonAction
 
     /** [knownEpisodeId] is Sonarr's numeric episode id when already known (upcoming episode rows),
