@@ -100,6 +100,12 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     // "Back up now" export. Left blank, auto-backups are unencrypted.
     val autoBackupPassword = Preference<String?>("pref_backup_auto_password", null)
     val lastBackupTimestamp = Preference("pref_backup_last_timestamp", 0L)
+    // Short human-readable reason the most recent scheduled auto-backup failed, set by
+    // AutoBackupWorker on every failure path and cleared (null) on success. Manual "Back up now"
+    // failures already surface through a snackbar and don't touch this - it exists specifically
+    // to make background-job failures visible in the Backup & Restore screen, since those would
+    // otherwise fail silently forever (WorkManager just retries on the next period).
+    val autoBackupLastError = Preference<String?>("pref_backup_last_error", null)
     val pendingRestoreDownloads = Preference<String?>("pref_backup_pending_restore_downloads", null)
 
     // Network

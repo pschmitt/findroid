@@ -193,6 +193,7 @@
     <string name="backup_now_password_summary">Leave blank for no encryption.</string>
     <string name="backup_last">Last backup</string>
     <string name="backup_last_never">Never</string>
+    <string name="backup_auto_error">Automatic backup failed: %1$s</string>
     <string name="backup_now_success">Backup created</string>
     <string name="backup_now_error">Backup failed: %1$s</string>
     <string name="integrations_title">Integrations</string>

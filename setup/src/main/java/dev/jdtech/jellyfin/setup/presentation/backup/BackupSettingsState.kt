@@ -6,5 +6,6 @@ data class BackupSettingsState(
     val autoBackupFolderUri: String? = null,
     val autoBackupPassword: String? = null,
     val lastBackupTimestamp: Long = 0L,
+    val lastBackupError: String? = null,
     val isBackingUp: Boolean = false,
 )
