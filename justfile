@@ -7,7 +7,13 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 remote_host := env_var_or_default("FINDROID_REMOTE_HOST", "rofl-13.brkn.lol")
-remote_path := env_var_or_default("FINDROID_REMOTE_PATH", "~/devel/private/pschmitt/findroid-verify")
+
+# Empty for the main checkout; "-<worktree-dirname>" when run from a linked git worktree (e.g.
+# one of Claude's isolated agent worktrees under .claude/worktrees/). Keeps parallel worktree
+# agents from clobbering each other's remote sync directory mid-build - see AGENTS.md.
+worktree_suffix := `gd=$(git rev-parse --git-dir); gcd=$(git rev-parse --git-common-dir); if [ "$gd" != "$gcd" ]; then basename "$(git rev-parse --show-toplevel)" | sed 's/^/-/'; fi`
+
+remote_path := env_var_or_default("FINDROID_REMOTE_PATH", "~/devel/private/pschmitt/findroid-verify" + worktree_suffix)
 local_dist := env_var_or_default("FINDROID_DIST_DIR", "./dist")
 
 mipad_host := env_var_or_default("MIPAD_HOST", "mi-pad-4.lan")
@@ -21,10 +27,14 @@ default:
 
 # --- Remote build (rofl-13 / rofl-14) -------------------------------------
 
-# Sync the working tree to the remote build host (excludes .git/build/.gradle)
+# Sync the working tree to the remote build host (excludes .git/build/.gradle). The .git
+# exclude has no trailing slash so it matches both a real .git/ directory (the main checkout)
+# and a plain .git file (a linked worktree's gitlink, which points at a local-only
+# .git/worktrees/... path that doesn't exist on the remote host and breaks `nix develop` there
+# if it gets copied over).
 sync host=remote_host:
     rsync -az --delete \
-        --exclude='.git/' --exclude='**/build/' \
+        --exclude='.git' --exclude='**/build/' \
         --exclude='.gradle/' --exclude='**/.gradle/' \
         ./ {{host}}:{{remote_path}}/
 
