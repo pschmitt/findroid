@@ -231,6 +231,7 @@
     <string name="restore_backup_choose_file">Choose backup file</string>
     <string name="restore_backup_password_title">Password required</string>
     <string name="restore_backup_password_hint">Password</string>
+    <string name="restore_backup_paste_password">Paste from clipboard</string>
     <string name="restore_backup_wrong_password">Incorrect password</string>
     <string name="restore_backup_error">Restore failed: %1$s</string>
     <string name="restore_backup_summary">%1$d server(s), %2$d user(s), and %3$d auto-download rule(s) restored.</string>
