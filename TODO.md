@@ -922,3 +922,30 @@ Status: **done** (2026-07-21). All five items shipped: battery saver
 downloads, calendar caching/airtime fixes, settings grouping/header icons,
 and the Connections add-server/user redesign. CI-signed release build
 verified and installed on both test devices.
+
+## FINDROID-29: Post-deploy bug reports (airtime mismatch, backup scroll, restore paste)
+
+- [x] User caught a remaining airtime bug after FINDROID-28 shipped: the
+      Season screen's upcoming-episode row correctly showed "Airs Jul 27 at
+      3:00 AM" (Sonarr `airDateUtc`, localized), but tapping into it opened
+      the Seerr/TMDB detail screen (`SeerrMediaScreen`) showing
+      "2026-07-26" - a different date for the same episode. That screen
+      independently re-fetches episode metadata from Jellyseerr/TMDB and
+      renders TMDB's plain, unlocalized `air_date` via a naive substring,
+      unrelated to the Sonarr-derived value the list just showed. Fixed by
+      threading the already-localized `airDate`/`airTime` through
+      `SeasonAction.NavigateToSeerr` -> `SeerrMediaRoute` ->
+      `SeerrMediaViewModel`, so the detail screen shows the same value.
+- [x] Settings > Backup & Restore: the Restore button rendered as a
+      barely-visible hairline at the bottom of the screen. Root cause: the
+      content `Column` had no `verticalScroll` modifier at all - once the
+      auto-backup section grew tall enough, everything below (including
+      Restore) got pushed past the viewport with no way to scroll to it.
+      Added `.verticalScroll(rememberScrollState())`.
+- [x] Restore backup password prompt: added a paste-from-clipboard button,
+      mirroring the existing pattern on the Integrations API key field
+      (same `ic_clipboard_paste` icon, `ClipboardManager.getText()`).
+
+Status: **done** (2026-07-21). Verified via remote compile + `ktfmtCheck`
+on rofl-13; CI-signed release build installed on all three connected
+devices (ASUS phone, Pixel 5, Mi Pad 4).
