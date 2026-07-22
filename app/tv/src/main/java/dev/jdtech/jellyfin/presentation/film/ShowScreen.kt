@@ -417,7 +417,20 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                                             },
                                         )
                                     is SeasonRowItem.Missing ->
-                                        UpcomingSeasonCard(season = item.season)
+                                        UpcomingSeasonCard(
+                                            season = item.season,
+                                            queued =
+                                                state.queuedSeasonNumbers.contains(
+                                                    item.season.seasonNumber
+                                                ),
+                                            onToggleQueued = {
+                                                onAction(
+                                                    ShowAction.ToggleSeasonQueued(
+                                                        seasonNumber = item.season.seasonNumber
+                                                    )
+                                                )
+                                            },
+                                        )
                                 }
                             }
                         }

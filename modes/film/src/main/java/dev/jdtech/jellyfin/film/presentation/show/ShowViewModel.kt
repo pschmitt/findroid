@@ -18,6 +18,7 @@ import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.CalendarRepository
 import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 import dev.jdtech.jellyfin.repository.JellyfinRepository
+import dev.jdtech.jellyfin.repository.PendingDownloadRequestRepository
 import dev.jdtech.jellyfin.repository.SeasonEpisodesRepository
 import dev.jdtech.jellyfin.repository.SeerrRepository
 import dev.jdtech.jellyfin.repository.toExistingScope
@@ -49,6 +50,7 @@ constructor(
     private val calendarRepository: CalendarRepository,
     private val seasonEpisodesRepository: SeasonEpisodesRepository,
     private val seerrRepository: SeerrRepository,
+    private val pendingDownloadRequestRepository: PendingDownloadRequestRepository,
     @ApplicationScope private val externalScope: CoroutineScope,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ShowState())
@@ -93,6 +95,7 @@ constructor(
                 // data is already on screen by the time this (possibly slow, Sonarr-dependent)
                 // round trip resolves, same pattern as SeasonViewModel.loadUpcomingEpisodes.
                 loadMissingSeasons(show.tvdbId, show.tmdbId?.toIntOrNull(), seasons)
+                loadQueuedSeasons(showId)
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
             }
@@ -130,6 +133,45 @@ constructor(
                 _state.emit(_state.value.copy(missingSeasons = withPosters))
             }
             .onFailure { e -> Timber.w(e, "Failed to load missing-season posters for show $showId") }
+    }
+
+    private suspend fun loadQueuedSeasons(showId: UUID) {
+        val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return
+        val userId = repository.getUserId()
+        val queued =
+            pendingDownloadRequestRepository
+                .getQueuedForSeries(serverId, userId, showId)
+                .filter { it.episodeNumber == null }
+                .map { it.seasonNumber }
+                .toSet()
+        _state.emit(_state.value.copy(queuedSeasonNumbers = queued))
+    }
+
+    private fun toggleSeasonQueued(seasonNumber: Int) {
+        viewModelScope.launch {
+            val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
+            val userId = repository.getUserId()
+            val alreadyQueued = _state.value.queuedSeasonNumbers.contains(seasonNumber)
+            if (alreadyQueued) {
+                pendingDownloadRequestRepository.cancel(
+                    serverId,
+                    userId,
+                    showId,
+                    seasonNumber,
+                    episodeNumber = null,
+                )
+            } else {
+                pendingDownloadRequestRepository.queue(
+                    serverId,
+                    userId,
+                    showId,
+                    seasonNumber,
+                    episodeNumber = null,
+                    sonarrEpisodeId = null,
+                )
+            }
+            loadQueuedSeasons(showId)
+        }
     }
 
     private suspend fun isAutoDownloadEnabled(showId: UUID): Boolean {
@@ -283,6 +325,7 @@ constructor(
             is ShowAction.DownloadWithScope ->
                 downloadWithScope(action.selection, action.alsoFollowNew, action.onlyUnwatched)
             is ShowAction.DeleteShowDownloads -> deleteShowDownloads(action.alsoRemoveRules)
+            is ShowAction.ToggleSeasonQueued -> toggleSeasonQueued(action.seasonNumber)
             else -> Unit
         }
     }

@@ -38,4 +38,8 @@ sealed interface ShowAction {
     /** Opens the Seerr detail view, scoped to [seasonNumber], for a missing-season placeholder
      * card - mirrors SeasonAction.NavigateToSeerr's role for missing-episode rows. */
     data class NavigateToSeerr(val tmdbId: Int, val seasonNumber: Int) : ShowAction
+
+    /** Toggles a "download this season once it's available" request for a missing-season
+     * placeholder card - queues it if not already queued, cancels it otherwise. */
+    data class ToggleSeasonQueued(val seasonNumber: Int) : ShowAction
 }

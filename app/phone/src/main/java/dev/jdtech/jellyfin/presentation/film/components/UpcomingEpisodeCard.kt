@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +48,8 @@ fun UpcomingEpisodeCard(
     onClick: (() -> Unit)? = null,
     onSearchAutomatic: (() -> Unit)? = null,
     onSearchManual: (() -> Unit)? = null,
+    queued: Boolean = false,
+    onToggleQueued: (() -> Unit)? = null,
 ) {
     Row(
         modifier =
@@ -97,6 +101,28 @@ fun UpcomingEpisodeCard(
                     text = stringResource(CoreR.string.season_upcoming_episode_badge),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        if (onToggleQueued != null) {
+            IconButton(
+                onClick = onToggleQueued,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            ) {
+                Icon(
+                    painter =
+                        painterResource(
+                            if (queued) CoreR.drawable.ic_check else CoreR.drawable.ic_download
+                        ),
+                    contentDescription =
+                        stringResource(
+                            if (queued) CoreR.string.pending_download_queued_action
+                            else CoreR.string.pending_download_queue_action
+                        ),
+                    tint =
+                        if (queued) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

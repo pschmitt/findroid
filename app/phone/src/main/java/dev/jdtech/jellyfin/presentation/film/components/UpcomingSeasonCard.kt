@@ -8,8 +8,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,6 +48,8 @@ fun UpcomingSeasonCard(
     season: UpcomingSeason,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    queued: Boolean = false,
+    onToggleQueued: (() -> Unit)? = null,
 ) {
     Column(
         modifier =
@@ -52,27 +58,57 @@ fun UpcomingSeasonCard(
             }
     ) {
         Surface(shape = MaterialTheme.shapes.small) {
-            Box(
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .aspectRatio(0.66f)
-                        .background(MaterialTheme.colorScheme.surfaceContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (season.posterUrl != null) {
-                    AsyncImage(
-                        model = season.posterUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxWidth().aspectRatio(0.66f),
-                        placeholder = ColorPainter(MaterialTheme.colorScheme.surfaceContainer),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Icon(
-                        painter = painterResource(CoreR.drawable.ic_calendar),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            Box {
+                Box(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .aspectRatio(0.66f)
+                            .background(MaterialTheme.colorScheme.surfaceContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (season.posterUrl != null) {
+                        AsyncImage(
+                            model = season.posterUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxWidth().aspectRatio(0.66f),
+                            placeholder = ColorPainter(MaterialTheme.colorScheme.surfaceContainer),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(CoreR.drawable.ic_calendar),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (onToggleQueued != null) {
+                    IconButton(
+                        onClick = onToggleQueued,
+                        modifier =
+                            Modifier.align(Alignment.TopEnd)
+                                .padding(MaterialTheme.spacings.extraSmall)
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
+                    ) {
+                        Icon(
+                            painter =
+                                painterResource(
+                                    if (queued) CoreR.drawable.ic_check
+                                    else CoreR.drawable.ic_download
+                                ),
+                            contentDescription =
+                                stringResource(
+                                    if (queued) CoreR.string.pending_download_queued_action
+                                    else CoreR.string.pending_download_queue_action
+                                ),
+                            tint =
+                                if (queued) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                 }
             }
         }

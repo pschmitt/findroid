@@ -36,6 +36,7 @@ import dev.jdtech.jellyfin.work.AutoBackupScheduler
 import dev.jdtech.jellyfin.work.AutoDeleteWatchedWorker
 import dev.jdtech.jellyfin.work.AutoDownloadWorker
 import dev.jdtech.jellyfin.work.MpvCleanupWorker
+import dev.jdtech.jellyfin.work.PendingDownloadWorker
 import dev.jdtech.jellyfin.work.QueueStatusScheduler
 import dev.jdtech.jellyfin.work.SyncWorker
 import java.util.concurrent.TimeUnit
@@ -114,6 +115,7 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
         scheduleUserDataSync(workManager)
         scheduleMpvCleanup(workManager)
         scheduleAutoDownload(workManager)
+        schedulePendingDownloads(workManager)
         scheduleAutoDeleteWatched(workManager)
         AutoBackupScheduler.schedule(applicationContext, appPreferences)
         QueueStatusScheduler.schedule(applicationContext, appPreferences)
@@ -200,6 +202,35 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
 
         workManager.enqueueUniqueWork(
             uniqueWorkName = "autoDownloadRulesStartup",
+            existingWorkPolicy = ExistingWorkPolicy.REPLACE,
+            request = startupRequest,
+        )
+    }
+
+    private fun schedulePendingDownloads(workManager: WorkManager) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
+            .build()
+
+        val periodicRequest =
+            PeriodicWorkRequestBuilder<PendingDownloadWorker>(checkIntervalMinutes(), TimeUnit.MINUTES)
+                .setConstraints(constraints)
+                .build()
+
+        workManager.enqueueUniquePeriodicWork(
+            uniqueWorkName = "pendingDownloadRequests",
+            existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.UPDATE,
+            request = periodicRequest,
+        )
+
+        // Also evaluate once at startup, standing in for "after library refresh/sync" - same
+        // rationale as scheduleAutoDownload's startup request.
+        val startupRequest =
+            OneTimeWorkRequestBuilder<PendingDownloadWorker>().setConstraints(constraints).build()
+
+        workManager.enqueueUniqueWork(
+            uniqueWorkName = "pendingDownloadRequestsStartup",
             existingWorkPolicy = ExistingWorkPolicy.REPLACE,
             request = startupRequest,
         )

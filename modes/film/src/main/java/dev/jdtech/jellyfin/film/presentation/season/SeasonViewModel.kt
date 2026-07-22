@@ -20,6 +20,7 @@ import dev.jdtech.jellyfin.pvr.PvrConfiguration
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
 import dev.jdtech.jellyfin.repository.ExistingAutoDownloadScope
 import dev.jdtech.jellyfin.repository.JellyfinRepository
+import dev.jdtech.jellyfin.repository.PendingDownloadRequestRepository
 import dev.jdtech.jellyfin.repository.QueueStatusRepository
 import dev.jdtech.jellyfin.repository.SeasonEpisodesRepository
 import dev.jdtech.jellyfin.repository.SonarrSearchRepository
@@ -56,6 +57,7 @@ constructor(
     private val seasonEpisodesRepository: SeasonEpisodesRepository,
     private val sonarrSearchRepository: SonarrSearchRepository,
     private val pvrConfiguration: PvrConfiguration,
+    private val pendingDownloadRequestRepository: PendingDownloadRequestRepository,
     @ApplicationScope private val externalScope: CoroutineScope,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SeasonState())
@@ -106,6 +108,7 @@ constructor(
                 reconcileDownloadProgress(episodes)
                 observeQueueStatus(episodes)
                 loadUpcomingEpisodes(seriesTvdbId, season.indexNumber, episodes)
+                loadQueuedEpisodes(season.seriesId, season.indexNumber)
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
             }
@@ -133,6 +136,47 @@ constructor(
                 }
             }
         _state.emit(_state.value.copy(upcomingEpisodes = upcoming))
+    }
+
+    private suspend fun loadQueuedEpisodes(seriesId: UUID, seasonNumber: Int) {
+        val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return
+        val userId = repository.getUserId()
+        val queued =
+            pendingDownloadRequestRepository
+                .getQueuedForSeries(serverId, userId, seriesId)
+                .filter { it.seasonNumber == seasonNumber && it.episodeNumber != null }
+                .mapNotNull { it.episodeNumber }
+                .toSet()
+        _state.emit(_state.value.copy(queuedEpisodeNumbers = queued))
+    }
+
+    private fun toggleEpisodeQueued(episodeNumber: Int, sonarrEpisodeId: Int) {
+        val seriesId = seriesId ?: return
+        val seasonNumber = _state.value.season?.indexNumber ?: return
+        viewModelScope.launch {
+            val serverId = appPreferences.getValue(appPreferences.currentServer) ?: return@launch
+            val userId = repository.getUserId()
+            val alreadyQueued = _state.value.queuedEpisodeNumbers.contains(episodeNumber)
+            if (alreadyQueued) {
+                pendingDownloadRequestRepository.cancel(
+                    serverId,
+                    userId,
+                    seriesId,
+                    seasonNumber,
+                    episodeNumber,
+                )
+            } else {
+                pendingDownloadRequestRepository.queue(
+                    serverId,
+                    userId,
+                    seriesId,
+                    seasonNumber,
+                    episodeNumber,
+                    sonarrEpisodeId,
+                )
+            }
+            loadQueuedEpisodes(seriesId, seasonNumber)
+        }
     }
 
     /** Resolves the Sonarr episode id to act on - already known for upcoming-episode rows
@@ -358,6 +402,8 @@ constructor(
             is SeasonAction.GrabRelease -> grabRelease(action.release)
             is SeasonAction.DismissReleasePicker ->
                 _state.value = _state.value.copy(releasePicker = null)
+            is SeasonAction.ToggleEpisodeQueued ->
+                toggleEpisodeQueued(action.episodeNumber, action.sonarrEpisodeId)
             else -> Unit
         }
     }

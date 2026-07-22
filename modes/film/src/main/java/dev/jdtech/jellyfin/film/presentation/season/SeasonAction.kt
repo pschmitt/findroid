@@ -57,4 +57,9 @@ sealed interface SeasonAction {
     data class GrabRelease(val release: PvrRelease) : SeasonAction
 
     data object DismissReleasePicker : SeasonAction
+
+    /** Toggles a "download this episode once it's available" request for an upcoming-episode
+     * placeholder row - queues it if not already queued, cancels it otherwise. [sonarrEpisodeId]
+     * is stashed on the request row for convenience, same as [UpcomingEpisode.episodeId]. */
+    data class ToggleEpisodeQueued(val episodeNumber: Int, val sonarrEpisodeId: Int) : SeasonAction
 }

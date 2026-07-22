@@ -18,6 +18,7 @@ import dev.jdtech.jellyfin.models.FindroidShowDto
 import dev.jdtech.jellyfin.models.FindroidSourceDto
 import dev.jdtech.jellyfin.models.FindroidTrickplayInfoDto
 import dev.jdtech.jellyfin.models.FindroidUserDataDto
+import dev.jdtech.jellyfin.models.PendingDownloadRequestDto
 import dev.jdtech.jellyfin.models.Server
 import dev.jdtech.jellyfin.models.ServerAddress
 import dev.jdtech.jellyfin.models.User
@@ -38,8 +39,9 @@ import dev.jdtech.jellyfin.models.User
             FindroidTrickplayInfoDto::class,
             FindroidSegmentDto::class,
             AutoDownloadRuleDto::class,
+            PendingDownloadRequestDto::class,
         ],
-    version = 15,
+    version = 16,
     autoMigrations =
         [
             AutoMigration(from = 2, to = 3),
@@ -54,6 +56,7 @@ import dev.jdtech.jellyfin.models.User
             AutoMigration(from = 12, to = 13),
             AutoMigration(from = 13, to = 14),
             AutoMigration(from = 14, to = 15),
+            AutoMigration(from = 15, to = 16),
         ],
 )
 @TypeConverters(Converters::class)

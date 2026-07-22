@@ -1141,3 +1141,68 @@ Status: **done** (2026-07-21). Verified via remote
 Status: **done** (2026-07-21). Verified via remote
 `:app:phone:compileLibreDebugKotlin` and `ktfmtCheck` (forced rerun) on
 rofl-13.
+
+## FINDROID-36: "Pre-order" downloads for not-yet-available seasons/episodes
+
+User request: the Show/Season screens already render dimmed
+`UpcomingSeasonCard`/`UpcomingEpisodeCard` placeholders for Sonarr-known
+seasons/episodes that aren't in the Jellyfin library yet - let the user
+queue a download request for one of those so it starts automatically once
+Sonarr grabs it, Jellyfin scans it in, and it actually appears, instead of
+requiring a manual re-visit to notice and tap "download".
+
+- [x] New Room entity `PendingDownloadRequestDto` (table
+      `pending_download_requests`, DB bumped to v16 with an `AutoMigration`)
+      keyed by Jellyfin `seriesId` + Sonarr-style `seasonNumber`/nullable
+      `episodeNumber` (null = whole-season request) rather than a Jellyfin
+      item id, since there isn't one until the target actually appears.
+      `sonarrEpisodeId` stashed for convenience, not currently used for
+      matching. DAO's `getPendingDownloadRequest` needed an `OR (x IS NULL
+      AND :x IS NULL)` clause since `episodeNumber = :episodeNumber` never
+      matches when both sides are NULL in SQL.
+- [x] `PendingDownloadRequestRepository`/`Impl` (mirrors
+      `AutoDownloadRuleRepository`'s shape) - `queue`/`cancel`/`isQueued`
+      per season/episode, `getQueuedForSeries` for the Show/Season screens,
+      `getAll` for the worker.
+- [x] `PendingDownloadFulfiller` (mirrors `AutoDownloadRuleEvaluator`):
+      resolves one request against the live Jellyfin library by season/
+      episode number, dedups against an existing `sources` row exactly like
+      the auto-download evaluator, and enqueues via `Downloader
+      .downloadItem`. A whole-season request only counts as fulfilled once
+      the season actually has episodes to download (a bare season shell
+      with none yet is left pending rather than silently dropped). One-off
+      semantics, not a persistent "keep following new episodes" rule -
+      that's what `AutoDownloadRuleRepository` is already for.
+- [x] `PendingDownloadWorker` (periodic `CoroutineWorker`, same
+      current-server-only scoping rationale as `AutoDownloadWorker` since
+      `Downloader`/`JellyfinRepository` are server-scoped singletons),
+      registered in `app/phone/.../BaseApplication.kt` alongside the
+      existing auto-download scheduling (periodic + one-shot startup run).
+      Reuses the existing `autoDownloadCheckIntervalMinutes` preference
+      rather than adding a new one. Phone-only, like every other
+      WorkManager job - the TV app schedules none.
+- [x] `PendingDownloadFulfilledNotifier`, same lazy-channel/tap-opens-app
+      pattern as `PvrDownloadFinishedNotifier`, separate channel so users
+      can mute pre-order fulfillment notifications independently of PVR
+      queue-finished ones.
+- [x] UI: `UpcomingEpisodeCard`/`UpcomingSeasonCard` (phone) gained a
+      download/check icon-button toggle (queue when unqueued, cancel when
+      already queued, primary-tinted when queued) - inline next to the PVR
+      search button on the episode row, overlaid on the poster corner for
+      the season card. Same on the TV equivalents; those cards' outer
+      `Surface` stays `enabled = false` (no Seerr screen to open there) but
+      the new icon button is independently focusable, since it's now the
+      one actionable thing the row can do. `ShowState`/`SeasonState` gained
+      `queuedSeasonNumbers`/`queuedEpisodeNumbers`, refreshed after every
+      toggle from `PendingDownloadRequestRepository.getQueuedForSeries`.
+- [x] Room schema JSON for v16 hit the known `just sync` rsync-wipes-the-
+      schema-dir-before-KSP-regenerates-it gotcha - forced via
+      `./gradlew :data:kspDebugKotlin --rerun-tasks` directly over SSH on
+      rofl-13, then scp'd back into `data/schemas/...ServerDatabase/16.json`
+      and committed.
+
+Status: **done** (2026-07-22). Verified via remote
+`:app:phone:compileLibreDebugKotlin`/`:app:tv:compileLibreDebugKotlin`,
+`ktfmtCheck` (forced rerun), and `:data:testDebugUnitTest`/
+`:core:testLibreDebugUnitTest` on rofl-13. No existing Room migration unit
+test class was found to re-run.
