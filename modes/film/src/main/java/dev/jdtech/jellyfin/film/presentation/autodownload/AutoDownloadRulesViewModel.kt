@@ -7,6 +7,7 @@ import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
 import dev.jdtech.jellyfin.models.FindroidSeason
+import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.UiText
 import dev.jdtech.jellyfin.models.toFindroidEpisode
 import dev.jdtech.jellyfin.repository.AutoDownloadRuleRepository
@@ -15,6 +16,7 @@ import dev.jdtech.jellyfin.repository.toExistingScope
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.utils.Downloader
 import dev.jdtech.jellyfin.utils.clearDownloads
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -103,8 +105,25 @@ constructor(
             scopeLabel = scopeLabel,
             onlyNewEpisodes = primary.onlyNewEpisodes,
             onlyUnwatched = primary.onlyUnwatched,
+            downloadedSizeBytes = downloadedSizeBytes(seriesId, scope.seasonIds),
         )
     }
+
+    // Empty seasonIds means a future-seasons-only rule, which by definition tracks the whole show
+    // rather than a fixed set of seasons - so that's the only case where we fall back to the
+    // show's full download footprint instead of scoping to specific seasons.
+    private suspend fun downloadedSizeBytes(seriesId: UUID, seasonIds: Set<UUID>): Long =
+        withContext(Dispatchers.IO) {
+            val episodes = database.getEpisodesByShowId(seriesId)
+            val scoped =
+                if (seasonIds.isEmpty()) episodes else episodes.filter { it.seasonId in seasonIds }
+            scoped.sumOf { episode ->
+                database
+                    .getSources(episode.id)
+                    .filter { it.type == FindroidSourceType.LOCAL }
+                    .sumOf { File(it.path).length() }
+            }
+        }
 
     private fun toggleShowRule(seriesId: UUID, enabled: Boolean) {
         val ruleIds = _state.value.shows.find { it.seriesId == seriesId }?.ruleIds ?: return

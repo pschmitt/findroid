@@ -16,6 +16,9 @@ data class AutoDownloadShowRuleUiModel(
     val scopeLabel: UiText,
     val onlyNewEpisodes: Boolean,
     val onlyUnwatched: Boolean,
+    // Local disk usage of the episodes this rule's scope covers - the whole show's downloads for
+    // a future-seasons-only rule (seasonIds empty), otherwise just the tracked seasons'.
+    val downloadedSizeBytes: Long = 0,
 )
 
 data class AutoDownloadRulesState(

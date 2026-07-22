@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -22,6 +25,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -42,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jdtech.jellyfin.core.R as CoreR
@@ -55,6 +60,7 @@ import dev.jdtech.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.jdtech.jellyfin.presentation.film.components.ToggleOptionRow
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.utils.formatBinaryFileSize
 import java.util.UUID
 
 @Composable
@@ -161,6 +167,16 @@ private fun AutoDownloadShowRuleRow(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
+                    if (show.downloadedSizeBytes > 0) {
+                        Text(
+                            text =
+                                stringResource(
+                                    CoreR.string.auto_download_rule_storage_used,
+                                    formatBinaryFileSize(show.downloadedSizeBytes),
+                                ),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             },
             trailingContent = {
@@ -258,6 +274,7 @@ private fun EditRuleDialog(
     var alsoFutureSeasons by remember { mutableStateOf(show.alsoFutureSeasons) }
     var onlyNewEpisodes by remember { mutableStateOf(show.onlyNewEpisodes) }
     var onlyUnwatched by remember { mutableStateOf(show.onlyUnwatched) }
+    var seasonsExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(show.seriesId) { seasons = getSeasons(show.seriesId) }
 
@@ -287,18 +304,52 @@ private fun EditRuleDialog(
                             },
                         )
                     }
-                    currentSeasons.forEach { season ->
-                        ToggleOptionRow(
-                            checked = season.id in selectedSeasonIds,
-                            label =
-                                stringResource(CoreR.string.auto_download_rule_season, season.indexNumber),
-                            icon = CoreR.drawable.ic_library,
-                            onToggle = { checked ->
-                                selectedSeasonIds =
-                                    if (checked) selectedSeasonIds + season.id
-                                    else selectedSeasonIds - season.id
-                            },
-                        )
+                    if (currentSeasons.isNotEmpty()) {
+                        Row(
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .clickable { seasonsExpanded = !seasonsExpanded }
+                                    .padding(vertical = MaterialTheme.spacings.small),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text =
+                                    stringResource(
+                                        CoreR.string.download_scope_seasons_header,
+                                        currentSeasons.size,
+                                    ),
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        if (seasonsExpanded) CoreR.drawable.ic_chevron_up
+                                        else CoreR.drawable.ic_chevron_down
+                                    ),
+                                contentDescription = null,
+                                tint = LocalContentColor.current,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                        if (seasonsExpanded) {
+                            currentSeasons.forEach { season ->
+                                ToggleOptionRow(
+                                    checked = season.id in selectedSeasonIds,
+                                    label =
+                                        stringResource(
+                                            CoreR.string.auto_download_rule_season,
+                                            season.indexNumber,
+                                        ),
+                                    icon = CoreR.drawable.ic_library,
+                                    onToggle = { checked ->
+                                        selectedSeasonIds =
+                                            if (checked) selectedSeasonIds + season.id
+                                            else selectedSeasonIds - season.id
+                                    },
+                                )
+                            }
+                        }
                     }
                     HorizontalDivider()
                     ToggleOptionRow(
@@ -332,11 +383,25 @@ private fun EditRuleDialog(
                     onConfirm(selectedSeasonIds, alsoFutureSeasons, onlyNewEpisodes, onlyUnwatched)
                 },
             ) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_check),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                 Text(text = stringResource(CoreR.string.save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(text = stringResource(CoreR.string.cancel)) }
+            TextButton(onClick = onDismiss) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_x),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(text = stringResource(CoreR.string.cancel))
+            }
         },
     )
 }
