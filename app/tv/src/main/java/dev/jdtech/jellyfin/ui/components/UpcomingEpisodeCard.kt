@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
+import androidx.tv.material3.IconButton
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -35,14 +37,21 @@ import dev.jdtech.jellyfin.utils.formatCalendarTime
 import java.time.LocalDate
 
 /**
- * A Sonarr-known episode not yet in the Jellyfin library - dimmed, and `enabled = false` so D-pad
- * focus traversal skips right over it rather than landing on a dead/no-op row (same mechanism
- * disabled settings cards use, see SettingsSwitchCard). No poster (there isn't one yet) and an
- * explicit "Not yet available" label so it doesn't read as a broken real episode. Mirrors the
- * phone app's `dev.jdtech.jellyfin.presentation.film.components.UpcomingEpisodeCard`.
+ * A Sonarr-known episode not yet in the Jellyfin library - dimmed, and `enabled = false` on the
+ * outer [Surface] so D-pad focus traversal skips right over the row itself rather than landing on
+ * a dead/no-op target (same mechanism disabled settings cards use, see SettingsSwitchCard). No
+ * poster (there isn't one yet) and an explicit "Not yet available" label so it doesn't read as a
+ * broken real episode. When [onToggleQueued] is set, the nested queue-toggle [IconButton] is
+ * independently focusable/clickable regardless of the outer surface being disabled - it's the one
+ * actionable thing this row can do. Mirrors the phone app's
+ * `dev.jdtech.jellyfin.presentation.film.components.UpcomingEpisodeCard`.
  */
 @Composable
-fun UpcomingEpisodeCard(episode: UpcomingEpisode) {
+fun UpcomingEpisodeCard(
+    episode: UpcomingEpisode,
+    queued: Boolean = false,
+    onToggleQueued: (() -> Unit)? = null,
+) {
     Surface(
         onClick = {},
         enabled = false,
@@ -94,6 +103,26 @@ fun UpcomingEpisodeCard(episode: UpcomingEpisode) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
+            }
+            if (onToggleQueued != null) {
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.medium))
+                IconButton(onClick = onToggleQueued) {
+                    Icon(
+                        painter =
+                            painterResource(
+                                if (queued) CoreR.drawable.ic_check else CoreR.drawable.ic_download
+                            ),
+                        contentDescription =
+                            stringResource(
+                                if (queued) CoreR.string.pending_download_queued_action
+                                else CoreR.string.pending_download_queue_action
+                            ),
+                        tint =
+                            if (queued) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
         }
     }

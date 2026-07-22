@@ -41,6 +41,10 @@
     <string name="season_upcoming_episode_tba">Air date TBA</string>
     <string name="season_upcoming_episode_badge">Not yet available</string>
     <string name="upcoming_season_episode_count">%1$d episodes</string>
+    <string name="pending_download_queue_action">Download when available</string>
+    <string name="pending_download_queued_action">Cancel pending download</string>
+    <string name="pending_download_queued_toast">We\'ll download this once it\'s available</string>
+    <string name="pending_download_cancelled_toast">Pending download cancelled</string>
     <string name="libraries">Libraries</string>
     <string name="series_poster">Series poster</string>
     <string name="collection_no_media">This collection does not contain any media</string>
@@ -316,6 +320,8 @@
     <string name="new_items_channel_name">New items</string>
     <string name="new_item_notification_text">Added to your library</string>
     <string name="new_items_notification_title">%1$d new items</string>
+    <string name="pending_download_channel_name">Pre-ordered downloads</string>
+    <string name="pending_download_fulfilled_notification">Now available - download started</string>
     <string name="pvr_queue_status_importing">Importing…</string>
     <string name="pvr_queue_status_warning">Warning</string>
     <string name="pvr_queue_status_failed">Failed</string>

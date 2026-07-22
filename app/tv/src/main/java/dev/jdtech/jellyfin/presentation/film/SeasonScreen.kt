@@ -137,7 +137,18 @@ private fun SeasonScreenLayout(
                         items = state.upcomingEpisodes,
                         key = { episode -> "upcoming-${episode.episodeNumber}" },
                     ) { episode ->
-                        UpcomingEpisodeCard(episode = episode)
+                        UpcomingEpisodeCard(
+                            episode = episode,
+                            queued = state.queuedEpisodeNumbers.contains(episode.episodeNumber),
+                            onToggleQueued = {
+                                onAction(
+                                    SeasonAction.ToggleEpisodeQueued(
+                                        episodeNumber = episode.episodeNumber,
+                                        sonarrEpisodeId = episode.episodeId,
+                                    )
+                                )
+                            },
+                        )
                     }
                 }
             }

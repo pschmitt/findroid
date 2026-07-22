@@ -397,6 +397,17 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                                                     )
                                                 }
                                             },
+                                        queued =
+                                            state.queuedSeasonNumbers.contains(
+                                                item.season.seasonNumber
+                                            ),
+                                        onToggleQueued = {
+                                            onAction(
+                                                ShowAction.ToggleSeasonQueued(
+                                                    seasonNumber = item.season.seasonNumber
+                                                )
+                                            )
+                                        },
                                     )
                             }
                         }

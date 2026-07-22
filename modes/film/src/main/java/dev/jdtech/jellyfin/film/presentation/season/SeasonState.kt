@@ -16,6 +16,10 @@ data class SeasonState(
     // Sonarr is configured and the show is matched (see SeasonEpisodesRepository). Rendered as
     // greyed-out placeholder rows after the real episodes, see SeasonScreen.
     val upcomingEpisodes: List<UpcomingEpisode> = emptyList(),
+    // Episode numbers among [upcomingEpisodes] that have a pending "download when available"
+    // request queued (see PendingDownloadRequestDto) - drives the queued/not-queued icon state on
+    // UpcomingEpisodeCard.
+    val queuedEpisodeNumbers: Set<Int> = emptySet(),
     val autoDownloadEnabled: Boolean = false,
     val existingScope: ExistingAutoDownloadScope = ExistingAutoDownloadScope(),
     val hasDownloads: Boolean = false,

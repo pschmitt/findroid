@@ -369,6 +369,15 @@ private fun SeasonScreenLayout(
                                 )
                             )
                         },
+                        queued = state.queuedEpisodeNumbers.contains(episode.episodeNumber),
+                        onToggleQueued = {
+                            onAction(
+                                SeasonAction.ToggleEpisodeQueued(
+                                    episodeNumber = episode.episodeNumber,
+                                    sonarrEpisodeId = episode.episodeId,
+                                )
+                            )
+                        },
                     )
                 }
             }

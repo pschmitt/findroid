@@ -17,6 +17,10 @@ data class ShowState(
     // Sonarr is configured and the show is matched (see SeasonEpisodesRepository). Rendered as
     // dimmed placeholder cards after the real seasons, see ShowScreen.
     val missingSeasons: List<UpcomingSeason> = emptyList(),
+    // Season numbers among [missingSeasons] that have a pending "download when available" request
+    // queued (see PendingDownloadRequestDto) - drives the queued/not-queued icon state on
+    // UpcomingSeasonCard.
+    val queuedSeasonNumbers: Set<Int> = emptySet(),
     val actors: List<FindroidItemPerson> = emptyList(),
     val director: FindroidItemPerson? = null,
     val writers: List<FindroidItemPerson> = emptyList(),

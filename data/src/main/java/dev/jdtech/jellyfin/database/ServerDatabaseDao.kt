@@ -16,6 +16,7 @@ import dev.jdtech.jellyfin.models.FindroidShowDto
 import dev.jdtech.jellyfin.models.FindroidSourceDto
 import dev.jdtech.jellyfin.models.FindroidTrickplayInfoDto
 import dev.jdtech.jellyfin.models.FindroidUserDataDto
+import dev.jdtech.jellyfin.models.PendingDownloadRequestDto
 import dev.jdtech.jellyfin.models.Server
 import dev.jdtech.jellyfin.models.ServerAddress
 import dev.jdtech.jellyfin.models.ServerWithAddressAndUser
@@ -374,4 +375,35 @@ interface ServerDatabaseDao {
         seriesId: UUID,
         keepSeasonIds: List<UUID>,
     )
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertPendingDownloadRequest(request: PendingDownloadRequestDto): Long
+
+    @Query("DELETE FROM pending_download_requests WHERE id = :id")
+    fun deletePendingDownloadRequest(id: Long)
+
+    // episodeNumber is nullable (null = whole-season request) - the "OR (... IS NULL AND ... IS
+    // NULL)" clause is needed because SQL's `= NULL` never matches, even when both sides are NULL.
+    @Query(
+        "SELECT * FROM pending_download_requests WHERE serverId = :serverId AND userId = :userId AND seriesId = :seriesId AND seasonNumber = :seasonNumber AND (episodeNumber = :episodeNumber OR (episodeNumber IS NULL AND :episodeNumber IS NULL))"
+    )
+    fun getPendingDownloadRequest(
+        serverId: String,
+        userId: UUID,
+        seriesId: UUID,
+        seasonNumber: Int,
+        episodeNumber: Int?,
+    ): PendingDownloadRequestDto?
+
+    @Query(
+        "SELECT * FROM pending_download_requests WHERE serverId = :serverId AND userId = :userId AND seriesId = :seriesId"
+    )
+    fun getPendingDownloadRequestsForSeries(
+        serverId: String,
+        userId: UUID,
+        seriesId: UUID,
+    ): List<PendingDownloadRequestDto>
+
+    @Query("SELECT * FROM pending_download_requests WHERE serverId = :serverId AND userId = :userId")
+    fun getPendingDownloadRequests(serverId: String, userId: UUID): List<PendingDownloadRequestDto>
 }
