@@ -111,6 +111,11 @@
     <string name="download_group_storage">Storage</string>
     <string name="download_group_auto_delete">Auto-delete</string>
     <string name="download_group_auto_download">Auto-download</string>
+    <string name="download_group_new_item_notifications">New item notifications</string>
+    <string name="new_item_notifications_enabled">Notify about new items</string>
+    <string name="new_item_notifications_enabled_summary">Periodically checks your Jellyfin library for newly added movies and episodes and shows a notification, with a quick Download action when nothing will auto-download it already.</string>
+    <string name="new_item_notifications_check_interval">Check interval</string>
+    <string name="new_item_notifications_check_interval_summary">How often to check the library for newly added items. Between 15 and 1440 minutes.</string>
     <string name="app_language">App language</string>
     <string name="subtitles">Subtitles</string>
     <string name="subtitles_summary">Customize subtitles appearance</string>

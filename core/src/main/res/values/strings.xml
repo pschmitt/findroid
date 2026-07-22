@@ -313,6 +313,9 @@
     <string name="storage_downloads_caption">%1$s used by downloads</string>
     <string name="pvr_download_channel_name">PVR downloads</string>
     <string name="pvr_download_finished_notification">Download finished</string>
+    <string name="new_items_channel_name">New items</string>
+    <string name="new_item_notification_text">Added to your library</string>
+    <string name="new_items_notification_title">%1$d new items</string>
     <string name="pvr_queue_status_importing">Importing…</string>
     <string name="pvr_queue_status_warning">Warning</string>
     <string name="pvr_queue_status_failed">Failed</string>

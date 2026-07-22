@@ -65,6 +65,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".work.NewItemDownloadActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".work.BatterySaverReceiver"
             android:exported="true">
             <intent-filter>

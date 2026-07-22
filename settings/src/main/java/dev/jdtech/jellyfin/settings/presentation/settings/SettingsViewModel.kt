@@ -863,6 +863,46 @@ constructor(
                                                 ),
                                             ),
                                     ),
+                                    PreferenceGroup(
+                                        nameStringResource =
+                                            R.string.download_group_new_item_notifications,
+                                        preferences =
+                                            listOf(
+                                                PreferenceSwitch(
+                                                    nameStringResource =
+                                                        R.string.new_item_notifications_enabled,
+                                                    descriptionStringRes =
+                                                        R.string
+                                                            .new_item_notifications_enabled_summary,
+                                                    iconDrawableId = R.drawable.ic_bell,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences.newItemNotificationsEnabled,
+                                                ),
+                                                PreferenceIntInput(
+                                                    nameStringResource =
+                                                        R.string
+                                                            .new_item_notifications_check_interval,
+                                                    descriptionStringRes =
+                                                        R.string
+                                                            .new_item_notifications_check_interval_summary,
+                                                    iconDrawableId = R.drawable.ic_refresh_cw,
+                                                    dependencies =
+                                                        listOf(
+                                                            appPreferences
+                                                                .newItemNotificationsEnabled
+                                                        ),
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences
+                                                            .newItemNotificationsCheckIntervalMinutes,
+                                                    suffixRes = R.string.minutes_suffix,
+                                                    presetsMinutes =
+                                                        listOf(15, 30, 60, 120, 240, 720, 1440),
+                                                    validRange = 15..(24 * 60),
+                                                ),
+                                            ),
+                                    ),
                                 ),
                         )
                     )

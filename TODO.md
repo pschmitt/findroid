@@ -1141,3 +1141,88 @@ Status: **done** (2026-07-21). Verified via remote
 Status: **done** (2026-07-21). Verified via remote
 `:app:phone:compileLibreDebugKotlin` and `ktfmtCheck` (forced rerun) on
 rofl-13.
+
+## FINDROID-35: Notify on new library items, with a gated "Download" action
+
+Periodic background check that detects items newly added anywhere in the
+Jellyfin library (movies and episodes, not just PVR-tracked ones) and posts
+a local notification, with an inline "Download" action when nothing is
+already going to download the item automatically.
+
+- [x] New `NewItemNotificationWorker` (`core/.../work/`) diffs the current
+      library against the previous check. Fetches
+      `JellyfinRepository.getItems(includeTypes = [MOVIE, EPISODE],
+      recursive = true, sortBy = DATE_ADDED, sortOrder = DESCENDING, limit =
+      100)` - server-side sort by `DateCreated` gives "most recently added"
+      without needing `ItemFields.DATE_CREATED` on the response (that field
+      only affects whether the property comes back populated on the model,
+      not the sort order itself). New items are whatever wasn't in the
+      previous cycle's fetched-id set.
+- [x] State (last-check timestamp, and the fetched-id set from the last
+      cycle) is kept in `AppPreferences`
+      (`newItemNotifications{Enabled,CheckIntervalMinutes,LastCheckMillis,SeenItemIds}`),
+      not a new Room table/column - deliberate, per instructions, to avoid
+      a schema-version collision with FINDROID-36 (pending pre-order
+      downloads) being built concurrently in another worktree. The seen-id
+      set is self-bounding: each cycle just replaces it with that cycle's
+      (capped) fetch, so it never grows unboundedly, at the cost of an item
+      being able to scroll out of the window unobserved if more than 100
+      items land between two checks - judged an acceptable tradeoff.
+      First-ever check (no baseline yet) only records state and does not
+      notify, so turning the feature on doesn't fire a notification for the
+      entire pre-existing library.
+- [x] Root problem while wiring the "Download" action's eligibility gate:
+      `AutoDownloadRuleEvaluator.evaluate()` only knew how to enumerate and
+      queue a whole season fetched fresh from the server - there was no
+      standalone way to ask "does an enabled rule already cover this one
+      already-known episode". Extracted a new top-level `coversEpisode(rule,
+      episode)` predicate (same enabled/scope/onlyUnwatched/onlyNewEpisodes
+      filters `evaluate()` applies per-episode) and had `evaluate()` call it
+      too, so the two can't drift apart. Movies aren't covered by the rule
+      system at all (rules are series/season-scoped), so every downloadable
+      new movie without an existing source is eligible unconditionally.
+- [x] Notification presentation is grouped/batched, not one-per-item: 1 new
+      item posts a single notification; 2-6 post a real Android notification
+      group (one `setGroupSummary` + one child per item, each independently
+      actionable/tappable); more than 6 collapse into one inbox-style
+      summary notification (tap to open the app, no per-item actions -
+      ambiguous which item a shared button would target once there's too
+      many to show as children). New `new_items` notification channel, kept
+      separate from the existing `downloads`/`pvr_downloads` channels so
+      users can mute it independently. `NewItemNotifier` builds all three
+      shapes; `NewItemDownloadActionReceiver` (mirrors `DownloadActionReceiver`)
+      handles the action tap, re-fetching the item server-side (Intent
+      extras only carry an id + movie/episode flag) before enqueuing via
+      `Downloader.downloadItem()`.
+- [x] Tapping a notification (or its child) opens the specific item, not
+      just the app. `DeepLinkViewModel` gained `resolveItem(itemId,
+      isMovie)` - a direct id-based lookup (`getMovie`/`getEpisode`),
+      simpler than its existing fuzzy `jellyfin://` name-matching resolver
+      since the notification already knows the exact item. `MainActivity`
+      gained a `FindroidMovie` branch in its deep-link `LaunchedEffect`
+      (only `Show`/`Season`/`Episode` were handled before - movies had no
+      notification-driven entry point until now) and reads new
+      `EXTRA_OPEN_ITEM_ID`/`EXTRA_OPEN_ITEM_IS_MOVIE` intent extras,
+      mirroring the existing `EXTRA_OPEN_DOWNLOADS` pattern.
+- [x] Settings: new "New item notifications" group under the existing
+      Downloads settings category (switch + check-interval, same
+      presets/range picker as the auto-download interval). Off by default -
+      unlike auto-download rules (an explicit per-show opt-in), this checks
+      the whole library unconditionally, so it shouldn't start notifying
+      anyone who hasn't deliberately turned it on. Scheduling in
+      `BaseApplication.scheduleNewItemNotifications()` follows
+      `scheduleAutoDeleteWatched()`'s pattern exactly (cancels the periodic
+      work outright while the toggle is off, rather than leaving a
+      worker that wakes the process just to no-op). Phone only, matching
+      the existing precedent that TV's `BaseApplication` doesn't schedule
+      any background workers at all (no downloads/auto-download/sync on
+      TV).
+- [x] New `ic_bell` drawable (core + settings modules, same Lucide-style
+      vector convention as the rest of the icon set - no matching icon
+      already existed).
+
+Status: **done** (2026-07-22). Verified via remote
+`:app:phone:compileLibreDebugKotlin`, `:app:tv:compileLibreDebugKotlin`,
+`ktfmtCheck` (forced rerun), and `:data:testDebugUnitTest`/
+`:core:testLibreDebugUnitTest` on rofl-13. Not installed/deployed to a
+device for this change.

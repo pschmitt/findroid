@@ -10,6 +10,7 @@ import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import java.net.URLDecoder
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,6 +41,23 @@ class DeepLinkViewModel @Inject constructor(private val repository: JellyfinRepo
 
     fun consumeTarget() {
         _target.value = null
+    }
+
+    /**
+     * Resolves a "new item" notification tap straight to the item by id, rather than the fuzzy
+     * name-based matching [resolve] does for `jellyfin://` links - the notification already knows
+     * the exact item, there's nothing to search for. See
+     * [dev.jdtech.jellyfin.work.NewItemNotifier]/[dev.jdtech.jellyfin.work.EXTRA_OPEN_ITEM_ID].
+     */
+    fun resolveItem(itemId: UUID, isMovie: Boolean) {
+        viewModelScope.launch {
+            try {
+                _target.value =
+                    if (isMovie) repository.getMovie(itemId) else repository.getEpisode(itemId)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to resolve item deep link $itemId")
+            }
+        }
     }
 
     private suspend fun resolveUri(uri: Uri): FindroidItem? {

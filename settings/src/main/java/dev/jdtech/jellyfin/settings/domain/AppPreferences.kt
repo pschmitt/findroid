@@ -92,6 +92,20 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val pauseDownloadsOnBatterySaver =
         Preference("pref_downloads_pause_on_battery_saver", true)
 
+    // Notifications - new items (movies/episodes) added to the Jellyfin library. Off by default:
+    // unlike auto-download (an explicit opt-in rule the user configures per show), this checks
+    // the whole library unconditionally, so it shouldn't start posting notifications for anyone
+    // who hasn't deliberately turned it on.
+    val newItemNotificationsEnabled = Preference("pref_new_item_notifications_enabled", false)
+    val newItemNotificationsCheckIntervalMinutes =
+        Preference("pref_new_item_notifications_check_interval_minutes", 60)
+    // Bookkeeping for NewItemNotificationWorker's diff, deliberately kept here rather than in a
+    // new Room table/column - see that worker's kdoc for why.
+    val newItemNotificationsLastCheckMillis =
+        Preference("pref_new_item_notifications_last_check_millis", 0L)
+    val newItemNotificationsSeenItemIds =
+        Preference<String?>("pref_new_item_notifications_seen_item_ids", null)
+
     // Backup
     val autoBackupEnabled = Preference("pref_backup_auto_enabled", false)
     val autoBackupIntervalMinutes = Preference("pref_backup_auto_interval_minutes", 24 * 60)

@@ -36,6 +36,7 @@ import dev.jdtech.jellyfin.work.AutoBackupScheduler
 import dev.jdtech.jellyfin.work.AutoDeleteWatchedWorker
 import dev.jdtech.jellyfin.work.AutoDownloadWorker
 import dev.jdtech.jellyfin.work.MpvCleanupWorker
+import dev.jdtech.jellyfin.work.NewItemNotificationWorker
 import dev.jdtech.jellyfin.work.QueueStatusScheduler
 import dev.jdtech.jellyfin.work.SyncWorker
 import java.util.concurrent.TimeUnit
@@ -115,6 +116,7 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
         scheduleMpvCleanup(workManager)
         scheduleAutoDownload(workManager)
         scheduleAutoDeleteWatched(workManager)
+        scheduleNewItemNotifications(workManager)
         AutoBackupScheduler.schedule(applicationContext, appPreferences)
         QueueStatusScheduler.schedule(applicationContext, appPreferences)
         pauseDownloadsIfBatterySaverAlreadyOn()
@@ -229,6 +231,42 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
 
         workManager.enqueueUniquePeriodicWork(
             uniqueWorkName = "autoDeleteWatched",
+            existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.UPDATE,
+            request = periodicRequest,
+        )
+    }
+
+    private fun newItemNotificationsIntervalMinutes(): Long =
+        appPreferences
+            .getValue(appPreferences.newItemNotificationsCheckIntervalMinutes)
+            .coerceIn(15, 24 * 60)
+            .toLong()
+
+    private fun scheduleNewItemNotifications(workManager: WorkManager) {
+        // Only keep this job scheduled while the feature is actually on - otherwise WorkManager
+        // still wakes the process every interval just to run a worker that immediately no-ops,
+        // same reasoning as scheduleAutoDeleteWatched().
+        if (!appPreferences.getValue(appPreferences.newItemNotificationsEnabled)) {
+            workManager.cancelUniqueWork("newItemNotifications")
+            return
+        }
+
+        val constraints =
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(true)
+                .build()
+
+        val periodicRequest =
+            PeriodicWorkRequestBuilder<NewItemNotificationWorker>(
+                    newItemNotificationsIntervalMinutes(),
+                    TimeUnit.MINUTES,
+                )
+                .setConstraints(constraints)
+                .build()
+
+        workManager.enqueueUniquePeriodicWork(
+            uniqueWorkName = "newItemNotifications",
             existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.UPDATE,
             request = periodicRequest,
         )

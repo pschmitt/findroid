@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import dev.jdtech.jellyfin.models.FindroidEpisode
+import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -27,6 +28,9 @@ import dev.jdtech.jellyfin.presentation.utils.LocalOfflineMode
 import dev.jdtech.jellyfin.viewmodels.DeepLinkViewModel
 import dev.jdtech.jellyfin.viewmodels.MainViewModel
 import dev.jdtech.jellyfin.work.EXTRA_OPEN_DOWNLOADS
+import dev.jdtech.jellyfin.work.EXTRA_OPEN_ITEM_ID
+import dev.jdtech.jellyfin.work.EXTRA_OPEN_ITEM_IS_MOVIE
+import java.util.UUID
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -84,6 +88,8 @@ class MainActivity : AppCompatActivity() {
                                 navController.navigate(
                                     EpisodeRoute(episodeId = target.id.toString())
                                 )
+                            is FindroidMovie ->
+                                navController.navigate(MovieRoute(movieId = target.id.toString()))
                             else -> Unit
                         }
                         if (deepLinkTarget != null) deepLinkViewModel.consumeTarget()
@@ -108,6 +114,17 @@ class MainActivity : AppCompatActivity() {
         intent.data?.let { deepLinkViewModel.resolve(it) }
         if (intent.getBooleanExtra(EXTRA_OPEN_DOWNLOADS, false)) {
             openDownloadsRequested = true
+        }
+        // Tapping a "new item" notification action (see NewItemNotifier) - resolve straight to
+        // the item by id, no fuzzy matching needed since the notification already knows exactly
+        // which item it's about.
+        intent.getStringExtra(EXTRA_OPEN_ITEM_ID)?.let { itemId ->
+            runCatching { UUID.fromString(itemId) }.getOrNull()?.let {
+                deepLinkViewModel.resolveItem(
+                    it,
+                    isMovie = intent.getBooleanExtra(EXTRA_OPEN_ITEM_IS_MOVIE, false),
+                )
+            }
         }
     }
 }

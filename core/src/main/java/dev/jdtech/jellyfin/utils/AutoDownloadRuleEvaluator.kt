@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.utils
 
 import dev.jdtech.jellyfin.database.ServerDatabaseDao
 import dev.jdtech.jellyfin.models.AutoDownloadRuleDto
+import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import java.time.Instant
 import java.time.ZoneId
@@ -22,9 +23,6 @@ class AutoDownloadRuleEvaluator {
         onlyUnwatched: Boolean = false,
     ) {
         if (!rule.enabled) return
-
-        val ruleCreatedAt =
-            Instant.ofEpochMilli(rule.createdAt).atZone(ZoneId.systemDefault()).toLocalDateTime()
 
         // Resolved once per evaluate() call, not per episode - the preference can't change
         // mid-loop, and this is what makes every episode land on the user's actually-configured
@@ -66,16 +64,12 @@ class AutoDownloadRuleEvaluator {
                     // finishes), so its mere presence covers downloaded/queued/running alike.
                     if (database.getSources(episode.id).isNotEmpty()) continue
 
-                    if ((onlyUnwatched || rule.onlyUnwatched) && episode.played) continue
-
-                    // In onlyNewEpisodes mode, never backfill the existing catalog - only queue
-                    // episodes that premiered after the rule was created. An unknown premiere
-                    // date is treated as new rather than silently dropped.
-                    val premiereDate = episode.premiereDate
                     if (
-                        rule.onlyNewEpisodes &&
-                            premiereDate != null &&
-                            premiereDate.isBefore(ruleCreatedAt)
+                        !coversEpisode(
+                            rule,
+                            episode,
+                            effectiveOnlyUnwatched = onlyUnwatched || rule.onlyUnwatched,
+                        )
                     ) {
                         continue
                     }
@@ -88,4 +82,42 @@ class AutoDownloadRuleEvaluator {
             }
         }
     }
+}
+
+/**
+ * Whether [rule] would download [episode] right now - the same enabled/scope/onlyUnwatched/
+ * onlyNewEpisodes filters [AutoDownloadRuleEvaluator.evaluate] applies while enumerating a whole
+ * season fetched from the server, but as a standalone check against a single already-known
+ * episode. Doesn't check whether a source already exists for [episode] - callers that care (both
+ * [AutoDownloadRuleEvaluator.evaluate] and
+ * [dev.jdtech.jellyfin.work.NewItemNotificationWorker], which uses this to decide whether a new-
+ * episode notification's "Download" action would be redundant - the episode will be
+ * auto-downloaded anyway) check that themselves via `ServerDatabaseDao.getSources`.
+ *
+ * [effectiveOnlyUnwatched] mirrors [AutoDownloadRuleEvaluator.evaluate]'s own extra
+ * `onlyUnwatched` parameter (an immediate one-off download can request unwatched-only even for a
+ * rule that doesn't have that flag set) - defaults to the rule's own flag for callers with no
+ * extra requirement of their own.
+ */
+fun coversEpisode(
+    rule: AutoDownloadRuleDto,
+    episode: FindroidEpisode,
+    effectiveOnlyUnwatched: Boolean = rule.onlyUnwatched,
+): Boolean {
+    if (!rule.enabled) return false
+    if (rule.seriesId != episode.seriesId) return false
+    if (rule.seasonId != null && rule.seasonId != episode.seasonId) return false
+    if (effectiveOnlyUnwatched && episode.played) return false
+
+    // In onlyNewEpisodes mode, the rule never backfills the existing catalog - only episodes that
+    // premiered after the rule was created are covered. An unknown premiere date is treated as
+    // covered rather than silently excluded.
+    val premiereDate = episode.premiereDate
+    if (rule.onlyNewEpisodes && premiereDate != null) {
+        val ruleCreatedAt =
+            Instant.ofEpochMilli(rule.createdAt).atZone(ZoneId.systemDefault()).toLocalDateTime()
+        if (premiereDate.isBefore(ruleCreatedAt)) return false
+    }
+
+    return true
 }
