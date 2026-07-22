@@ -292,6 +292,28 @@ constructor(
         return repository.getSeasons(seriesId)
     }
 
+    /** Sum of primary-source sizes for [targetSeasonId]'s episodes that aren't already
+     * downloaded locally - "how much more space will downloading this season need". */
+    suspend fun getUndownloadedEpisodeSize(targetSeasonId: UUID): Long {
+        val seriesId = seriesId ?: return 0
+        val episodes =
+            try {
+                repository.getEpisodes(
+                    seriesId = seriesId,
+                    seasonId = targetSeasonId,
+                    fields = listOf(ItemFields.MEDIA_SOURCES),
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to fetch episode sizes for season $targetSeasonId")
+                return 0
+            }
+        return withContext(Dispatchers.IO) {
+            episodes
+                .filter { database.getSources(it.id).isEmpty() }
+                .sumOf { it.sources.firstOrNull()?.size ?: 0 }
+        }
+    }
+
     private fun downloadWithScope(
         selection: DownloadSelection,
         alsoFollowNew: Boolean,

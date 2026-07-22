@@ -115,6 +115,7 @@ fun SeasonScreen(
     SeasonScreenLayout(
         state = state,
         getSeasons = viewModel::getSeasons,
+        getSeasonSize = viewModel::getUndownloadedEpisodeSize,
         onAction = { action ->
             when (action) {
                 is SeasonAction.Play -> {
@@ -150,6 +151,7 @@ private fun SeasonScreenLayout(
     state: SeasonState,
     onAction: (SeasonAction) -> Unit,
     getSeasons: suspend () -> List<FindroidSeason> = { emptyList() },
+    getSeasonSize: suspend (seasonId: UUID) -> Long = { 0L },
 ) {
     val androidContext = LocalContext.current
     val safePadding = rememberSafePadding()
@@ -239,6 +241,7 @@ private fun SeasonScreenLayout(
                         downloaderState = DownloaderState(),
                         enableDownloadDialog = true,
                         getSeasons = getSeasons,
+                        getSeasonSize = getSeasonSize,
                         initialSelection =
                             DownloadSelection(
                                 seasonIds = state.existingScope.seasonIds.ifEmpty { setOf(season.id) },

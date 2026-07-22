@@ -1291,3 +1291,63 @@ Status: **done** (2026-07-22). Verified via remote
 `ktfmtCheck` (forced rerun), and `:data:testDebugUnitTest`/
 `:core:testLibreDebugUnitTest` on rofl-13. No existing Room migration unit
 test class was found to re-run.
+
+## FINDROID-37: Collapsible seasons + expected download size + low-space warning in the download-scope dialog
+
+`DownloadScopeDialog` (phone + TV, separate implementations) rendered a
+flat, always-expanded toggle row per season and gave no indication of how
+much a bulk selection would actually download or whether the device had
+room for it.
+
+- [x] Season rows now live behind a collapsible "Seasons (N)" header
+      (chevron up/down, existing `ic_chevron_down`/`ic_chevron_up`
+      drawables), collapsed by default so a 12-season show doesn't dominate
+      the dialog on open. Collapsed rows aren't composed at all - phone
+      wraps `seasons.forEach` in an `if (seasonsExpanded)`, TV skips the
+      `items(seasons)` block entirely in the `LazyColumn` scope. The "whole
+      show" toggle stays outside the section, always visible.
+- [x] Added `ShowViewModel.getUndownloadedEpisodeSize`/
+      `SeasonViewModel.getUndownloadedEpisodeSize(seasonId)`: fetches a
+      season's episodes via `JellyfinRepository.getEpisodes(fields =
+      listOf(ItemFields.MEDIA_SOURCES))` (same call shape as
+      `AutoDownloadRuleEvaluator`/`PendingDownloadFulfiller`, read-only,
+      neither of those files touched), skips any episode where
+      `ServerDatabaseDao.getSources(episodeId)` already returns a row (already
+      downloaded/queued), and sums the remaining episodes' primary source
+      `size` - "how much *more* space this selection needs", not its full
+      size on disk.
+      Threaded through exactly like the existing `getSeasons` lambda:
+      `ItemButtonsBar` gained a `getSeasonSize` param (phone only, since
+      TV's `DownloadScopeDialog` is invoked directly from `ShowScreen`/
+      `SeasonScreen` with no `ItemButtonsBar` equivalent), wired from both
+      platforms' Show/Season screens to the new ViewModel method.
+- [x] `DownloadScopeDialog` caches fetched sizes in a
+      `mutableStateMapOf<UUID, Long>` keyed by season id - toggling a season
+      off and back on doesn't re-fetch. A `LaunchedEffect(selectedSeasonIds)`
+      fetches any newly-selected, not-yet-cached seasons in parallel
+      (`async`/`awaitAll` inside `coroutineScope`) and shows a small spinner
+      next to the total while any selected season's size is still pending.
+      Total is `formatBinaryFileSize` of the cached sizes' sum, shown only
+      in bulk-selection mode (phone's single-episode `thisEpisodeOnly` mode
+      skips the estimate - it's a single already-known-size download).
+- [x] Low-space warning: available bytes resolved once when the dialog
+      opens by reusing `ItemButtonsBar`'s existing
+      `resolveDownloadStorageIndex` + `StatFs.availableBytes` pattern. If
+      the configured download location is unresolved (index -1, i.e. "ask"
+      or unset - true today for Show/Season screens on both platforms,
+      which never wired `downloadLocationPreference` through), falls back
+      to the *maximum* available bytes across all mounted volumes rather
+      than the first one, so a full primary volume doesn't produce a false
+      warning when the user will get to pick a different volume in a later
+      step. Shown as inline error-tinted text with `ic_alert_circle` once
+      the size estimate has finished loading and exceeds available space -
+      warning only, never blocks the download button.
+- [x] New strings: `download_scope_seasons_header`,
+      `download_scope_estimated_size`, `download_scope_low_space_warning`
+      (English base only, per repo convention for machine-translated
+      locales).
+
+Status: **done** (2026-07-22). Verified via remote
+`:app:phone:compileLibreDebugKotlin`/`:app:tv:compileLibreDebugKotlin`,
+`:modes:film:compileDebugKotlin`, `:core:compileLibreDebugKotlin`, and
+`ktfmtCheck` on rofl-13. No Room schema changes in this feature.

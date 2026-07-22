@@ -61,6 +61,7 @@ fun SeasonScreen(
     SeasonScreenLayout(
         state = state,
         getSeasons = viewModel::getSeasons,
+        getSeasonSize = viewModel::getUndownloadedEpisodeSize,
         onAction = { action ->
             when (action) {
                 is SeasonAction.NavigateToItem -> navigateToPlayer(action.item.id)
@@ -76,6 +77,7 @@ private fun SeasonScreenLayout(
     state: SeasonState,
     onAction: (SeasonAction) -> Unit,
     getSeasons: suspend () -> List<FindroidSeason> = { emptyList() },
+    getSeasonSize: suspend (seasonId: UUID) -> Long = { 0L },
 ) {
     var downloadScopeDialogOpen by remember { mutableStateOf(false) }
     var clearDownloadsDialogOpen by remember { mutableStateOf(false) }
@@ -168,6 +170,7 @@ private fun SeasonScreenLayout(
             initialAlsoFollowNew = state.existingScope.alsoFollowNew,
             initialOnlyUnwatched = state.existingScope.onlyUnwatched,
             canDelete = state.hasDownloads || state.autoDownloadEnabled,
+            getSeasonSize = getSeasonSize,
             onDelete = { downloadScopeDialogOpen = false; clearDownloadsDialogOpen = true },
             onConfirm = { selection, alsoFollowNew, onlyUnwatched ->
                 onAction(SeasonAction.DownloadWithScope(selection, alsoFollowNew, onlyUnwatched))

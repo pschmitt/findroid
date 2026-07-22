@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.PersonKind
 import timber.log.Timber
 
@@ -229,6 +230,27 @@ constructor(
                 )
             }
             loadShow(showId)
+        }
+    }
+
+    /** Sum of primary-source sizes for [seasonId]'s episodes that aren't already downloaded
+     * locally - "how much more space will downloading this season need". */
+    suspend fun getUndownloadedEpisodeSize(seasonId: UUID): Long {
+        val episodes =
+            try {
+                repository.getEpisodes(
+                    seriesId = showId,
+                    seasonId = seasonId,
+                    fields = listOf(ItemFields.MEDIA_SOURCES),
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to fetch episode sizes for season $seasonId")
+                return 0
+            }
+        return withContext(Dispatchers.IO) {
+            episodes
+                .filter { database.getSources(it.id).isEmpty() }
+                .sumOf { it.sources.firstOrNull()?.size ?: 0 }
         }
     }
 

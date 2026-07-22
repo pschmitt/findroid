@@ -97,6 +97,7 @@ fun ShowScreen(
 
     ShowScreenLayout(
         state = state,
+        getSeasonSize = viewModel::getUndownloadedEpisodeSize,
         onAction = { action ->
             when (action) {
                 is ShowAction.Play -> {
@@ -126,7 +127,11 @@ fun ShowScreen(
 }
 
 @Composable
-private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
+private fun ShowScreenLayout(
+    state: ShowState,
+    onAction: (ShowAction) -> Unit,
+    getSeasonSize: suspend (seasonId: UUID) -> Long = { 0L },
+) {
     val androidContext = LocalContext.current
     val safePadding = rememberSafePadding()
 
@@ -244,6 +249,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         initialAlsoFollowNew = state.existingScope.alsoFollowNew,
                         initialOnlyUnwatched = state.existingScope.onlyUnwatched,
                         getSeasons = { state.seasons },
+                        getSeasonSize = getSeasonSize,
                         hasActiveDownloadOrRule = state.hasDownloads || state.autoDownloadEnabled,
                         onDeleteDownloads = { clearShowDownloadsDialogOpen = true },
                         downloadIconTint =

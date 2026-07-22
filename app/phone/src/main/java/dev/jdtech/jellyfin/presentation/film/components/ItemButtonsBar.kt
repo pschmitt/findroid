@@ -38,6 +38,7 @@ import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.displayNameWithContext
 import dev.jdtech.jellyfin.utils.resolveDownloadStorageIndex
+import java.util.UUID
 
 @Composable
 fun ItemButtonsBar(
@@ -61,6 +62,7 @@ fun ItemButtonsBar(
     initialAlsoFollowNew: Boolean = false,
     initialOnlyUnwatched: Boolean = false,
     getSeasons: (suspend () -> List<FindroidSeason>)? = null,
+    getSeasonSize: (suspend (seasonId: UUID) -> Long)? = null,
     hasActiveDownloadOrRule: Boolean = false,
     onDeleteDownloads: (() -> Unit)? = null,
     onBulkDownload:
@@ -278,6 +280,8 @@ fun ItemButtonsBar(
             initialAlsoFollowNew = initialAlsoFollowNew,
             initialOnlyUnwatched = initialOnlyUnwatched,
             canDelete = hasActiveDownloadOrRule,
+            getSeasonSize = getSeasonSize,
+            downloadLocationPreference = downloadLocationPreference,
             onDelete =
                 onDeleteDownloads?.let {
                     {
