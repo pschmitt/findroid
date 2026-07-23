@@ -49,9 +49,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
 /**
- * Lets the user pick what to download: for an episode, either just that episode or a bulk
- * selection of seasons/whole show; for a season or show screen, only the bulk selection. "This
- * episode" is exclusive with everything else (it's a fundamentally different, single-item scope).
+ * Lets the user pick what to download: for an episode, either just that episode, a bulk selection
+ * of seasons/whole show, or both at once - "this episode" (an immediate single download) and
+ * "also download new episodes" (a forward-looking rule) aren't alternatives to each other, so
+ * they stay independently toggleable; picking a specific season/whole-show scope, on the other
+ * hand, does deselect "this episode" since that's a genuinely different bulk scope. For a season
+ * or show screen, only the bulk selection applies (no episode option at all).
  * "Automatically download new episodes" covers both halves of staying current on a show: new
  * episodes airing in a season already picked below, and brand new seasons that don't exist yet -
  * there's no reason to make the user think about that distinction, since the intent ("keep this
@@ -81,9 +84,9 @@ fun DownloadScopeDialog(
     val hasExistingRule =
         initialSelection.seasonIds.isNotEmpty() || initialSelection.alsoFutureSeasons
     // Opened from an episode, the overwhelmingly common intent is "download this one" - so
-    // preselect it even when the show already has an auto-download rule. The rule's selection is
-    // kept in the (deselected) bulk section below for editing, and stays untouched when the user
-    // confirms with "this episode" selected.
+    // preselect it even when the show already has an auto-download rule. Picking a season below
+    // still deselects it (that's a different bulk scope), but "also download new episodes" stays
+    // independently toggleable - see the dialog's kdoc.
     var thisEpisodeOnly by remember { mutableStateOf(showEpisodeOption) }
     var selectedSeasonIds by remember { mutableStateOf(initialSelection.seasonIds) }
     // Either kind of previously-saved rule (future-seasons-only, or per-season-follow) means the
@@ -94,7 +97,9 @@ fun DownloadScopeDialog(
     var onlyUnwatched by remember { mutableStateOf(initialOnlyUnwatched) }
     var seasonsExpanded by remember { mutableStateOf(false) }
 
-    val bulkModeSelected = !thisEpisodeOnly && (selectedSeasonIds.isNotEmpty() || alsoFollowNew)
+    // Whether a season/rule scope is configured, independent of thisEpisodeOnly - the two can be
+    // active together (see the "also download new episodes" toggle below).
+    val bulkModeSelected = selectedSeasonIds.isNotEmpty() || alsoFollowNew
     val canConfirm = thisEpisodeOnly || bulkModeSelected
     val allSeasonIds = seasons?.map { it.id }?.toSet().orEmpty()
 
@@ -284,10 +289,10 @@ fun DownloadScopeDialog(
                     checked = alsoFollowNew,
                     label = stringResource(CoreR.string.download_scope_also_new),
                     icon = CoreR.drawable.ic_refresh_cw,
-                    onToggle = { checked ->
-                        thisEpisodeOnly = false
-                        alsoFollowNew = checked
-                    },
+                    // Independent of thisEpisodeOnly, unlike the season rows above - "download
+                    // this episode now" and "also set up a rule for future episodes" are not
+                    // alternatives to each other, they're both things the user can want at once.
+                    onToggle = { checked -> alsoFollowNew = checked },
                 )
                 if (bulkModeSelected) {
                     ToggleOptionRow(

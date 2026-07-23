@@ -301,9 +301,16 @@ fun ItemButtonsBar(
                 },
             onConfirm = { selection, alsoFollowNew, onlyUnwatched ->
                 downloadScopeDialogOpen = false
+                // Not mutually exclusive: "this episode" is an immediate single download,
+                // "also download new episodes" is a forward-looking rule - both can be selected
+                // at once and both should happen. The rule branch only needs to fire on top of a
+                // single download when it's actually configured (matches the non-episode
+                // seasons/show flows, where this always ran because thisEpisodeOnly is never true
+                // there).
                 if (selection.thisEpisodeOnly) {
                     startDownload()
-                } else {
+                }
+                if (!selection.thisEpisodeOnly || alsoFollowNew || selection.seasonIds.isNotEmpty()) {
                     onBulkDownload(selection, alsoFollowNew, onlyUnwatched)
                 }
             },
