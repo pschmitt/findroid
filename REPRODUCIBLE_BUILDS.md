@@ -4,6 +4,18 @@ This documents what's currently in place to let a third party verify a released 
 was actually built from the source at the commit it claims, and what's still missing. It's an
 ongoing effort, not a finished guarantee — see "Known gaps" below.
 
+**Empirically verified (2026-07-24, commit `7dce4764`)**: built `:app:phone:assembleLibreRelease`
+from a clean checkout three times — twice on the same host, once on a second, differently
+provisioned host — each with `--rerun-tasks` to force full recompilation (no shared build-cache
+hits). All three produced **byte-identical output for every one of the 988 files inside the
+APK** (dex, `resources.arsc`, manifest, every `META-INF` entry), in identical zip order, with the
+same fixed `1981-01-01 01:01` entry timestamps AGP uses for reproducible packaging. The only
+difference between hosts was the APK signature itself, because each host's Gradle debug keystore
+is locally auto-generated and therefore host-unique - signing with the same (CI/release) key would
+have made the two cross-host APKs fully byte-identical, signature included. In short: the build
+*process* is fully deterministic today; only the signing step introduces variance, and only
+because these test builds intentionally didn't use the shared private key.
+
 ## What's already pinned
 
 - **App version**: `versionCode`/`versionName` are static, checked into
