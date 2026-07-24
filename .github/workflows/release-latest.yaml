@@ -27,7 +27,10 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          # Exact patch pin (not a floating '21') so the toolchain that produces a release is
+          # reproducible run-to-run instead of silently drifting to whatever Temurin 21.x build
+          # happens to be current when the workflow executes - see REPRODUCIBLE_BUILDS.md.
+          java-version: '21.0.12'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -38,6 +41,10 @@ jobs:
         with:
           fileName: 'findroid-ci.jks'
           encodedString: ${{ secrets.CI_KEYSTORE_BASE64 }}
+
+      - name: Compute git revision
+        id: git_revision
+        run: echo "value=$(git describe --always --abbrev=12 --dirty)" >> "$GITHUB_OUTPUT"
 
       - name: Build debug and release APKs
         # Scoped to the app modules specifically (not a bare assembleRelease) - building every
@@ -51,6 +58,23 @@ jobs:
           CI_KEYSTORE_PASSWORD: ${{ secrets.CI_KEYSTORE_PASSWORD }}
           CI_KEY_ALIAS: ${{ secrets.CI_KEY_ALIAS }}
           CI_KEY_PASSWORD: ${{ secrets.CI_KEY_PASSWORD }}
+          GIT_REVISION: ${{ steps.git_revision.outputs.value }}
+
+      - name: Verify embedded git revision
+        # Confirms GIT_REVISION (see app/phone and app/tv build.gradle.kts) actually made it into
+        # the built artifact instead of silently falling back to "unknown" - the same check
+        # `just build --release` runs locally, see justfile.
+        run: |
+          revision="${{ steps.git_revision.outputs.value }}"
+          for apk in \
+            app/phone/build/outputs/apk/libre/release/phone-libre-arm64-v8a-release.apk \
+            app/tv/build/outputs/apk/libre/release/tv-libre-arm64-v8a-release.apk \
+          ; do
+            if ! unzip -p "$apk" 'classes*.dex' | strings | grep -Fx "$revision" >/dev/null; then
+              echo "::error::$apk does not contain expected revision: $revision" >&2
+              exit 1
+            fi
+          done
 
       - name: Collect and rename APKs
         id: apks
@@ -79,6 +103,13 @@ jobs:
           done
           echo "dir=/tmp/findroid-plus-latest" >> "$GITHUB_OUTPUT"
 
+      - name: Generate checksums
+        # Lets anyone who downloads a release asset verify it wasn't corrupted/tampered with in
+        # transit, and gives a third party rebuilding from source (see REPRODUCIBLE_BUILDS.md) a
+        # fixed value to diff their own output against.
+        working-directory: ${{ steps.apks.outputs.dir }}
+        run: sha256sum -- *.apk > SHA256SUMS
+
       - name: Move latest tag
         run: |
           git tag -f latest
@@ -99,7 +130,12 @@ jobs:
             Two variants are provided, both signed with the same CI key so upgrades between them work:
             - `*-debug.apk` — debuggable, uses the `dev.pschmitt.findroidplus.debug` applicationId, installs side by side with a Play Store install.
             - `*-release.apk` — minified/optimized like a real release build, but uses the same `dev.pschmitt.findroidplus` applicationId as the Play Store app. Installing it over an existing Play Store install will fail with a signature mismatch — uninstall that first.
-          files: ${{ steps.apks.outputs.dir }}/*.apk
+
+            `SHA256SUMS` covers every APK above. Each APK also embeds this exact commit
+            (`${{ github.sha }}`) as `BuildConfig.GIT_REVISION`, checkable via `About` in the app
+            or by grepping the APK's dex - see [REPRODUCIBLE_BUILDS.md](https://github.com/pschmitt/findroidplus/blob/main/REPRODUCIBLE_BUILDS.md)
+            for how to rebuild and verify this release yourself.
+          files: ${{ steps.apks.outputs.dir }}/*
           prerelease: true
           make_latest: false
 
@@ -111,7 +147,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mapfile -t expected < <(basename -a "${{ steps.apks.outputs.dir }}"/*.apk)
+          mapfile -t expected < <(basename -a "${{ steps.apks.outputs.dir }}"/*)
           gh release view latest --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
             while IFS= read -r name; do
               keep=0

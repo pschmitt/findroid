@@ -39,6 +39,11 @@ the specific APK from the [Releases page](https://github.com/pschmitt/findroidpl
 - Trickplay (Jellyfin 10.9+) and media segment skip/auto-skip (Jellyfin 10.10+)
 - Sonarr/Radarr integration: upcoming-release calendar and download queue status
 
+## Reproducible builds
+
+Release APKs embed the exact commit they were built from and are checksummed, so you can verify a
+published APK against this source. See [REPRODUCIBLE_BUILDS.md](REPRODUCIBLE_BUILDS.md).
+
 ## License
 This project is licensed under [GPLv3](LICENSE).
 
