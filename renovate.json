@@ -8,6 +8,7 @@
     "schedule:weekly",
     ":semanticCommits"
   ],
+  "dependencyDashboard": false,
   "packageRules": [
     {
       "groupName": "kotlin",
