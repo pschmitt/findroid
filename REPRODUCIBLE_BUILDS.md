@@ -18,9 +18,10 @@ ongoing effort, not a finished guarantee — see "Known gaps" below.
 - **Nix dev shell**: [`flake.nix`](flake.nix) + `flake.lock` pin an exact JDK and Android SDK
   toolchain (locked nixpkgs revision), used by the `just` recipes for local/remote builds (see
   `AGENTS.md`).
-- **CI JDK**: GitHub Actions workflows pin an exact Temurin patch version (`21.0.12`) rather than
-  a floating major version, so the JDK used to build a given release doesn't silently drift
-  between runs.
+- **CI JDK**: GitHub Actions workflows pin an exact Temurin patch version (`21.0.11`, the latest
+  Temurin has published as of this writing - Temurin's release cadence lags nixpkgs' OpenJDK
+  slightly, so this doesn't match the Nix dev shell's `21.0.12` exactly) rather than a floating
+  major version, so the JDK used to build a given release doesn't silently drift between runs.
 - **Embedded commit**: every release APK (phone and TV) embeds the exact commit it was built from
   as `BuildConfig.GIT_REVISION`, computed via `git describe --always --abbrev=12 --dirty`. You can
   check this in the app under **Settings → About**, or directly from the APK:

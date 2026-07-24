@@ -29,8 +29,10 @@ jobs:
           distribution: temurin
           # Exact patch pin (not a floating '21') so the toolchain that produces a release is
           # reproducible run-to-run instead of silently drifting to whatever Temurin 21.x build
-          # happens to be current when the workflow executes - see REPRODUCIBLE_BUILDS.md.
-          java-version: '21.0.12'
+          # happens to be current when the workflow executes - see REPRODUCIBLE_BUILDS.md. This is
+          # Temurin's own patch numbering, which lags nixpkgs' OpenJDK slightly - it does not need
+          # to match the Nix dev shell's JDK patch (21.0.12) exactly, see the "Known gaps" section.
+          java-version: '21.0.11'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
